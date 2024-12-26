@@ -4,11 +4,11 @@ migration\:new:
 
 # Usage: make migration:up database=postgres://user:password@127.0.0.1:5432/db_name?sslmode=disable
 migration\:up:
-	migration-tool up
+	./migration-tool up
 
 # Usage: make migration:down database=postgres://user:password@127.0.0.1:5432/db_name?sslmode=disable
 migration\:down:
-	@migrate -database ${database} -path ./db/migrations down
+	./migration-tool down --steps ${steps}
 
 # Usage: make wire:generate
 wire\:generate:

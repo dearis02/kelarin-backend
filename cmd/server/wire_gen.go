@@ -8,6 +8,7 @@ package main
 
 import (
 	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
 	"kelarin/internal/config"
 	"kelarin/internal/handler"
 	"kelarin/internal/provider"
@@ -17,10 +18,13 @@ import (
 
 // Injectors from wire.go:
 
-func newServer(db *sqlx.DB, config2 *config.Config) (*provider.Server, error) {
+func newServer(db *sqlx.DB, config2 *config.Config, redis2 *redis.Client) (*provider.Server, error) {
 	user := repository.NewUser(db)
 	serviceUser := service.NewUser(user)
 	handlerUser := handler.NewUser(serviceUser)
-	server := provider.NewServer(handlerUser)
+	session := repository.NewSession(redis2)
+	auth := service.NewAuth(config2, session, user)
+	handlerAuth := handler.NewAuth(auth)
+	server := provider.NewServer(handlerUser, handlerAuth)
 	return server, nil
 }

@@ -6,12 +6,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-errors/errors"
-	validation "github.com/go-ozzo/ozzo-validation"
+	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/rs/zerolog/log"
 )
 
 func HttpErrorHandler(c *gin.Context) {
 	c.Next()
+
+	if c.Errors.Last() == nil {
+		return
+	}
 
 	err := c.Errors.Last().Unwrap()
 	res := types.ApiResponse{

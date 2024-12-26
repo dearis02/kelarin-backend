@@ -9,9 +9,10 @@ import (
 
 	"github.com/google/wire"
 	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
 )
 
-func newServer(db *sqlx.DB, config *config.Config) (*provider.Server, error) {
+func newServer(db *sqlx.DB, config *config.Config, redis *redis.Client) (*provider.Server, error) {
 	wire.Build(
 		provider.RepositorySet,
 		provider.ServiceSet,
