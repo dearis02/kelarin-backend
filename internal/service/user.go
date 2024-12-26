@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"kelarin/internal/repository"
 	"kelarin/internal/types"
 	"net/http"
 
@@ -12,13 +13,16 @@ type User interface {
 	FindOne(c context.Context) error
 }
 
-type newUserDeps struct {
+type userImpl struct {
+	userRepo repository.User
 }
 
-func NewUser() User {
-	return &newUserDeps{}
+func NewUser(userRepo repository.User) User {
+	return &userImpl{
+		userRepo: userRepo,
+	}
 }
 
-func (u *newUserDeps) FindOne(c context.Context) error {
+func (u *userImpl) FindOne(c context.Context) error {
 	return errors.New(types.AppErr{Code: http.StatusNotFound})
 }

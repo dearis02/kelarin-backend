@@ -12,18 +12,18 @@ type User interface {
 	GetOne(c *gin.Context)
 }
 
-type newUserDeps struct {
+type userImpl struct {
 	userSvc service.User
 }
 
 func NewUser(userSvc service.User) User {
-	return &newUserDeps{
+	return &userImpl{
 		userSvc: userSvc,
 	}
 }
 
-func (u *newUserDeps) GetOne(c *gin.Context) {
-	err := u.userSvc.FindOne(c.Request.Context())
+func (h *userImpl) GetOne(c *gin.Context) {
+	err := h.userSvc.FindOne(c.Request.Context())
 	if err != nil {
 		c.Error(err)
 		return

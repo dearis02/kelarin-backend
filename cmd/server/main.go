@@ -3,10 +3,9 @@ package main
 import (
 	"context"
 	"kelarin/internal/config"
-	"kelarin/internal/handler"
 	"kelarin/internal/middleware"
 	"kelarin/internal/routes"
-	"kelarin/internal/service"
+	dbUtil "kelarin/internal/utils/dbutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog/log"
 )
 
@@ -27,28 +27,32 @@ func main() {
 	g.Use(gin.LoggerWithWriter(&logger))
 	g.Use(middleware.HttpErrorHandler)
 
-	// Repository region
-	// End repository region
+	db, err := dbUtil.NewPostgres(&cfg.DataBase)
+	if err != nil {
+		log.Fatal().Stack().Err(err).Send()
+	}
 
-	// Service region
-	userService := service.NewUser()
-	// End service region
+	server, err := newServer(db, cfg)
+	if err != nil {
+		log.Fatal().Stack().Err(err).Send()
+	}
 
-	// Handler region
-	userHandler := handler.NewUser(userService)
-	// End handler region
+	// Init routes region
 
-	// Routes region
-	userRoutes := routes.NewUser(g, userHandler)
-	// End routes region
+	userRoutes := routes.NewUser(g, server.UserHandler)
+
+	// End init routes region
 
 	// Register routes
+
 	userRoutes.Register()
 
-	startServer(g, cfg)
+	// End routes registration
+
+	startServer(g, db, cfg)
 }
 
-func startServer(g *gin.Engine, cfg *config.Config) {
+func startServer(g *gin.Engine, db *sqlx.DB, cfg *config.Config) {
 	srv := &http.Server{
 		Addr:    cfg.Address(),
 		Handler: g,
@@ -72,7 +76,15 @@ func startServer(g *gin.Engine, cfg *config.Config) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
+	log.Info().Msg("Closing database connection...")
+	err := dbUtil.ClosePostgresConnection(db)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to close database connection")
+	}
+	log.Info().Msg("Database connection closed")
+
+	err = srv.Shutdown(ctx)
+	if err != nil {
 		log.Fatal().Err(err).Msg("Server forced to shutdown")
 	}
 

@@ -10,18 +10,18 @@ type User interface {
 	Register()
 }
 
-type newUserDeps struct {
+type userImpl struct {
 	g           *gin.Engine
 	userHandler handler.User
 }
 
 func NewUser(g *gin.Engine, userHandler handler.User) User {
-	return &newUserDeps{
+	return &userImpl{
 		g:           g,
 		userHandler: userHandler,
 	}
 }
 
-func (u *newUserDeps) Register() {
+func (u *userImpl) Register() {
 	u.g.POST("/", u.userHandler.GetOne)
 }

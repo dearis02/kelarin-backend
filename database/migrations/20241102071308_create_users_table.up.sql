@@ -1,0 +1,14 @@
+CREATE TABLE IF NOT EXISTS users (
+	id UUID PRIMARY KEY,
+	auth_provider SMALLINT NOT NULL,
+	role SMALLINT NOT NULL,
+	email VARCHAR(255) NOT NULL,
+	name VARCHAR(255) NOT NULL,
+	password VARCHAR(100),
+	is_suspended BOOLEAN DEFAULT FALSE,
+	suspended_from TIMESTAMPTZ,
+	suspended_to TIMESTAMPTZ,
+	is_banned BOOLEAN DEFAULT FALSE,
+	banned_at TIMESTAMPTZ,
+	created_at TIMESTAMPTZ
+);
