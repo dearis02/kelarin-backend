@@ -32,19 +32,26 @@ func main() {
 		log.Fatal().Stack().Err(err).Send()
 	}
 
-	server, err := newServer(db, cfg)
+	redis, err := dbUtil.NewRedisClient(cfg)
+	if err != nil {
+		log.Fatal().Stack().Err(err).Send()
+	}
+
+	server, err := newServer(db, cfg, redis)
 	if err != nil {
 		log.Fatal().Stack().Err(err).Send()
 	}
 
 	// Init routes region
 
+	authRoutes := routes.NewAuth(g, server.AuthHandler)
 	userRoutes := routes.NewUser(g, server.UserHandler)
 
 	// End init routes region
 
 	// Register routes
 
+	authRoutes.Register()
 	userRoutes.Register()
 
 	// End routes registration
