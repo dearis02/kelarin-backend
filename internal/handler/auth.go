@@ -17,7 +17,7 @@ func NewAuth(authService service.Auth) *Auth {
 }
 
 func (h *Auth) Login(c *gin.Context) {
-	var req types.AuthLoginReq
+	var req types.AuthCreateSessionReq
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(err)
@@ -25,6 +25,26 @@ func (h *Auth) Login(c *gin.Context) {
 	}
 
 	res, err := h.authService.CreateSession(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusCreated, types.ApiResponse{
+		Code: http.StatusCreated,
+		Data: res,
+	})
+}
+
+func (h *Auth) LoginGoogle(c *gin.Context) {
+	var req types.AuthCreateSessionForGoogleReq
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	res, err := h.authService.CreateSessionForGoogleLogin(c.Request.Context(), req)
 	if err != nil {
 		c.Error(err)
 		return

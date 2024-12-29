@@ -20,4 +20,5 @@ func NewAuth(g *gin.Engine, authHandler *handler.Auth) Auth {
 
 func (r *Auth) Register() {
 	r.g.POST("/v1/auth/_login", r.authHandler.Login)
+	r.g.POST("/v1/auth/_google_login", r.authHandler.LoginGoogle)
 }
