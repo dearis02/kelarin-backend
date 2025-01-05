@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog/log"
@@ -26,6 +27,10 @@ func main() {
 	g.Use(gin.RecoveryWithWriter(&logger))
 	g.Use(gin.LoggerWithWriter(&logger))
 	g.Use(middleware.HttpErrorHandler)
+
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowOrigins = cfg.Server.CORS.AllowedOrigins
+	g.Use(cors.New(corsConfig))
 
 	db, err := dbUtil.NewPostgres(&cfg.DataBase)
 	if err != nil {

@@ -28,19 +28,19 @@ type AuthJwtCustomClaims struct {
 	Name    string    `json:"name"`
 }
 
-type AuthLoginReq struct {
+type AuthCreateSessionReq struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
-func (r AuthLoginReq) Validate() error {
+func (r AuthCreateSessionReq) Validate() error {
 	return validation.ValidateStruct(&r,
 		validation.Field(&r.Email, validation.Required, is.Email),
 		validation.Field(&r.Password, validation.Required),
 	)
 }
 
-type AuthLoginRes struct {
+type AuthCreateSessionRes struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 }
@@ -55,6 +55,15 @@ type AuthUser struct {
 type AuthGenerateToken struct {
 	AccessToken  string
 	RefreshToken string
+}
+
+type AuthCreateSessionForGoogleReq struct {
+	IDToken string `json:"id_token"`
+}
+
+type AuthValidateGoogleIDToken struct {
+	Name  string
+	Email string
 }
 
 // end of region service types

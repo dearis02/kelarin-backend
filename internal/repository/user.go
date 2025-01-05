@@ -11,6 +11,7 @@ import (
 
 type User interface {
 	FindByEmail(ctx context.Context, email string) (types.User, error)
+	Create(ctx context.Context, user types.User) error
 }
 
 type userImpl struct {
@@ -46,8 +47,36 @@ func (r *userImpl) FindByEmail(ctx context.Context, email string) (types.User, e
 	if errors.Is(err, sql.ErrNoRows) {
 		return res, types.ErrNoData
 	} else if err != nil {
-		return res, err
+		return res, errors.New(err)
 	}
 
 	return res, nil
+}
+
+func (r *userImpl) Create(ctx context.Context, user types.User) error {
+	statement := `
+		INSERT INTO users (
+			id, 
+			role,
+			name, 
+			email, 
+			password,
+			auth_provider
+		)
+		VALUES (
+			:id,
+			:role,
+			:name,
+			:email,
+			:password,
+			:auth_provider
+		)
+	`
+
+	_, err := r.db.NamedExecContext(ctx, statement, user)
+	if err != nil {
+		return errors.New(err)
+	}
+
+	return nil
 }

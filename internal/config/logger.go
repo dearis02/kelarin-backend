@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"kelarin/internal/types"
 	"os"
-	"strings"
 
 	"github.com/go-errors/errors"
 	"github.com/rs/zerolog"
@@ -15,8 +14,7 @@ func NewLogger(c *Config) zerolog.Logger {
 	zerolog.TimeFieldFormat = types.TIME_FORMAT_TZ
 	zerolog.ErrorStackMarshaler = func(err error) interface{} {
 		if err, ok := err.(*errors.Error); ok {
-			endKeyword := "gin-gonic/gin"
-			return FilterStackTrace(err.StackFrames(), endKeyword)
+			return FilterStackTrace(err.StackFrames())
 		}
 
 		return nil
@@ -34,16 +32,12 @@ func NewLogger(c *Config) zerolog.Logger {
 	return logger
 }
 
-func FilterStackTrace(st []errors.StackFrame, endKeyword string) []string {
+func FilterStackTrace(st []errors.StackFrame) []string {
 	var filteredStack []string
 
 	for _, frame := range st {
 		frameStr := fmt.Sprintf("%s:%d", frame.File, frame.LineNumber)
-		if endKeyword != "" && strings.Contains(frameStr, endKeyword) {
-			break
-		} else {
-			filteredStack = append(filteredStack, frameStr)
-		}
+		filteredStack = append(filteredStack, frameStr)
 	}
 	return filteredStack
 }
