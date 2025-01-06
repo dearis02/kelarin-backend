@@ -1,6 +1,6 @@
 # Usage: make migration:new name=add_users_table
 migration\:new:
-	@migrate create -ext sql -dir ./db/migrations ${name}
+	@migrate create -ext sql -dir ./database/migrations ${name}
 
 # Usage: make migration:up database=postgres://user:password@127.0.0.1:5432/db_name?sslmode=disable
 migration\:up:
