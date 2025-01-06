@@ -23,7 +23,8 @@ func newServer(db *sqlx.DB, config2 *config.Config, redis2 *redis.Client) (*prov
 	serviceUser := service.NewUser(user)
 	handlerUser := handler.NewUser(serviceUser)
 	session := repository.NewSession(redis2)
-	auth := service.NewAuth(config2, session, user)
+	pendingRegistration := repository.NewPendingRegistration(redis2)
+	auth := service.NewAuth(config2, db, session, user, pendingRegistration)
 	handlerAuth := handler.NewAuth(auth)
 	server := provider.NewServer(handlerUser, handlerAuth)
 	return server, nil

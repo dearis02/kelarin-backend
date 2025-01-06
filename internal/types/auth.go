@@ -22,10 +22,11 @@ const (
 
 type AuthJwtCustomClaims struct {
 	jwt.RegisteredClaims
-	ID      uuid.UUID `json:"jti"`
-	Subject uuid.UUID `json:"sub"`
-	Role    UserRole  `json:"role"`
-	Name    string    `json:"name"`
+	ID                     uuid.UUID `json:"jti"`
+	Subject                uuid.UUID `json:"sub"`
+	Role                   UserRole  `json:"role"`
+	Name                   string    `json:"name"`
+	IncompleteRegistration *bool     `json:"incomplete_registration,omitempty"`
 }
 
 type AuthCreateSessionReq struct {
@@ -45,11 +46,18 @@ type AuthCreateSessionRes struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+type AuthCreateSessionForGoogleLoginRes struct {
+	AccessToken  string   `json:"access_token"`
+	RefreshToken string   `json:"refresh_token"`
+	Role         UserRole `json:"role"`
+}
+
 type AuthUser struct {
-	ID        uuid.UUID
-	SessionID uuid.UUID
-	Role      UserRole
-	Name      string
+	ID                     uuid.UUID
+	SessionID              uuid.UUID
+	Role                   UserRole
+	Name                   string
+	IncompleteRegistration *bool // for service provider role
 }
 
 type AuthGenerateToken struct {

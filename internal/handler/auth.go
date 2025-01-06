@@ -24,7 +24,7 @@ func (h *Auth) Login(c *gin.Context) {
 		return
 	}
 
-	res, err := h.authService.CreateSession(c.Request.Context(), req)
+	res, err := h.authService.LocalCreateSession(c.Request.Context(), req)
 	if err != nil {
 		c.Error(err)
 		return
@@ -36,7 +36,7 @@ func (h *Auth) Login(c *gin.Context) {
 	})
 }
 
-func (h *Auth) LoginGoogle(c *gin.Context) {
+func (h *Auth) ConsumerGoogleLogin(c *gin.Context) {
 	var req types.AuthCreateSessionForGoogleReq
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -44,7 +44,27 @@ func (h *Auth) LoginGoogle(c *gin.Context) {
 		return
 	}
 
-	res, err := h.authService.CreateSessionForGoogleLogin(c.Request.Context(), req)
+	res, err := h.authService.ConsumerCreateSession(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusCreated, types.ApiResponse{
+		Code: http.StatusCreated,
+		Data: res,
+	})
+}
+
+func (h *Auth) ProviderGoogleLogin(c *gin.Context) {
+	var req types.AuthCreateSessionForGoogleReq
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	res, err := h.authService.ProviderCreateSession(c.Request.Context(), req)
 	if err != nil {
 		c.Error(err)
 		return
