@@ -7,7 +7,7 @@ args_bin = []
 bin = "tmp/main"
 cmd = "go build -o ./tmp/main ./cmd/server"
 delay = 1000
-exclude_dir = ["assets", "tmp", "vendor", "testdata"]
+exclude_dir = ["assets", "tmp", "temp", "vendor", "testdata"]
 exclude_file = []
 exclude_regex = ["_test.go"]
 exclude_unchanged = false
@@ -18,14 +18,6 @@ include_ext = ["go", "tpl", "tmpl", "html", "yaml"]
 include_file = ["config/config.yaml"]
 kill_delay = "0s"
 log = "build-errors.log"
-poll = false
-poll_interval = 0
-post_cmd = []
-pre_cmd = []
-rerun = false
-rerun_delay = 500
-send_interrupt = false
-stop_on_error = false
 
 [color]
 app = ""
@@ -35,12 +27,11 @@ runner = "green"
 watcher = "cyan"
 
 [log]
-main_only = false
-time = false
+time=false
 
 [misc]
 clean_on_exit = false
 
 [screen]
-clear_on_rebuild = false
+clear_on_rebuild = true
 keep_scroll = true
