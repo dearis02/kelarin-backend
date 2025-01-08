@@ -7,13 +7,11 @@ import (
 type Server struct {
 	UserHandler handler.User
 	AuthHandler *handler.Auth
-	FileHandler handler.File
 }
 
-func NewServer(userHandler handler.User, authHandler *handler.Auth, fileHandler handler.File) *Server {
+func NewServer(userHandler handler.User, authHandler *handler.Auth) *Server {
 	return &Server{
 		userHandler,
 		authHandler,
-		fileHandler,
 	}
 }
