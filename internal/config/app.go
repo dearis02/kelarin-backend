@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/docker/go-units"
 	"github.com/gin-gonic/gin"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/rs/zerolog/log"
@@ -92,25 +91,6 @@ func (g GoogleOAuth) Validate() error {
 	)
 }
 
-type File struct {
-	MaxUploadedImageFileSize   string        `yaml:"max_uploaded_image_file_size"`
-	AllowedImageTypes          []string      `yaml:"allowed_image_types"`
-	TempFileExpiration         time.Duration `yaml:"temp_file_expiration"`
-	PresignedURLExpiration     time.Duration `yaml:"presigned_url_expiration"`
-	AwsS3Bucket                string        `yaml:"aws_s3_bucket"`
-	UploadedImageFileSizeLimit int64
-}
-
-func (f File) Validate() error {
-	return validation.ValidateStruct(&f,
-		validation.Field(&f.MaxUploadedImageFileSize, validation.Required),
-		validation.Field(&f.AllowedImageTypes, validation.Required),
-		validation.Field(&f.TempFileExpiration, validation.Required),
-		validation.Field(&f.PresignedURLExpiration, validation.Required),
-		validation.Field(&f.AwsS3Bucket, validation.Required),
-	)
-}
-
 type Config struct {
 	Environment string         `yaml:"environment"`
 	Server      Server         `yaml:"server"`
@@ -119,7 +99,6 @@ type Config struct {
 	JWT         JWTConfig      `yaml:"jwt"`
 	PrettyLog   bool           `yaml:"pretty_log"`
 	Oauth       OAuthConfig    `yaml:"oauth"`
-	File        File           `yaml:"file"`
 }
 
 func (c Config) Validate() error {
@@ -160,11 +139,6 @@ func NewAppConfig() *Config {
 	err = cfg.Validate()
 	if err != nil {
 		log.Fatal().Err(err).Msg("Config validation failed")
-	}
-
-	cfg.File.UploadedImageFileSizeLimit, err = units.FromHumanSize(cfg.File.MaxUploadedImageFileSize)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to parse max_uploaded_image_file_size")
 	}
 
 	return cfg

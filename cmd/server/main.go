@@ -4,18 +4,14 @@ import (
 	"context"
 	"kelarin/internal/config"
 	"kelarin/internal/middleware"
-	"kelarin/internal/queue"
 	"kelarin/internal/routes"
-	awsUtil "kelarin/internal/utils/aws"
 	dbUtil "kelarin/internal/utils/dbutil"
-	fileSystemUtil "kelarin/internal/utils/file_system"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
@@ -25,9 +21,6 @@ import (
 func main() {
 	cfg := config.NewAppConfig()
 	logger := config.NewLogger(cfg)
-	if err := fileSystemUtil.InitTempDir(); err != nil {
-		log.Fatal().Stack().Err(err).Send()
-	}
 
 	gin.SetMode(cfg.Mode())
 	g := gin.New()
@@ -49,17 +42,7 @@ func main() {
 		log.Fatal().Stack().Err(err).Send()
 	}
 
-	queueClient, err := queue.NewAsynq(&cfg.Redis)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to connect to queue")
-	}
-
-	s3Config := awsUtil.NewConfig()
-	s3Client := awsUtil.NewS3ClientFromConfig(s3Config)
-	s3Uploader := manager.NewUploader(s3Client)
-	s3PresignClient := awsUtil.NewS3PresignClient(s3Client)
-
-	server, err := newServer(db, cfg, redis, s3Uploader, queueClient, s3Client, s3PresignClient)
+	server, err := newServer(db, cfg, redis)
 	if err != nil {
 		log.Fatal().Stack().Err(err).Send()
 	}
@@ -68,7 +51,6 @@ func main() {
 
 	authRoutes := routes.NewAuth(g, server.AuthHandler)
 	userRoutes := routes.NewUser(g, server.UserHandler)
-	fileRoutes := routes.NewFile(g, server.FileHandler)
 
 	// End init routes region
 
@@ -76,7 +58,6 @@ func main() {
 
 	authRoutes.Register()
 	userRoutes.Register()
-	fileRoutes.Register()
 
 	// End routes registration
 
