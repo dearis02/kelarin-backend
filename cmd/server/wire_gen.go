@@ -7,18 +7,22 @@
 package main
 
 import (
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/hibiken/asynq"
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
 	"kelarin/internal/config"
 	"kelarin/internal/handler"
 	"kelarin/internal/provider"
+	"kelarin/internal/queue/task"
 	"kelarin/internal/repository"
 	"kelarin/internal/service"
 )
 
 // Injectors from wire.go:
 
-func newServer(db *sqlx.DB, config2 *config.Config, redis2 *redis.Client) (*provider.Server, error) {
+func newServer(db *sqlx.DB, config2 *config.Config, redis2 *redis.Client, s3UploadManager *manager.Uploader, queueClient *asynq.Client, s3Client *s3.Client, s3PresignClient *s3.PresignClient) (*provider.Server, error) {
 	user := repository.NewUser(db)
 	serviceUser := service.NewUser(user)
 	handlerUser := handler.NewUser(serviceUser)
@@ -26,6 +30,10 @@ func newServer(db *sqlx.DB, config2 *config.Config, redis2 *redis.Client) (*prov
 	pendingRegistration := repository.NewPendingRegistration(redis2)
 	auth := service.NewAuth(config2, db, session, user, pendingRegistration)
 	handlerAuth := handler.NewAuth(auth)
-	server := provider.NewServer(handlerUser, handlerAuth)
+	file := repository.NewFile(redis2)
+	tempFile := task.NewTempFile(queueClient)
+	serviceFile := service.NewFile(redis2, config2, file, tempFile, s3PresignClient, s3UploadManager, s3Client)
+	handlerFile := handler.NewFile(serviceFile)
+	server := provider.NewServer(handlerUser, handlerAuth, handlerFile)
 	return server, nil
 }
