@@ -13,7 +13,7 @@ type UserRole int16
 
 const (
 	UserRoleAdmin UserRole = iota + 1
-	UserRoleCustomer
+	UserRoleConsumer
 	UserRoleServiceProvider
 )
 

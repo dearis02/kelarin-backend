@@ -7,6 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	AuthUserContextKey = "user"
+)
+
 // region repo types
 
 type AuthProvider int16
@@ -72,6 +76,10 @@ type AuthCreateSessionForGoogleReq struct {
 type AuthValidateGoogleIDToken struct {
 	Name  string
 	Email string
+}
+
+type AuthHeaderReq struct {
+	Authorization string `header:"Authorization"`
 }
 
 // end of region service types

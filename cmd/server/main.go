@@ -64,6 +64,8 @@ func main() {
 		log.Fatal().Stack().Err(err).Send()
 	}
 
+	authMiddleware := middleware.NewAuth(cfg)
+
 	// Init routes region
 
 	authRoutes := routes.NewAuth(g, server.AuthHandler)
@@ -76,7 +78,7 @@ func main() {
 
 	authRoutes.Register()
 	userRoutes.Register()
-	fileRoutes.Register()
+	fileRoutes.Register(authMiddleware)
 
 	// End routes registration
 
