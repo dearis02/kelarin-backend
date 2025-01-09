@@ -114,7 +114,7 @@ func (s *authImpl) ConsumerCreateSession(ctx context.Context, req types.AuthCrea
 
 		user = types.User{
 			ID:           id,
-			Role:         types.UserRoleCustomer,
+			Role:         types.UserRoleConsumer,
 			Name:         payload.Name,
 			Email:        payload.Email,
 			AuthProvider: types.AuthProviderGoogle,
@@ -128,7 +128,7 @@ func (s *authImpl) ConsumerCreateSession(ctx context.Context, req types.AuthCrea
 		return res, err
 	}
 
-	if user.Role != types.UserRoleCustomer {
+	if user.Role != types.UserRoleConsumer {
 		return res, errors.New(types.AppErr{Code: http.StatusUnauthorized, Message: "this account has been registered as a service provider, use another account"})
 	}
 
