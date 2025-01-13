@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alexliesenfeld/opencage"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -22,8 +23,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// type province map[string]string
+
 func main() {
-	cfg := config.NewAppConfig()
+	cfg := config.NewApp()
 	logger := config.NewLogger(cfg)
 	if err := fileSystemUtil.InitTempDir(); err != nil {
 		log.Fatal().Stack().Err(err).Send()
@@ -54,23 +57,26 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to connect to queue")
 	}
 
-	s3Config := awsUtil.NewConfig()
-	s3Client := awsUtil.NewS3ClientFromConfig(s3Config)
+	awsCfg := awsUtil.NewConfig()
+	s3Client := awsUtil.NewS3ClientFromConfig(awsCfg)
 	s3Uploader := manager.NewUploader(s3Client)
 	s3PresignClient := awsUtil.NewS3PresignClient(s3Client)
 
-	server, err := newServer(db, cfg, redis, s3Uploader, queueClient, s3Client, s3PresignClient)
+	openCageClient := opencage.New(cfg.OpenCageApiKey)
+
+	authMiddleware := middleware.NewAuth(cfg)
+
+	server, err := newServer(db, cfg, redis, s3Uploader, queueClient, s3Client, s3PresignClient, openCageClient, authMiddleware)
 	if err != nil {
 		log.Fatal().Stack().Err(err).Send()
 	}
-
-	authMiddleware := middleware.NewAuth(cfg)
 
 	// Init routes region
 
 	authRoutes := routes.NewAuth(g, server.AuthHandler)
 	userRoutes := routes.NewUser(g, server.UserHandler)
 	fileRoutes := routes.NewFile(g, server.FileHandler)
+	serviceProviderRoutes := routes.NewServiceProvider(g, server.ServiceProviderHandler)
 
 	// End init routes region
 
@@ -79,8 +85,44 @@ func main() {
 	authRoutes.Register()
 	userRoutes.Register()
 	fileRoutes.Register(authMiddleware)
+	serviceProviderRoutes.Register(authMiddleware)
 
 	// End routes registration
+
+	// CODE: insert provinces data
+
+	// provinceRepo := repository.NewProvince(db)
+
+	// provinceData, err := os.Open("provinsi.json")
+	// if err != nil {
+	// 	log.Fatal().Err(err).Send()
+	// }
+
+	// decoder := json.NewDecoder(provinceData)
+
+	// var provinces province
+	// err = decoder.Decode(&provinces)
+	// if err != nil {
+	// 	log.Fatal().Err(err).Send()
+	// }
+
+	// provincesData := []types.Province{}
+	// for key, val := range provinces {
+	// 	id, err := strconv.ParseInt(key, 10, 64)
+	// 	if err != nil {
+	// 		log.Fatal().Err(err).Send()
+	// 	}
+
+	// 	provincesData = append(provincesData, types.Province{
+	// 		ID:   id,
+	// 		Name: val,
+	// 	})
+	// }
+
+	// err = provinceRepo.Create(context.Background(), provincesData)
+	// if err != nil {
+	// 	log.Fatal().Err(err).Send()
+	// }
 
 	startServer(g, db, cfg)
 }

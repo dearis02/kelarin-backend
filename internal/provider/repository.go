@@ -6,4 +6,13 @@ import (
 	"github.com/google/wire"
 )
 
-var RepositorySet = wire.NewSet(repository.NewUser, repository.NewSession, repository.NewPendingRegistration, repository.NewFile)
+var RepositorySet = wire.NewSet(
+	repository.NewUser,
+	repository.NewSession,
+	repository.NewPendingRegistration,
+	repository.NewFile,
+	repository.NewProvince,
+	repository.NewCity,
+	repository.NewServiceProviderArea,
+	repository.NewServiceProvider,
+)

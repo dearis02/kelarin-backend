@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS districts(
+    id BIGSERIAL PRIMARY KEY,
+    city_id BIGINT NOT NULL,
+    name VARCHAR(255) NOT NULL
+);

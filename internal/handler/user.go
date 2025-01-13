@@ -30,7 +30,7 @@ func (h *userImpl) GetOne(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, types.ApiResponse{
-		Code:    http.StatusOK,
-		Message: http.StatusText(http.StatusOK),
+		StatusCode: http.StatusOK,
+		Message:    http.StatusText(http.StatusOK),
 	})
 }

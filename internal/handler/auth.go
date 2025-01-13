@@ -31,8 +31,8 @@ func (h *Auth) Login(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, types.ApiResponse{
-		Code: http.StatusCreated,
-		Data: res,
+		StatusCode: http.StatusCreated,
+		Data:       res,
 	})
 }
 
@@ -51,8 +51,8 @@ func (h *Auth) ConsumerGoogleLogin(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, types.ApiResponse{
-		Code: http.StatusCreated,
-		Data: res,
+		StatusCode: http.StatusCreated,
+		Data:       res,
 	})
 }
 
@@ -71,7 +71,7 @@ func (h *Auth) ProviderGoogleLogin(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, types.ApiResponse{
-		Code: http.StatusCreated,
-		Data: res,
+		StatusCode: http.StatusCreated,
+		Data:       res,
 	})
 }
