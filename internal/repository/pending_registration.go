@@ -11,6 +11,7 @@ import (
 type PendingRegistration interface {
 	Set(ctx context.Context, key string, userID uuid.UUID) error
 	IsExists(ctx context.Context, key string) (bool, error)
+	Delete(ctx context.Context, key string) error
 }
 
 type pendingRegistrationImpl struct {
@@ -38,4 +39,12 @@ func (r *pendingRegistrationImpl) IsExists(ctx context.Context, key string) (boo
 	}
 
 	return true, nil
+}
+
+func (r *pendingRegistrationImpl) Delete(ctx context.Context, key string) error {
+	if err := r.redis.Del(ctx, key).Err(); err != nil {
+		return errors.New(err)
+	}
+
+	return nil
 }

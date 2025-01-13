@@ -41,7 +41,7 @@ func newServer(db *sqlx.DB, config2 *config.Config, redis2 *redis.Client, s3Uplo
 	city := repository.NewCity(db)
 	serviceProviderArea := repository.NewServiceProviderArea(db)
 	geocoding := service.NewGeocoding(opencageClient)
-	serviceServiceProvider := service.NewServiceProvider(db, serviceProvider, user, province, city, serviceProviderArea, serviceFile, geocoding)
+	serviceServiceProvider := service.NewServiceProvider(db, serviceProvider, user, province, city, serviceProviderArea, pendingRegistration, serviceFile, geocoding)
 	handlerServiceProvider := handler.NewServiceProvider(serviceServiceProvider, authMiddleware)
 	server := provider.NewServer(handlerUser, handlerAuth, handlerFile, handlerServiceProvider)
 	return server, nil

@@ -28,11 +28,12 @@ type serviceProviderImpl struct {
 	cityRepo                repository.City
 	serviceProviderAreaRepo repository.ServiceProviderArea
 	userRepo                repository.User
+	pendingRegistrationRepo repository.PendingRegistration
 	fileSvc                 File
 	geocodingSvc            Geocoding
 }
 
-func NewServiceProvider(db *sqlx.DB, serviceProviderRepo repository.ServiceProvider, userRepo repository.User, provinceRepo repository.Province, cityRepo repository.City, ServiceProviderAreaRepo repository.ServiceProviderArea, fileSvc File, geocodingSvc Geocoding) ServiceProvider {
+func NewServiceProvider(db *sqlx.DB, serviceProviderRepo repository.ServiceProvider, userRepo repository.User, provinceRepo repository.Province, cityRepo repository.City, ServiceProviderAreaRepo repository.ServiceProviderArea, pendingRegistrationRepo repository.PendingRegistration, fileSvc File, geocodingSvc Geocoding) ServiceProvider {
 	return &serviceProviderImpl{
 		db:                      db,
 		serviceProviderRepo:     serviceProviderRepo,
@@ -40,6 +41,7 @@ func NewServiceProvider(db *sqlx.DB, serviceProviderRepo repository.ServiceProvi
 		cityRepo:                cityRepo,
 		serviceProviderAreaRepo: ServiceProviderAreaRepo,
 		userRepo:                userRepo,
+		pendingRegistrationRepo: pendingRegistrationRepo,
 		fileSvc:                 fileSvc,
 		geocodingSvc:            geocodingSvc,
 	}
@@ -77,6 +79,8 @@ func (s *serviceProviderImpl) Register(ctx context.Context, req types.ServicePro
 	if err != nil {
 		return errors.New(err)
 	}
+
+	defer tx.Rollback()
 
 	if req.HasPhysicalOffice {
 		lat := req.OfficeCoordinates[0].InexactFloat64()
@@ -183,6 +187,11 @@ func (s *serviceProviderImpl) Register(ctx context.Context, req types.ServicePro
 	serviceProvider.LogoImage = logo[0]
 
 	if err = s.serviceProviderRepo.Create(ctx, tx, serviceProvider); err != nil {
+		return err
+	}
+
+	key := types.GetPendingRegistrationKey(req.AuthUser.ID.String())
+	if err = s.pendingRegistrationRepo.Delete(ctx, key); err != nil {
 		return err
 	}
 
