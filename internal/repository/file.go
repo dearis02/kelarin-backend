@@ -11,6 +11,7 @@ import (
 type File interface {
 	SetTemp(ctx context.Context, req []types.FileTemp) error
 	GetTemp(ctx context.Context, fileName string) (types.FileGetTempRes, error)
+	DeleteTemp(ctx context.Context, fileName string) error
 }
 
 type fileUploadImpl struct {
@@ -40,7 +41,7 @@ func (r *fileUploadImpl) GetTemp(ctx context.Context, fileName string) (types.Fi
 	res := types.FileGetTempRes{}
 	key := types.GetUploadedFileKey(fileName)
 
-	err := r.redis.HGetAll(ctx, key).Scan(&res)
+	err := r.redis.Get(ctx, key).Scan(&res.Name)
 	if errors.Is(err, redis.Nil) {
 		return res, types.ErrNoData
 	} else if err != nil {
@@ -48,4 +49,14 @@ func (r *fileUploadImpl) GetTemp(ctx context.Context, fileName string) (types.Fi
 	}
 
 	return res, nil
+}
+
+func (r *fileUploadImpl) DeleteTemp(ctx context.Context, fileName string) error {
+	key := types.GetUploadedFileKey(fileName)
+
+	if err := r.redis.Del(ctx, key).Err(); err != nil {
+		return errors.New(err)
+	}
+
+	return nil
 }

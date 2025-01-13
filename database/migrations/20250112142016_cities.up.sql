@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS cities(
+    id BIGSERIAL PRIMARY KEY,
+    province_id BIGINT NOT NULL,
+    name VARCHAR(255) NOT NULL
+);

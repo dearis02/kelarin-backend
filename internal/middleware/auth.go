@@ -4,6 +4,7 @@ import (
 	"kelarin/internal/config"
 	"kelarin/internal/types"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -16,6 +17,7 @@ type Auth interface {
 	Authenticated(c *gin.Context)
 	Consumer(c *gin.Context)
 	ServiceProvider(c *gin.Context)
+	BindWithRequest(c *gin.Context, req interface{}) error
 }
 
 type authImpl struct {
@@ -55,7 +57,15 @@ func (m *authImpl) parseAuthorizationHeader(c *gin.Context) {
 		return
 	}
 
-	c.Set(types.AuthUserContextKey, claims)
+	authUser := types.AuthUser{
+		ID:                     claims.Subject,
+		SessionID:              claims.ID,
+		Role:                   claims.Role,
+		Name:                   claims.Name,
+		IncompleteRegistration: claims.IncompleteRegistration,
+	}
+
+	c.Set(types.AuthUserContextKey, authUser)
 	c.Next()
 }
 
@@ -68,7 +78,7 @@ func (m *authImpl) nextFunc(c *gin.Context, role types.UserRole) {
 		return
 	}
 
-	authUser, ok := userContext.(*types.AuthJwtCustomClaims)
+	authUser, ok := userContext.(types.AuthUser)
 	if !ok {
 		log.Error().Msg("invalid user context")
 		c.Error(errors.New(types.AppErr{Code: http.StatusUnauthorized}))
@@ -130,4 +140,37 @@ func (m *authImpl) parseJwt(c *gin.Context) (*types.AuthJwtCustomClaims, error) 
 	}
 
 	return claims, nil
+}
+
+// BindWithRequest binds the request body to the req struct and also binds the AuthUser to the struct field with the middleware tag
+func (authImpl) BindWithRequest(c *gin.Context, req interface{}) error {
+	reqValue := reflect.ValueOf(req)
+	if reqValue.Kind() != reflect.Ptr || reqValue.Elem().Kind() != reflect.Struct {
+		return errors.New("req must be a pointer to a struct")
+	}
+
+	if err := c.ShouldBindJSON(req); err != nil {
+		return err
+	}
+
+	reqType := reqValue.Elem().Type()
+	for i := 0; i < reqType.NumField(); i++ {
+		field := reqType.Field(i)
+		tag := field.Tag.Get("middleware")
+		if tag == "user" {
+			authUser, exists := c.Get("user")
+			if !exists {
+				return errors.New("auth user not found in context")
+			}
+
+			fieldValue := reqValue.Elem().Field(i)
+			if fieldValue.CanSet() && reflect.TypeOf(authUser).AssignableTo(fieldValue.Type()) {
+				fieldValue.Set(reflect.ValueOf(authUser))
+			} else {
+				return errors.New("auth user type mismatch")
+			}
+		}
+	}
+
+	return nil
 }

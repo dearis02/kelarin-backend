@@ -60,7 +60,7 @@ func (h fileImpl) UploadImages(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, types.ApiResponse{
-		Code: http.StatusOK,
-		Data: res,
+		StatusCode: http.StatusOK,
+		Data:       res,
 	})
 }

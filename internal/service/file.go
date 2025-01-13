@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gabriel-vasile/mimetype"
@@ -25,7 +26,8 @@ import (
 
 type File interface {
 	StoreTemp(ctx context.Context, req types.FileUploadImagesReq) (types.FileUploadFilesRes, error)
-	GetTempMeta(ctx context.Context, fileKey string) (types.FileGetTempRes, error)
+	GetTemp(ctx context.Context, fileName string) (types.FileGetTempRes, error)
+	DeleteTemp(ctx context.Context, fileName string) error
 	BulkUploadToS3(ctx context.Context, req []types.FileTemp, dir string) ([]string, error)
 	GetS3PresignedURL(ctx context.Context, objectKey string) (string, error)
 }
@@ -138,7 +140,7 @@ func (r *fileImpl) StoreTemp(ctx context.Context, req types.FileUploadImagesReq)
 	return res, nil
 }
 
-func (r *fileImpl) GetTempMeta(ctx context.Context, fileName string) (types.FileGetTempRes, error) {
+func (r *fileImpl) GetTemp(ctx context.Context, fileName string) (types.FileGetTempRes, error) {
 	res := types.FileGetTempRes{}
 
 	tempFile, err := r.fileRepo.GetTemp(ctx, fileName)
@@ -154,45 +156,59 @@ func (r *fileImpl) GetTempMeta(ctx context.Context, fileName string) (types.File
 	return types.FileGetTempRes(tempFile), nil
 }
 
+func (r *fileImpl) DeleteTemp(ctx context.Context, fileName string) error {
+	if err := r.fileRepo.DeleteTemp(ctx, fileName); err != nil {
+		return err
+	}
+
+	os.Remove(filepath.Join(types.TempFileDir, fileName))
+
+	return nil
+}
+
 func (r *fileImpl) BulkUploadToS3(ctx context.Context, req []types.FileTemp, dir string) ([]string, error) {
 	res := []string{}
 
 	var err error
-	for _, file := range req {
-		dest := filepath.Join(dir, file.Name)
-		tempFilePath := filepath.Join(types.TempFileDir, file.Name)
-
-		fileBinary, err := os.Open(tempFilePath)
-		if err != nil {
-			return res, err
-		}
-
-		defer fileBinary.Close()
-
-		uploadRes, err := r.s3Uploader.Upload(ctx, &s3.PutObjectInput{
-			Bucket: &r.cfg.File.AwsS3Bucket,
-			Key:    &dest,
-			Body:   fileBinary,
-		})
-		if err != nil {
-			return res, err
-		}
-
-		res = append(res, *uploadRes.Key)
-
-		os.Remove(tempFilePath)
-	}
 
 	defer func() {
 		if err != nil && len(res) > 0 {
 			for _, key := range res {
 				r.s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
-					Bucket: &r.cfg.File.AwsS3Bucket,
-					Key:    &key,
+					Bucket: aws.String(r.cfg.File.AwsS3Bucket),
+					Key:    aws.String(key),
 				})
 			}
 		}
 	}()
+
+	for _, file := range req {
+		dest := filepath.Join(dir, file.Name)
+		tempFilePath := filepath.Join(types.TempFileDir, file.Name)
+
+		fileBinary, err := os.Open(tempFilePath)
+		if errors.Is(err, os.ErrNotExist) {
+			return res, errors.New(types.AppErr{
+				Code:    http.StatusNotFound,
+				Message: fmt.Sprintf("file %s not found", file.Name),
+			})
+		} else if err != nil {
+			return res, errors.New(err)
+		}
+
+		defer fileBinary.Close()
+
+		uploadRes, err := r.s3Uploader.Upload(ctx, &s3.PutObjectInput{
+			Bucket: aws.String(r.cfg.File.AwsS3Bucket),
+			Key:    aws.String(dest),
+			Body:   fileBinary,
+		})
+		if err != nil {
+			return res, errors.New(err)
+		}
+
+		res = append(res, *uploadRes.Key)
+	}
 
 	return res, nil
 }

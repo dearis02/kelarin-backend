@@ -1,0 +1,165 @@
+{
+    "documentation": "https://opencagedata.com/api",
+    "licenses": [
+        {
+            "name": "see attribution guide",
+            "url": "https://opencagedata.com/credits"
+        }
+    ],
+    "rate": {
+        "limit": 2500,
+        "remaining": 2489,
+        "reset": 1736812800
+    },
+    "results": [
+        {
+            "annotations": {
+                "DMS": {
+                    "lat": "",
+                    "lng": ""
+                },
+                "MGRS": "",
+                "Maidenhead": "",
+                "Mercator": {
+                    "x": 0,
+                    "y": 0
+                },
+                "NUTS": {
+                    "NUTS0": {
+                        "code": ""
+                    },
+                    "NUTS1": {
+                        "code": ""
+                    },
+                    "NUTS2": {
+                        "code": ""
+                    },
+                    "NUTS3": {
+                        "code": ""
+                    }
+                },
+                "OSM": {
+                    "edit_url": "",
+                    "note_url": "",
+                    "url": ""
+                },
+                "UN_M49": {
+                    "regions": {
+                        "DE": "",
+                        "EUROPE": "",
+                        "WESTERN_EUROPE": "",
+                        "WORLD": ""
+                    },
+                    "statistical_groupings": null
+                },
+                "callingcode": 0,
+                "currency": {
+                    "alternate_symbols": null,
+                    "decimal_mark": "",
+                    "html_entity": "",
+                    "iso_code": "",
+                    "iso_numeric": "",
+                    "name": "",
+                    "smallest_denomination": 0,
+                    "subunit": "",
+                    "subunit_to_unit": 0,
+                    "symbol": "",
+                    "symbol_first": 0,
+                    "thousands_separator": ""
+                },
+                "flag": "",
+                "geohash": "",
+                "qibla": 0,
+                "roadinfo": {
+                    "road": "Jalan Raya Pemogan",
+                    "drive_on": "left",
+                    "speed_in": "km/h"
+                },
+                "sun": {
+                    "rise": {
+                        "apparent": 0,
+                        "astronomical": 0,
+                        "civil": 0,
+                        "nautical": 0
+                    },
+                    "set": {
+                        "apparent": 0,
+                        "astronomical": 0,
+                        "civil": 0,
+                        "nautical": 0
+                    }
+                },
+                "timezone": {
+                    "name": "",
+                    "now_in_dst": 0,
+                    "offset_sec": 0,
+                    "offset_string": "",
+                    "short_name": ""
+                },
+                "what3words": {
+                    "words": ""
+                }
+            },
+            "bounds": {
+                "northeast": {
+                    "lat": -8.6901448,
+                    "lng": 115.2010556
+                },
+                "southwest": {
+                    "lat": -8.7183925,
+                    "lng": 115.1970014
+                }
+            },
+            "components": {
+                "ISO_3166-1_alpha-2": "ID",
+                "ISO_3166-1_alpha-3": "IDN",
+                "ISO_3166-2": [
+                    "ID-NU",
+                    "ID-BA"
+                ],
+                "_category": "road",
+                "_type": "road",
+                "city": "Denpasar",
+                "city_district": "Denpasar Selatan",
+                "continent": "Asia",
+                "country": "Indonesia",
+                "country_code": "id",
+                "county": "",
+                "municipality": "",
+                "house_number": "",
+                "office": "",
+                "political_union": "",
+                "postcode": "80221",
+                "road": "Jalan Raya Pemogan",
+                "state": "Bali",
+                "state_code": "BA",
+                "suburb": "",
+                "town": "",
+                "village": "Pemogan",
+                "pedestrian": "",
+                "neighbourhood": "",
+                "region": ""
+            },
+            "confidence": 7,
+            "formatted": "Jalan Raya Pemogan, Denpasar Selatan, Denpasar 80221, Bali, Indonesia",
+            "geometry": {
+                "lat": -8.7139205,
+                "lng": 115.2001991
+            }
+        }
+    ],
+    "status": {
+        "code": 200,
+        "message": "OK"
+    },
+    "stay_informed": {
+        "blog": "https://blog.opencagedata.com",
+        "mastodon": "https://en.osm.town/@opencage"
+    },
+    "thanks": "For using an OpenCage API",
+    "timestamp": {
+        "created_http": "Mon, 13 Jan 2025 08:46:46 GMT",
+        "created_unix": 1736758006
+    },
+    "total_results": 1
+}

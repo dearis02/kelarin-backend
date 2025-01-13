@@ -112,14 +112,15 @@ func (f File) Validate() error {
 }
 
 type Config struct {
-	Environment string         `yaml:"environment"`
-	Server      Server         `yaml:"server"`
-	DataBase    PostgresConfig `yaml:"database"`
-	Redis       RedisConfig    `yaml:"redis"`
-	JWT         JWTConfig      `yaml:"jwt"`
-	PrettyLog   bool           `yaml:"pretty_log"`
-	Oauth       OAuthConfig    `yaml:"oauth"`
-	File        File           `yaml:"file"`
+	Environment    string         `yaml:"environment"`
+	Server         Server         `yaml:"server"`
+	DataBase       PostgresConfig `yaml:"database"`
+	Redis          RedisConfig    `yaml:"redis"`
+	JWT            JWTConfig      `yaml:"jwt"`
+	PrettyLog      bool           `yaml:"pretty_log"`
+	Oauth          OAuthConfig    `yaml:"oauth"`
+	File           File           `yaml:"file"`
+	OpenCageApiKey string         `yaml:"opencage_api_key"`
 }
 
 func (c Config) Validate() error {
@@ -129,6 +130,7 @@ func (c Config) Validate() error {
 		validation.Field(&c.Redis, validation.Required),
 		validation.Field(&c.JWT, validation.Required),
 		validation.Field(&c.Oauth, validation.Required),
+		validation.Field(&c.OpenCageApiKey, validation.Required),
 	)
 }
 
@@ -144,7 +146,7 @@ func (c *Config) Mode() string {
 	}
 }
 
-func NewAppConfig() *Config {
+func NewApp() *Config {
 	cfg := &Config{}
 
 	cfgData, err := os.ReadFile("config/config.yaml")

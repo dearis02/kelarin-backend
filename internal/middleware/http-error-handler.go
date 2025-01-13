@@ -19,13 +19,13 @@ func HttpErrorHandler(c *gin.Context) {
 
 	err := c.Errors.Last().Unwrap()
 	res := types.ApiResponse{
-		Code: http.StatusInternalServerError,
+		StatusCode: http.StatusInternalServerError,
 	}
 
 	switch e := err.(type) {
 	case *errors.Error:
 		if appErr, ok := e.Err.(types.AppErr); ok {
-			res.Code = appErr.Code
+			res.StatusCode = appErr.Code
 			res.Message = appErr.Message
 			if appErr.Err != nil {
 				res.Message = appErr.Err.Error()
@@ -35,7 +35,7 @@ func HttpErrorHandler(c *gin.Context) {
 			log.Error().Stack().Err(err).Send()
 		}
 	case validation.Errors:
-		res.Code = http.StatusUnprocessableEntity
+		res.StatusCode = http.StatusUnprocessableEntity
 		res.Message = "Validation error"
 
 		for key, val := range err.(validation.Errors) {
@@ -49,9 +49,8 @@ func HttpErrorHandler(c *gin.Context) {
 	}
 
 	if res.Message == "" {
-		res.Message = http.StatusText(res.Code)
+		res.Message = http.StatusText(res.StatusCode)
 	}
 
-	c.JSON(res.Code, res)
-	c.Abort()
+	c.JSON(res.StatusCode, res)
 }
