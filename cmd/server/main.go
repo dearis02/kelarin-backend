@@ -20,6 +20,8 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
 )
 
@@ -36,7 +38,6 @@ func main() {
 	g := gin.New()
 	g.Use(gin.RecoveryWithWriter(&logger))
 	g.Use(gin.LoggerWithWriter(&logger))
-	g.Use(middleware.HttpErrorHandler)
 
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AllowOrigins = cfg.Server.CORS.AllowedOrigins
@@ -70,6 +71,24 @@ func main() {
 	if err != nil {
 		log.Fatal().Stack().Err(err).Send()
 	}
+
+	// prometheus
+
+	prom := prometheus.NewRegistry()
+	promHttpTrafficMiddleware := middleware.NewPrometheusHttpTraffic(prom)
+	reqTotal := promHttpTrafficMiddleware.RequestTotalCollector()
+	reqDuration := promHttpTrafficMiddleware.RequestDurationCollector()
+
+	if err := promHttpTrafficMiddleware.Register([]prometheus.Collector{reqTotal, reqDuration}); err != nil {
+		log.Fatal().Stack().Err(err).Send()
+	}
+
+	// prometheus middleware must be registered first to get the response status code that set on http error handler middleware
+	g.Use(middleware.RequestDuration(reqTotal, reqDuration))
+	g.Use(middleware.HttpErrorHandler)
+	g.GET("/metrics", gin.WrapH(promhttp.HandlerFor(prom, promhttp.HandlerOpts{})))
+
+	// end prometheus
 
 	// Init routes region
 
