@@ -111,16 +111,35 @@ func (f File) Validate() error {
 	)
 }
 
+type ElasticsearchConfig struct {
+	Addresses          []string `yaml:"addresses"`
+	APIKey             string   `yaml:"api_key"`
+	CertificatePath    string   `yaml:"certificate_path"`
+	MaxIdleCons        int      `yaml:"max_idle_cons"`
+	MaxIdleConsPerHost int      `yaml:"max_idle_cons_per_host"`
+}
+
+func (e ElasticsearchConfig) Validate() error {
+	return validation.ValidateStruct(&e,
+		validation.Field(&e.Addresses, validation.Required),
+		validation.Field(&e.APIKey, validation.Required),
+		validation.Field(&e.CertificatePath, validation.Required),
+		validation.Field(&e.MaxIdleCons, validation.Required),
+		validation.Field(&e.MaxIdleConsPerHost, validation.Required),
+	)
+}
+
 type Config struct {
-	Environment    string         `yaml:"environment"`
-	Server         Server         `yaml:"server"`
-	DataBase       PostgresConfig `yaml:"database"`
-	Redis          RedisConfig    `yaml:"redis"`
-	JWT            JWTConfig      `yaml:"jwt"`
-	PrettyLog      bool           `yaml:"pretty_log"`
-	Oauth          OAuthConfig    `yaml:"oauth"`
-	File           File           `yaml:"file"`
-	OpenCageApiKey string         `yaml:"opencage_api_key"`
+	Environment    string              `yaml:"environment"`
+	Server         Server              `yaml:"server"`
+	DataBase       PostgresConfig      `yaml:"database"`
+	Redis          RedisConfig         `yaml:"redis"`
+	JWT            JWTConfig           `yaml:"jwt"`
+	PrettyLog      bool                `yaml:"pretty_log"`
+	Oauth          OAuthConfig         `yaml:"oauth"`
+	File           File                `yaml:"file"`
+	OpenCageApiKey string              `yaml:"opencage_api_key"`
+	Elasticsearch  ElasticsearchConfig `yaml:"elasticsearch"`
 }
 
 func (c Config) Validate() error {
@@ -131,6 +150,7 @@ func (c Config) Validate() error {
 		validation.Field(&c.JWT, validation.Required),
 		validation.Field(&c.Oauth, validation.Required),
 		validation.Field(&c.OpenCageApiKey, validation.Required),
+		validation.Field(&c.Elasticsearch, validation.Required),
 	)
 }
 

@@ -53,6 +53,17 @@ func main() {
 		log.Fatal().Stack().Err(err).Send()
 	}
 
+	es, err := dbUtil.NewElasticsearchClient(cfg)
+	if err != nil {
+		log.Fatal().Stack().Caller().Err(err).Send()
+	}
+
+	if _, err := es.Info(); err != nil {
+		log.Fatal().Stack().Caller().Err(err).Msg("Failed to connect to Elasticsearch")
+	} else {
+		log.Info().Msg("Elasticsearch connected")
+	}
+
 	queueClient, err := queue.NewAsynq(&cfg.Redis)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to connect to queue")
