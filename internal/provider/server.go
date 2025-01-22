@@ -9,13 +9,15 @@ type Server struct {
 	AuthHandler            *handler.Auth
 	FileHandler            handler.File
 	ServiceProviderHandler handler.ServiceProvider
+	ServiceHandler         handler.Service
 }
 
-func NewServer(userHandler handler.User, authHandler *handler.Auth, fileHandler handler.File, serviceProviderHandler handler.ServiceProvider) *Server {
+func NewServer(userHandler handler.User, authHandler *handler.Auth, fileHandler handler.File, serviceProviderHandler handler.ServiceProvider, serviceHandler handler.Service) *Server {
 	return &Server{
 		userHandler,
 		authHandler,
 		fileHandler,
 		serviceProviderHandler,
+		serviceHandler,
 	}
 }

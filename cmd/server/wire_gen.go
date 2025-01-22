@@ -10,6 +10,7 @@ import (
 	"github.com/alexliesenfeld/opencage"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/hibiken/asynq"
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
@@ -24,7 +25,7 @@ import (
 
 // Injectors from wire.go:
 
-func newServer(db *sqlx.DB, config2 *config.Config, redis2 *redis.Client, s3UploadManager *manager.Uploader, queueClient *asynq.Client, s3Client *s3.Client, s3PresignClient *s3.PresignClient, opencageClient *opencage.Client, authMiddleware middleware.Auth) (*provider.Server, error) {
+func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config2 *config.Config, redis2 *redis.Client, s3UploadManager *manager.Uploader, queueClient *asynq.Client, s3Client *s3.Client, s3PresignClient *s3.PresignClient, opencageClient *opencage.Client, authMiddleware middleware.Auth) (*provider.Server, error) {
 	user := repository.NewUser(db)
 	serviceUser := service.NewUser(user)
 	handlerUser := handler.NewUser(serviceUser)
@@ -43,6 +44,12 @@ func newServer(db *sqlx.DB, config2 *config.Config, redis2 *redis.Client, s3Uplo
 	geocoding := service.NewGeocoding(opencageClient)
 	serviceServiceProvider := service.NewServiceProvider(db, serviceProvider, user, province, city, serviceProviderArea, pendingRegistration, serviceFile, geocoding)
 	handlerServiceProvider := handler.NewServiceProvider(serviceServiceProvider, authMiddleware)
-	server := provider.NewServer(handlerUser, handlerAuth, handlerFile, handlerServiceProvider)
+	serviceIndex := repository.NewServiceIndex(esDB)
+	repositoryService := repository.NewService(db)
+	serviceCategory := repository.NewServiceCategory(db)
+	serviceServiceCategory := repository.NewServiceServiceCategory(db)
+	serviceService := service.NewService(db, serviceIndex, serviceProvider, repositoryService, serviceCategory, serviceServiceCategory)
+	handlerService := handler.NewService(serviceService, authMiddleware)
+	server := provider.NewServer(handlerUser, handlerAuth, handlerFile, handlerServiceProvider, handlerService)
 	return server, nil
 }

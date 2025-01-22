@@ -1,0 +1,24 @@
+package routes
+
+import (
+	"kelarin/internal/handler"
+	"kelarin/internal/middleware"
+
+	"github.com/gin-gonic/gin"
+)
+
+type Service struct {
+	g              *gin.Engine
+	serviceHandler handler.Service
+}
+
+func NewService(g *gin.Engine, serviceHandler handler.Service) Service {
+	return Service{
+		g:              g,
+		serviceHandler: serviceHandler,
+	}
+}
+
+func (r *Service) Register(m middleware.Auth) {
+	r.g.POST("/provider/v1/services", m.ServiceProvider, r.serviceHandler.Create)
+}
