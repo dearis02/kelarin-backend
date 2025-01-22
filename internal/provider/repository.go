@@ -15,4 +15,8 @@ var RepositorySet = wire.NewSet(
 	repository.NewCity,
 	repository.NewServiceProviderArea,
 	repository.NewServiceProvider,
+	repository.NewServiceCategory,
+	repository.NewServiceServiceCategory,
+	repository.NewService,
+	repository.NewServiceIndex,
 )

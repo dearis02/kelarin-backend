@@ -6,4 +6,10 @@ import (
 	"github.com/google/wire"
 )
 
-var HandlerSet = wire.NewSet(handler.NewUser, handler.NewAuth, handler.NewFile, handler.NewServiceProvider)
+var HandlerSet = wire.NewSet(
+	handler.NewUser,
+	handler.NewAuth,
+	handler.NewFile,
+	handler.NewServiceProvider,
+	handler.NewService,
+)

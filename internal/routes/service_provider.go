@@ -20,5 +20,5 @@ func NewServiceProvider(g *gin.Engine, serviceProviderHandler handler.ServicePro
 }
 
 func (r *ServiceProvider) Register(m middleware.Auth) {
-	r.g.POST("/v1/service-providers", m.ServiceProvider, r.serviceProviderHandler.Register)
+	r.g.POST("/provider/v1/register", m.ServiceProvider, r.serviceProviderHandler.Register)
 }

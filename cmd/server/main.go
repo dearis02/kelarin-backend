@@ -58,10 +58,11 @@ func main() {
 		log.Fatal().Stack().Caller().Err(err).Send()
 	}
 
-	if _, err := es.Info(); err != nil {
-		log.Fatal().Stack().Caller().Err(err).Msg("Failed to connect to Elasticsearch")
-	} else {
-		log.Info().Msg("Elasticsearch connected")
+	esPing, err := es.Ping().Do(context.Background())
+	if err != nil {
+		log.Fatal().Stack().Err(err).Msg("failed to ping elasticsearch")
+	} else if !esPing {
+		log.Fatal().Stack().Msg("elasticsearch is not available")
 	}
 
 	queueClient, err := queue.NewAsynq(&cfg.Redis)
@@ -78,7 +79,7 @@ func main() {
 
 	authMiddleware := middleware.NewAuth(cfg)
 
-	server, err := newServer(db, cfg, redis, s3Uploader, queueClient, s3Client, s3PresignClient, openCageClient, authMiddleware)
+	server, err := newServer(db, es, cfg, redis, s3Uploader, queueClient, s3Client, s3PresignClient, openCageClient, authMiddleware)
 	if err != nil {
 		log.Fatal().Stack().Err(err).Send()
 	}
@@ -107,6 +108,7 @@ func main() {
 	userRoutes := routes.NewUser(g, server.UserHandler)
 	fileRoutes := routes.NewFile(g, server.FileHandler)
 	serviceProviderRoutes := routes.NewServiceProvider(g, server.ServiceProviderHandler)
+	serviceRoutes := routes.NewService(g, server.ServiceHandler)
 
 	// End init routes region
 
@@ -116,6 +118,7 @@ func main() {
 	userRoutes.Register()
 	fileRoutes.Register(authMiddleware)
 	serviceProviderRoutes.Register(authMiddleware)
+	serviceRoutes.Register(authMiddleware)
 
 	// End routes registration
 

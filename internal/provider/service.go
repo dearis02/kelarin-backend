@@ -6,4 +6,11 @@ import (
 	"github.com/google/wire"
 )
 
-var ServiceSet = wire.NewSet(service.NewUser, service.NewAuth, service.NewFile, service.NewGeocoding, service.NewServiceProvider)
+var ServiceSet = wire.NewSet(
+	service.NewUser,
+	service.NewAuth,
+	service.NewFile,
+	service.NewGeocoding,
+	service.NewServiceProvider,
+	service.NewService,
+)

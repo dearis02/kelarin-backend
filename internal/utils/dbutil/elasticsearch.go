@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func NewElasticsearchClient(cfg *config.Config) (*elasticsearch.Client, error) {
+func NewElasticsearchClient(cfg *config.Config) (*elasticsearch.TypedClient, error) {
 	cert, err := os.ReadFile(cfg.Elasticsearch.CertificatePath)
 	if err != nil {
 		return nil, err
@@ -36,7 +36,7 @@ func NewElasticsearchClient(cfg *config.Config) (*elasticsearch.Client, error) {
 		},
 	}
 
-	client, err := elasticsearch.NewClient(c)
+	client, err := elasticsearch.NewTypedClient(c)
 	if err != nil {
 		return nil, err
 	}
