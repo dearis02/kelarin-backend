@@ -17,6 +17,7 @@ import (
 type Service interface {
 	Create(ctx context.Context, req types.ServiceCreateReq) error
 	GetByID(ctx context.Context, req types.ServiceGetByIDReq) (types.ServiceGetByIDRes, error)
+	Update(ctx context.Context, req types.ServiceUpdateReq) error
 }
 
 type serviceImpl struct {
@@ -118,6 +119,7 @@ func (s *serviceImpl) Create(ctx context.Context, req types.ServiceCreateReq) er
 		Description:     service.Description,
 		DeliveryMethods: service.DeliveryMethods,
 		Categories:      idxCategories,
+		Rules:           service.Rules,
 		FeeStartAt:      service.FeeStartAt,
 		FeeEndAt:        service.FeeEndAt,
 		IsAvailable:     service.IsAvailable,
@@ -179,4 +181,99 @@ func (s *serviceImpl) GetByID(ctx context.Context, req types.ServiceGetByIDReq) 
 	}
 
 	return res, nil
+}
+
+func (s *serviceImpl) Update(ctx context.Context, req types.ServiceUpdateReq) error {
+	if err := req.Validate(); err != nil {
+		return err
+	}
+
+	provider, err := s.serviceProviderRepo.FindByUserID(ctx, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(fmt.Sprintf("service provider not found for user_id: %s", req.AuthUser.ID))
+	} else if err != nil {
+		return err
+	}
+
+	service, err := s.serviceRepo.FindByIDAndServiceProviderID(ctx, req.ID, provider.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(types.AppErr{Code: http.StatusNotFound})
+	} else if err != nil {
+		return err
+	}
+
+	idxService, err := s.serviceIndexRepo.FindByID(ctx, service.ID.String())
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(fmt.Sprintf("service index not found for service_id: %s", service.ID))
+	} else if err != nil {
+		return err
+	}
+
+	categories, err := s.serviceCategoryRepo.FindByIDs(ctx, req.CategoryIDs)
+	if err != nil {
+		return err
+	}
+
+	if len(categories) != len(req.CategoryIDs) {
+		return errors.New(types.AppErr{
+			Code:    http.StatusBadRequest,
+			Message: "invalid category_ids",
+		})
+	}
+
+	serviceCategories := []types.ServiceServiceCategory{}
+	idxCategories := []string{}
+	for _, category := range categories {
+		serviceCategories = append(serviceCategories, types.ServiceServiceCategory{
+			ServiceID:         service.ID,
+			ServiceCategoryID: category.ID,
+		})
+		idxCategories = append(idxCategories, category.Name)
+	}
+
+	service.Name = req.Name
+	service.Description = req.Description
+	service.DeliveryMethods = req.DeliveryMethods
+	service.FeeStartAt = req.FeeStartAt
+	service.FeeEndAt = req.FeeEndAt
+	service.Rules = req.Rules
+	service.IsAvailable = req.IsAvailable
+
+	idxService.Name = service.Name
+	idxService.Description = service.Description
+	idxService.DeliveryMethods = service.DeliveryMethods
+	idxService.Categories = idxCategories
+	idxService.Rules = service.Rules
+	idxService.FeeStartAt = service.FeeStartAt
+	idxService.FeeEndAt = service.FeeEndAt
+	idxService.IsAvailable = service.IsAvailable
+
+	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	if err != nil {
+		return errors.New(err)
+	}
+
+	defer tx.Rollback()
+
+	if err := s.serviceServiceCategoryRepo.DeleteByServiceIDTx(ctx, tx, service.ID); err != nil {
+		return err
+	}
+
+	if err := s.serviceServiceCategoryRepo.BulkCreateTx(ctx, tx, serviceCategories); err != nil {
+		return err
+	}
+
+	if err := s.serviceRepo.UpdateTx(ctx, tx, service); err != nil {
+		return err
+	}
+
+	if err := s.serviceIndexRepo.Update(ctx, idxService); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return errors.New(err)
+	}
+
+	return nil
 }

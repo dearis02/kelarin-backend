@@ -169,6 +169,7 @@ type ServiceIndex struct {
 	Description     string                  `json:"description"`
 	DeliveryMethods []ServiceDeliveryMethod `json:"delivery_methods"`
 	Categories      []string                `json:"categories"`
+	Rules           ServiceRules            `json:"rules"`
 	FeeStartAt      decimal.Decimal         `json:"fee_start_at"`
 	FeeEndAt        decimal.Decimal         `json:"fee_end_at"`
 	IsAvailable     bool                    `json:"is_available"`
@@ -191,6 +192,55 @@ type ServiceGetByIDRes struct {
 	Rules           []ServiceRule           `json:"rules"`
 	IsAvailable     bool                    `json:"is_available"`
 	CreatedAt       time.Time               `json:"created_at"`
+}
+
+type ServiceUpdateReq struct {
+	AuthUser        AuthUser                `middleware:"user"`
+	ID              uuid.UUID               `uri:"id"`
+	Name            string                  `json:"name"`
+	Description     string                  `json:"description"`
+	DeliveryMethods []ServiceDeliveryMethod `json:"delivery_methods"`
+	FeeStartAt      decimal.Decimal         `json:"fee_start_at"`
+	FeeEndAt        decimal.Decimal         `json:"fee_end_at"`
+	Rules           []ServiceRule           `json:"rules"`
+	IsAvailable     bool                    `json:"is_available"`
+	CategoryIDs     []uuid.UUID             `json:"category_ids"`
+}
+
+func (r ServiceUpdateReq) Validate() error {
+	err := validation.ValidateStruct(&r,
+		validation.Field(&r.Name, validation.Required),
+		validation.Field(&r.Description, validation.Required),
+		validation.Field(&r.DeliveryMethods, validation.Required, validation.Each(validation.In(ServiceDeliveryMethodOnsite, ServiceDeliveryMethodOnline))),
+		validation.Field(&r.FeeStartAt, validation.Required),
+		validation.Field(&r.FeeEndAt, validation.Required),
+		validation.Field(&r.Rules, validation.Required),
+		validation.Field(&r.CategoryIDs, validation.Required),
+	)
+
+	if err != nil {
+		return err
+	}
+
+	ve := validation.Errors{}
+
+	if r.FeeStartAt.LessThan(decimal.Zero) {
+		ve["fee_start_at"] = validation.NewError("fee_start_at", "must be greater than or equal to 0")
+	}
+
+	if r.FeeEndAt.LessThan(decimal.Zero) {
+		ve["fee_end_at"] = validation.NewError("fee_end_at", "must be greater than or equal to 0")
+	}
+
+	if r.FeeStartAt.GreaterThan(r.FeeEndAt) {
+		ve["fee_start_at"] = validation.NewError("fee_start_at", "must be less than fee_end_to")
+	}
+
+	if len(ve) > 0 {
+		return ve
+	}
+
+	return nil
 }
 
 // end of region service types

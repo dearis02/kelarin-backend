@@ -13,6 +13,7 @@ import (
 type Service interface {
 	CreateTx(ctx context.Context, tx *sqlx.Tx, req types.Service) error
 	FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Service, error)
+	UpdateTx(ctx context.Context, tx *sqlx.Tx, req types.Service) error
 }
 
 type serviceImpl struct {
@@ -89,4 +90,25 @@ func (r *serviceImpl) FindByIDAndServiceProviderID(ctx context.Context, ID, serv
 	}
 
 	return res, nil
+}
+
+func (r *serviceImpl) UpdateTx(ctx context.Context, tx *sqlx.Tx, req types.Service) error {
+	statement := `
+		UPDATE services
+		SET
+			name = :name,
+			description = :description,
+			delivery_methods = :delivery_methods,
+			fee_start_at = :fee_start_at,
+			fee_end_at = :fee_end_at,
+			rules = :rules,
+			is_available = :is_available
+		WHERE id = :id
+	`
+
+	if _, err := tx.NamedExecContext(ctx, statement, req); err != nil {
+		return errors.New(err)
+	}
+
+	return nil
 }
