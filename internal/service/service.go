@@ -16,6 +16,7 @@ import (
 
 type Service interface {
 	Create(ctx context.Context, req types.ServiceCreateReq) error
+	GetByID(ctx context.Context, req types.ServiceGetByIDReq) (types.ServiceGetByIDRes, error)
 }
 
 type serviceImpl struct {
@@ -132,4 +133,50 @@ func (s *serviceImpl) Create(ctx context.Context, req types.ServiceCreateReq) er
 	}
 
 	return nil
+}
+
+func (s *serviceImpl) GetByID(ctx context.Context, req types.ServiceGetByIDReq) (types.ServiceGetByIDRes, error) {
+	res := types.ServiceGetByIDRes{}
+
+	provider, err := s.serviceProviderRepo.FindByUserID(ctx, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.New(fmt.Sprintf("service provider not found: user_id %s", req.AuthUser.ID))
+	} else if err != nil {
+		return res, err
+	}
+
+	service, err := s.serviceRepo.FindByIDAndServiceProviderID(ctx, req.ID, provider.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.New(types.AppErr{Code: http.StatusNotFound})
+	} else if err != nil {
+		return res, err
+	}
+
+	categories, err := s.serviceCategoryRepo.FindByServiceIDs(ctx, []uuid.UUID{service.ID})
+	if err != nil {
+		return res, err
+	}
+
+	categoryRes := []types.ServiceCategoryRes{}
+	for _, category := range categories {
+		categoryRes = append(categoryRes, types.ServiceCategoryRes{
+			ID:   category.ID,
+			Name: category.Name,
+		})
+	}
+
+	res = types.ServiceGetByIDRes{
+		ID:              service.ID,
+		Name:            service.Name,
+		Description:     service.Description,
+		DeliveryMethods: service.DeliveryMethods,
+		Categories:      categoryRes,
+		FeeStartAt:      service.FeeStartAt,
+		FeeEndAt:        service.FeeEndAt,
+		Rules:           service.Rules,
+		IsAvailable:     service.IsAvailable,
+		CreatedAt:       service.CreatedAt,
+	}
+
+	return res, nil
 }

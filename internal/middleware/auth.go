@@ -149,8 +149,8 @@ func (authImpl) BindWithRequest(c *gin.Context, req interface{}) error {
 		return errors.New("req must be a pointer to a struct")
 	}
 
-	if err := c.ShouldBindJSON(req); err != nil {
-		return err
+	if err := c.ShouldBind(req); err != nil {
+		return errors.New(types.AppErr{Code: http.StatusBadRequest, Message: err.Error()})
 	}
 
 	reqType := reqValue.Elem().Type()

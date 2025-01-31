@@ -2,14 +2,17 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"kelarin/internal/types"
 
 	"github.com/go-errors/errors"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
 type Service interface {
 	CreateTx(ctx context.Context, tx *sqlx.Tx, req types.Service) error
+	FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Service, error)
 }
 
 type serviceImpl struct {
@@ -55,4 +58,35 @@ func (r *serviceImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, req types.Servi
 	}
 
 	return nil
+}
+
+func (r *serviceImpl) FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Service, error) {
+	res := types.Service{}
+
+	statement := `
+		SELECT
+			id,
+			service_provider_id,
+			name,
+			description,
+			delivery_methods,
+			fee_start_at,
+			fee_end_at,
+			rules,
+			is_available,
+			created_at
+		FROM services
+		WHERE id = $1
+		AND service_provider_id = $2
+		AND is_deleted = false
+	`
+
+	err := r.db.GetContext(ctx, &res, statement, ID, serviceProviderID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, types.ErrNoData
+	} else if err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
 }

@@ -50,7 +50,22 @@ func (t *DeliveryMethods) Scan(src any) error {
 		return errors.New("types.DeliveryMethods: invalid type")
 	}
 
-	return json.Unmarshal(source, t)
+	return pq.Array(t).Scan(source)
+}
+
+func (t *ServiceDeliveryMethod) Scan(src any) error {
+	if src == nil {
+		return nil
+	}
+
+	source, ok := src.([]byte)
+	if !ok {
+		return errors.New("types.ServiceDeliveryMethod: invalid type")
+	}
+
+	*t = ServiceDeliveryMethod(string(source))
+
+	return nil
 }
 
 const (
@@ -156,6 +171,24 @@ type ServiceIndex struct {
 	Categories      []string                `json:"categories"`
 	FeeStartAt      decimal.Decimal         `json:"fee_start_at"`
 	FeeEndAt        decimal.Decimal         `json:"fee_end_at"`
+	IsAvailable     bool                    `json:"is_available"`
+	CreatedAt       time.Time               `json:"created_at"`
+}
+
+type ServiceGetByIDReq struct {
+	AuthUser AuthUser  `middleware:"user"`
+	ID       uuid.UUID `uri:"id" binding:"required,uuid"`
+}
+
+type ServiceGetByIDRes struct {
+	ID              uuid.UUID               `json:"id"`
+	Name            string                  `json:"name"`
+	Description     string                  `json:"description"`
+	DeliveryMethods []ServiceDeliveryMethod `json:"delivery_methods"`
+	Categories      []ServiceCategoryRes    `json:"categories"`
+	FeeStartAt      decimal.Decimal         `json:"fee_start_at"`
+	FeeEndAt        decimal.Decimal         `json:"fee_end_at"`
+	Rules           []ServiceRule           `json:"rules"`
 	IsAvailable     bool                    `json:"is_available"`
 	CreatedAt       time.Time               `json:"created_at"`
 }
