@@ -18,6 +18,7 @@ type Auth interface {
 	Consumer(c *gin.Context)
 	ServiceProvider(c *gin.Context)
 	BindWithRequest(c *gin.Context, req interface{}) error
+	WS(c *gin.Context)
 }
 
 type authImpl struct {
@@ -49,7 +50,15 @@ func (m *authImpl) ServiceProvider(c *gin.Context) {
 }
 
 func (m *authImpl) parseAuthorizationHeader(c *gin.Context) {
-	claims, err := m.parseJwt(c)
+	accToken, err := getTokenFromHeader(c)
+	if err != nil {
+		log.Error().Err(err).Send()
+		c.Error(errors.New(types.AppErr{Code: http.StatusUnauthorized}))
+		c.Abort()
+		return
+	}
+
+	claims, err := m.parseJwt(accToken)
 	if err != nil {
 		log.Error().Err(err).Send()
 		c.Error(errors.New(types.AppErr{Code: http.StatusUnauthorized}))
@@ -115,13 +124,8 @@ func getTokenFromHeader(c *gin.Context) (string, error) {
 	return authHeader[1], nil
 }
 
-func (m *authImpl) parseJwt(c *gin.Context) (*types.AuthJwtCustomClaims, error) {
+func (m *authImpl) parseJwt(accToken string) (*types.AuthJwtCustomClaims, error) {
 	claims := &types.AuthJwtCustomClaims{}
-
-	accToken, err := getTokenFromHeader(c)
-	if err != nil {
-		return claims, err
-	}
 
 	token, err := jwt.ParseWithClaims(accToken, claims, func(token *jwt.Token) (interface{}, error) {
 		return []byte(m.config.JWT.SecretKey), nil
@@ -173,4 +177,28 @@ func (authImpl) BindWithRequest(c *gin.Context, req interface{}) error {
 	}
 
 	return nil
+}
+
+func (m *authImpl) WS(c *gin.Context) {
+	token, exist := c.GetQuery("token")
+	if !exist {
+		c.JSON(http.StatusUnauthorized, types.ApiResponse{StatusCode: http.StatusUnauthorized})
+		c.Abort()
+		return
+	}
+
+	if token == "" {
+		c.JSON(http.StatusUnauthorized, types.ApiResponse{StatusCode: http.StatusUnauthorized})
+		c.Abort()
+		return
+	}
+
+	claims, err := m.parseJwt(token)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, types.ApiResponse{StatusCode: http.StatusUnauthorized})
+		c.Abort()
+		return
+	}
+
+	c.Set(types.AuthUserContextKey, claims.Subject)
 }
