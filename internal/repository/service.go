@@ -40,6 +40,7 @@ func (r *serviceImpl) FindByID(ctx context.Context, ID uuid.UUID) (types.Service
 			fee_start_at,
 			fee_end_at,
 			rules,
+			images,
 			is_available,
 			created_at
 		FROM services
@@ -106,6 +107,7 @@ func (r *serviceImpl) FindByIDAndServiceProviderID(ctx context.Context, ID, serv
 			fee_start_at,
 			fee_end_at,
 			rules,
+			images,
 			is_available,
 			created_at
 		FROM services
