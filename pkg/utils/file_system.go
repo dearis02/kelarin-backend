@@ -15,7 +15,7 @@ func IsFileExist(path string) bool {
 	return !os.IsNotExist(err)
 }
 
-func GenerateUniqueFileName() string {
+func GenerateUniqueFileName(fileName string) string {
 	bytes := make([]byte, 20)
 	if _, err := rand.Read(bytes); err != nil {
 		return ""
@@ -24,7 +24,7 @@ func GenerateUniqueFileName() string {
 	timeStamp := time.Now().Unix()
 	name := fmt.Sprintf("%d_%s", timeStamp, hex.EncodeToString(bytes))
 
-	return name
+	return name + filepath.Ext(fileName)
 }
 
 func IsDirExist(path string) (bool, error) {

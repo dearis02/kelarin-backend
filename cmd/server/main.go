@@ -64,12 +64,12 @@ func main() {
 		log.Fatal().Stack().Caller().Err(err).Send()
 	}
 
-	// esPing, err := es.Ping().Do(context.Background())
-	// if err != nil {
-	// 	log.Fatal().Stack().Err(err).Msg("failed to ping elasticsearch")
-	// } else if !esPing {
-	// 	log.Fatal().Stack().Msg("elasticsearch is not available")
-	// }
+	esPing, err := es.Ping().Do(context.Background())
+	if err != nil {
+		log.Fatal().Stack().Err(err).Msg("failed to ping elasticsearch")
+	} else if !esPing {
+		log.Fatal().Stack().Msg("elasticsearch is not available")
+	}
 
 	queueClient, err := queue.NewAsynq(&cfg.Redis)
 	if err != nil {

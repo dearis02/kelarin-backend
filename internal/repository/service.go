@@ -11,8 +11,10 @@ import (
 )
 
 type Service interface {
-	FindByID(ctx context.Context, ID uuid.UUID) (types.Service, error)
 	CreateTx(ctx context.Context, tx *sqlx.Tx, req types.Service) error
+	FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Service, error)
+	UpdateTx(ctx context.Context, tx *sqlx.Tx, req types.Service) error
+	FindByID(ctx context.Context, ID uuid.UUID) (types.Service, error)
 }
 
 type serviceImpl struct {
@@ -38,6 +40,7 @@ func (r *serviceImpl) FindByID(ctx context.Context, ID uuid.UUID) (types.Service
 			fee_start_at,
 			fee_end_at,
 			rules,
+			images,
 			is_available,
 			created_at
 		FROM services
@@ -65,6 +68,7 @@ func (r *serviceImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, req types.Servi
 			fee_start_at,
 			fee_end_at,
 			rules,
+			images,
 			is_available,
 			created_at
 		) 
@@ -77,9 +81,64 @@ func (r *serviceImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, req types.Servi
 			:fee_start_at,
 			:fee_end_at,
 			:rules,
+			:images,
 			:is_available,
 			:created_at
 		)
+	`
+
+	if _, err := tx.NamedExecContext(ctx, statement, req); err != nil {
+		return errors.New(err)
+	}
+
+	return nil
+}
+
+func (r *serviceImpl) FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Service, error) {
+	res := types.Service{}
+
+	statement := `
+		SELECT
+			id,
+			service_provider_id,
+			name,
+			description,
+			delivery_methods,
+			fee_start_at,
+			fee_end_at,
+			rules,
+			images,
+			is_available,
+			created_at
+		FROM services
+		WHERE id = $1
+		AND service_provider_id = $2
+		AND is_deleted = false
+	`
+
+	err := r.db.GetContext(ctx, &res, statement, ID, serviceProviderID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, types.ErrNoData
+	} else if err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *serviceImpl) UpdateTx(ctx context.Context, tx *sqlx.Tx, req types.Service) error {
+	statement := `
+		UPDATE services
+		SET
+			name = :name,
+			description = :description,
+			delivery_methods = :delivery_methods,
+			fee_start_at = :fee_start_at,
+			fee_end_at = :fee_end_at,
+			rules = :rules,
+			images = :images,
+			is_available = :is_available
+		WHERE id = :id
 	`
 
 	if _, err := tx.NamedExecContext(ctx, statement, req); err != nil {
