@@ -246,6 +246,8 @@ func (r ServiceUpdateReq) Validate() error {
 	return nil
 }
 
+const ServiceImageDir = "images/service"
+
 // end of region service types
 
 const ServiceImageDir = "images/service"
