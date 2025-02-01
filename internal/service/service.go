@@ -27,10 +27,10 @@ type serviceImpl struct {
 	serviceRepo                repository.Service
 	serviceCategoryRepo        repository.ServiceCategory
 	serviceServiceCategoryRepo repository.ServiceServiceCategory
+	fileSvc                    File
 }
 
-func NewService(db *sqlx.DB, serviceIndexRepo repository.ServiceIndex, serviceProviderRepo repository.ServiceProvider, serviceRepo repository.Service, serviceCategoryRepo repository.ServiceCategory, serviceServiceCategoryRepo repository.ServiceServiceCategory,
-) Service {
+func NewService(db *sqlx.DB, serviceIndexRepo repository.ServiceIndex, serviceProviderRepo repository.ServiceProvider, serviceRepo repository.Service, serviceCategoryRepo repository.ServiceCategory, serviceServiceCategoryRepo repository.ServiceServiceCategory, fileSvc File) Service {
 	return &serviceImpl{
 		db:                         db,
 		serviceIndexRepo:           serviceIndexRepo,
@@ -38,6 +38,7 @@ func NewService(db *sqlx.DB, serviceIndexRepo repository.ServiceIndex, servicePr
 		serviceRepo:                serviceRepo,
 		serviceCategoryRepo:        serviceCategoryRepo,
 		serviceServiceCategoryRepo: serviceServiceCategoryRepo,
+		fileSvc:                    fileSvc,
 	}
 }
 
@@ -92,6 +93,23 @@ func (s *serviceImpl) Create(ctx context.Context, req types.ServiceCreateReq) er
 			ServiceCategoryID: category.ID,
 		})
 	}
+
+	tempFiles := []types.TempFile{}
+	for _, img := range req.Images {
+		file, err := s.fileSvc.GetTemp(ctx, img)
+		if err != nil {
+			return err
+		}
+
+		tempFiles = append(tempFiles, types.TempFile(file))
+	}
+
+	imagesPath, err := s.fileSvc.BulkUploadToS3(ctx, tempFiles, types.ServiceImageDir)
+	if err != nil {
+		return err
+	}
+
+	service.Images = imagesPath
 
 	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
 	if err != nil {

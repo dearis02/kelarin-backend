@@ -37,6 +37,7 @@ func (r *serviceImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, req types.Servi
 			fee_start_at,
 			fee_end_at,
 			rules,
+			images,
 			is_available,
 			created_at
 		) 
@@ -49,6 +50,7 @@ func (r *serviceImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, req types.Servi
 			:fee_start_at,
 			:fee_end_at,
 			:rules,
+			:images,
 			:is_available,
 			:created_at
 		)
@@ -102,6 +104,7 @@ func (r *serviceImpl) UpdateTx(ctx context.Context, tx *sqlx.Tx, req types.Servi
 			fee_start_at = :fee_start_at,
 			fee_end_at = :fee_end_at,
 			rules = :rules,
+			images = :images,
 			is_available = :is_available
 		WHERE id = :id
 	`

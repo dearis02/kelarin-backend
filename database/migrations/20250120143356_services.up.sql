@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS services(
     delivery_methods service_delivery_method[] NOT NULL,
     fee_start_at DECIMAL(15, 2) NOT NULL,
     fee_end_at DECIMAL(15, 2) NOT NULL,
+    images VARCHAR(255)[] NOT NULL,
     rules JSONB NOT NULL DEFAULT '{}',
     is_available BOOLEAN NOT NULL DEFAULT TRUE,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,

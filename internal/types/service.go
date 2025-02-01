@@ -26,6 +26,7 @@ type Service struct {
 	FeeStartAt        decimal.Decimal `db:"fee_start_at"`
 	FeeEndAt          decimal.Decimal `db:"fee_end_at"`
 	Rules             ServiceRules    `db:"rules"`
+	Images            pq.StringArray  `db:"images"`
 	IsAvailable       bool            `db:"is_available"`
 	IsDeleted         bool            `db:"is_deleted"`
 	CreatedAt         time.Time       `db:"created_at"`
@@ -123,6 +124,7 @@ type ServiceCreateReq struct {
 	FeeStartAt      decimal.Decimal         `json:"fee_start_at"`
 	FeeEndAt        decimal.Decimal         `json:"fee_end_at"`
 	Rules           []ServiceRule           `json:"rules"`
+	Images          []string                `json:"images"`
 	IsAvailable     bool                    `json:"is_available"`
 	CategoryIDs     []uuid.UUID             `json:"category_ids"`
 }
@@ -135,6 +137,7 @@ func (r ServiceCreateReq) Validate() error {
 		validation.Field(&r.FeeStartAt, validation.Required),
 		validation.Field(&r.FeeEndAt, validation.Required),
 		validation.Field(&r.Rules, validation.Required),
+		validation.Field(&r.Images, validation.Required),
 		validation.Field(&r.CategoryIDs, validation.Required),
 	)
 
@@ -242,5 +245,7 @@ func (r ServiceUpdateReq) Validate() error {
 
 	return nil
 }
+
+const ServiceImageDir = "images/service"
 
 // end of region service types

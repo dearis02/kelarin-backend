@@ -175,7 +175,7 @@ func (s *serviceProviderImpl) Register(ctx context.Context, req types.ServicePro
 		})
 	}
 
-	logo, err := s.fileSvc.BulkUploadToS3(ctx, []types.FileTemp{{Name: tempFile.Name}}, types.ServiceProviderLogoDir)
+	logo, err := s.fileSvc.BulkUploadToS3(ctx, []types.TempFile{{Name: tempFile.Name}}, types.ServiceProviderLogoDir)
 	if err != nil {
 		return err
 	}
