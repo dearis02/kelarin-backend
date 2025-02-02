@@ -193,6 +193,7 @@ type ServiceGetByIDRes struct {
 	FeeStartAt      decimal.Decimal         `json:"fee_start_at"`
 	FeeEndAt        decimal.Decimal         `json:"fee_end_at"`
 	Rules           []ServiceRule           `json:"rules"`
+	Images          []string                `json:"images"`
 	IsAvailable     bool                    `json:"is_available"`
 	CreatedAt       time.Time               `json:"created_at"`
 }
@@ -244,6 +245,45 @@ func (r ServiceUpdateReq) Validate() error {
 	}
 
 	return nil
+}
+
+type ServiceGetAllReq struct {
+	AuthUser AuthUser `middleware:"user"`
+}
+
+func (r ServiceGetAllReq) Validate() error {
+	if r.AuthUser == (AuthUser{}) {
+		return errors.New("AuthUser is required")
+	}
+
+	return nil
+}
+
+type ServiceGetAllRes struct {
+	ID              uuid.UUID               `json:"id"`
+	Name            string                  `json:"name"`
+	Description     string                  `json:"description"`
+	DeliveryMethods []ServiceDeliveryMethod `json:"delivery_methods"`
+	FeeStartAt      decimal.Decimal         `json:"fee_start_at"`
+	FeeEndAt        decimal.Decimal         `json:"fee_end_at"`
+	Rules           ServiceRules            `json:"rules"`
+	IsAvailable     bool                    `json:"is_available"`
+	CreatedAt       time.Time               `json:"created_at"`
+}
+
+type ServiceDeleteReq struct {
+	AuthUser AuthUser  `middleware:"user"`
+	ID       uuid.UUID `uri:"id" binding:"required,uuid"`
+}
+
+func (r ServiceDeleteReq) Validate() error {
+	if r.AuthUser == (AuthUser{}) {
+		return errors.New("AuthUser is required")
+	}
+
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.ID, validation.Required),
+	)
 }
 
 // end of region service types

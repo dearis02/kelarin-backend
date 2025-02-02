@@ -13,6 +13,7 @@ type ServiceIndex interface {
 	Index(ctx context.Context, req types.ServiceIndex) error
 	FindByID(ctx context.Context, ID string) (types.ServiceIndex, error)
 	Update(ctx context.Context, req types.ServiceIndex) error
+	Delete(ctx context.Context, req types.ServiceIndex) error
 }
 
 type serviceIndexImpl struct {
@@ -55,6 +56,15 @@ func (r *serviceIndexImpl) FindByID(ctx context.Context, ID string) (types.Servi
 
 func (r *serviceIndexImpl) Update(ctx context.Context, req types.ServiceIndex) error {
 	if _, err := r.esDB.Update(types.ServiceElasticSearchIndexName, req.ID.String()).Doc(req).Do(ctx); err != nil {
+		return errors.New(err)
+	}
+
+	return nil
+}
+
+func (r *serviceIndexImpl) Delete(ctx context.Context, req types.ServiceIndex) error {
+	_, err := r.esDB.Delete(types.ServiceElasticSearchIndexName, req.ID.String()).Do(ctx)
+	if err != nil {
 		return errors.New(err)
 	}
 

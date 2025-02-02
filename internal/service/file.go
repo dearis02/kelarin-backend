@@ -227,7 +227,7 @@ func (r *fileImpl) GetS3PresignedURL(ctx context.Context, objectKey string) (str
 
 	signedRes, err := r.s3PresignClient.PresignGetObject(ctx, req)
 	if err != nil {
-		return "", err
+		return "", errors.New(err)
 	}
 
 	return signedRes.URL, nil

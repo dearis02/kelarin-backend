@@ -11,9 +11,11 @@ import (
 )
 
 type Service interface {
+	GetAll(c *gin.Context)
 	Create(c *gin.Context)
 	GetByID(c *gin.Context)
 	Update(c *gin.Context)
+	Delete(c *gin.Context)
 }
 
 type serviceImpl struct {
@@ -26,6 +28,26 @@ func NewService(serviceSvc service.Service, authMiddleware middleware.Auth) Serv
 		serviceSvc:     serviceSvc,
 		authMiddleware: authMiddleware,
 	}
+}
+
+func (h *serviceImpl) GetAll(c *gin.Context) {
+	var req types.ServiceGetAllReq
+
+	if err := h.authMiddleware.BindWithRequest(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	res, err := h.serviceSvc.GetAll(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
+		Data:       res,
+	})
 }
 
 func (h *serviceImpl) Create(c *gin.Context) {
@@ -90,6 +112,27 @@ func (h *serviceImpl) Update(c *gin.Context) {
 
 	c.JSON(http.StatusOK, types.ApiResponse{
 		StatusCode: http.StatusOK,
-		Message:    http.StatusText(http.StatusOK),
+	})
+}
+
+func (h *serviceImpl) Delete(c *gin.Context) {
+	var req types.ServiceDeleteReq
+	if err := req.ID.UnmarshalText([]byte(c.Param("id"))); err != nil {
+		c.Error(errors.New(types.AppErr{Code: http.StatusBadRequest, Message: "invalid id"}))
+		return
+	}
+
+	if err := h.authMiddleware.BindWithRequest(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	if err := h.serviceSvc.Delete(c.Request.Context(), req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
 	})
 }

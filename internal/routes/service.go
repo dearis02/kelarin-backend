@@ -20,7 +20,9 @@ func NewService(g *gin.Engine, serviceHandler handler.Service) Service {
 }
 
 func (r *Service) Register(m middleware.Auth) {
+	r.g.GET("/provider/v1/services", m.ServiceProvider, r.serviceHandler.GetAll)
 	r.g.POST("/provider/v1/services", m.ServiceProvider, r.serviceHandler.Create)
 	r.g.GET("/provider/v1/services/:id", m.ServiceProvider, r.serviceHandler.GetByID)
 	r.g.PUT("/provider/v1/services/:id", m.ServiceProvider, r.serviceHandler.Update)
+	r.g.DELETE("/provider/v1/services/:id", m.ServiceProvider, r.serviceHandler.Delete)
 }

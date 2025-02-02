@@ -15,6 +15,8 @@ type Service interface {
 	FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Service, error)
 	UpdateTx(ctx context.Context, tx *sqlx.Tx, req types.Service) error
 	FindByID(ctx context.Context, ID uuid.UUID) (types.Service, error)
+	FindAllByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.Service, error)
+	DeleteTx(ctx context.Context, tx *sqlx.Tx, service types.Service) error
 }
 
 type serviceImpl struct {
@@ -142,6 +144,51 @@ func (r *serviceImpl) UpdateTx(ctx context.Context, tx *sqlx.Tx, req types.Servi
 	`
 
 	if _, err := tx.NamedExecContext(ctx, statement, req); err != nil {
+		return errors.New(err)
+	}
+
+	return nil
+}
+
+func (r *serviceImpl) FindAllByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.Service, error) {
+	res := []types.Service{}
+
+	statement := `
+		SELECT
+			id,
+			service_provider_id,
+			name,
+			description,
+			delivery_methods,
+			fee_start_at,
+			fee_end_at,
+			rules,
+			images,
+			is_available,
+			created_at
+		FROM services
+		WHERE service_provider_id = $1
+		AND is_deleted = false
+		ORDER BY id DESC
+	`
+
+	if err := r.db.SelectContext(ctx, &res, statement, serviceProviderID); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *serviceImpl) DeleteTx(ctx context.Context, tx *sqlx.Tx, service types.Service) error {
+	statement := `
+		UPDATE services
+		SET
+			is_deleted = TRUE,
+			delete_at = $1
+		WHERE id = $2
+	`
+
+	if _, err := tx.ExecContext(ctx, statement, service.DeletedAt, service.ID); err != nil {
 		return errors.New(err)
 	}
 
