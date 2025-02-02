@@ -12,12 +12,15 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/volatiletech/null/v9"
 )
 
 type Service interface {
+	GetAll(ctx context.Context, req types.ServiceGetAllReq) ([]types.ServiceGetAllRes, error)
 	Create(ctx context.Context, req types.ServiceCreateReq) error
 	GetByID(ctx context.Context, req types.ServiceGetByIDReq) (types.ServiceGetByIDRes, error)
 	Update(ctx context.Context, req types.ServiceUpdateReq) error
+	Delete(ctx context.Context, req types.ServiceDeleteReq) error
 }
 
 type serviceImpl struct {
@@ -40,6 +43,38 @@ func NewService(db *sqlx.DB, serviceIndexRepo repository.ServiceIndex, servicePr
 		serviceServiceCategoryRepo: serviceServiceCategoryRepo,
 		fileSvc:                    fileSvc,
 	}
+}
+
+func (s *serviceImpl) GetAll(ctx context.Context, req types.ServiceGetAllReq) ([]types.ServiceGetAllRes, error) {
+	res := []types.ServiceGetAllRes{}
+
+	provider, err := s.serviceProviderRepo.FindByUserID(ctx, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.New(fmt.Sprintf("service provider not found: user_id %s", req.AuthUser.ID))
+	} else if err != nil {
+		return res, err
+	}
+
+	services, err := s.serviceRepo.FindAllByServiceProviderID(ctx, provider.ID)
+	if err != nil {
+		return res, err
+	}
+
+	for _, service := range services {
+		res = append(res, types.ServiceGetAllRes{
+			ID:              service.ID,
+			Name:            service.Name,
+			Description:     service.Description,
+			DeliveryMethods: service.DeliveryMethods,
+			FeeStartAt:      service.FeeStartAt,
+			FeeEndAt:        service.FeeEndAt,
+			Rules:           service.Rules,
+			IsAvailable:     service.IsAvailable,
+			CreatedAt:       service.CreatedAt,
+		})
+	}
+
+	return res, nil
 }
 
 func (s *serviceImpl) Create(ctx context.Context, req types.ServiceCreateReq) error {
@@ -185,6 +220,15 @@ func (s *serviceImpl) GetByID(ctx context.Context, req types.ServiceGetByIDReq) 
 		})
 	}
 
+	imgUrls := []string{}
+	for _, img := range service.Images {
+		url, err := s.fileSvc.GetS3PresignedURL(ctx, img)
+		if err != nil {
+			return res, err
+		}
+		imgUrls = append(imgUrls, url)
+	}
+
 	res = types.ServiceGetByIDRes{
 		ID:              service.ID,
 		Name:            service.Name,
@@ -194,6 +238,7 @@ func (s *serviceImpl) GetByID(ctx context.Context, req types.ServiceGetByIDReq) 
 		FeeStartAt:      service.FeeStartAt,
 		FeeEndAt:        service.FeeEndAt,
 		Rules:           service.Rules,
+		Images:          imgUrls,
 		IsAvailable:     service.IsAvailable,
 		CreatedAt:       service.CreatedAt,
 	}
@@ -286,6 +331,55 @@ func (s *serviceImpl) Update(ctx context.Context, req types.ServiceUpdateReq) er
 	}
 
 	if err := s.serviceIndexRepo.Update(ctx, idxService); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return errors.New(err)
+	}
+
+	return nil
+}
+
+func (s *serviceImpl) Delete(ctx context.Context, req types.ServiceDeleteReq) error {
+	if err := req.Validate(); err != nil {
+		return err
+	}
+
+	provider, err := s.serviceProviderRepo.FindByUserID(ctx, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(fmt.Sprintf("service provider not found for user_id: %s", req.AuthUser.ID))
+	} else if err != nil {
+		return err
+	}
+
+	service, err := s.serviceRepo.FindByIDAndServiceProviderID(ctx, req.ID, provider.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(types.AppErr{Code: http.StatusNotFound})
+	} else if err != nil {
+		return err
+	}
+
+	idxService, err := s.serviceIndexRepo.FindByID(ctx, service.ID.String())
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(fmt.Sprintf("service index not found for service_id: %s", service.ID))
+	} else if err != nil {
+		return err
+	}
+
+	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	if err != nil {
+		return errors.New(err)
+	}
+
+	defer tx.Rollback()
+
+	service.DeletedAt = null.TimeFrom(time.Now())
+	if err = s.serviceRepo.DeleteTx(ctx, tx, service); err != nil {
+		return err
+	}
+
+	if err = s.serviceIndexRepo.Delete(ctx, idxService); err != nil {
 		return err
 	}
 
