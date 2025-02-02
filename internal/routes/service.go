@@ -25,4 +25,6 @@ func (r *Service) Register(m middleware.Auth) {
 	r.g.GET("/provider/v1/services/:id", m.ServiceProvider, r.serviceHandler.GetByID)
 	r.g.PUT("/provider/v1/services/:id", m.ServiceProvider, r.serviceHandler.Update)
 	r.g.DELETE("/provider/v1/services/:id", m.ServiceProvider, r.serviceHandler.Delete)
+	r.g.POST("/provider/v1/services/:id/_images", m.ServiceProvider, r.serviceHandler.AddImages)
+	r.g.DELETE("/provider/v1/services/:id/_images", m.ServiceProvider, r.serviceHandler.RemoveImages)
 }

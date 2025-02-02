@@ -7,6 +7,7 @@ import (
 	"kelarin/internal/types"
 	dbUtil "kelarin/internal/utils/dbutil"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -21,6 +22,8 @@ type Service interface {
 	GetByID(ctx context.Context, req types.ServiceGetByIDReq) (types.ServiceGetByIDRes, error)
 	Update(ctx context.Context, req types.ServiceUpdateReq) error
 	Delete(ctx context.Context, req types.ServiceDeleteReq) error
+	AddImages(ctx context.Context, req types.ServiceImageActionReq) error
+	RemoveImages(ctx context.Context, req types.ServiceImageActionReq) error
 }
 
 type serviceImpl struct {
@@ -220,13 +223,16 @@ func (s *serviceImpl) GetByID(ctx context.Context, req types.ServiceGetByIDReq) 
 		})
 	}
 
-	imgUrls := []string{}
+	images := []types.ImageRes{}
 	for _, img := range service.Images {
 		url, err := s.fileSvc.GetS3PresignedURL(ctx, img)
 		if err != nil {
 			return res, err
 		}
-		imgUrls = append(imgUrls, url)
+		images = append(images, types.ImageRes{
+			Key: img,
+			URL: url,
+		})
 	}
 
 	res = types.ServiceGetByIDRes{
@@ -238,7 +244,7 @@ func (s *serviceImpl) GetByID(ctx context.Context, req types.ServiceGetByIDReq) 
 		FeeStartAt:      service.FeeStartAt,
 		FeeEndAt:        service.FeeEndAt,
 		Rules:           service.Rules,
-		Images:          imgUrls,
+		Images:          images,
 		IsAvailable:     service.IsAvailable,
 		CreatedAt:       service.CreatedAt,
 	}
@@ -384,6 +390,112 @@ func (s *serviceImpl) Delete(ctx context.Context, req types.ServiceDeleteReq) er
 	}
 
 	if err := tx.Commit(); err != nil {
+		return errors.New(err)
+	}
+
+	return nil
+}
+
+func (s *serviceImpl) AddImages(ctx context.Context, req types.ServiceImageActionReq) error {
+	if err := req.Validate(); err != nil {
+		return err
+	}
+
+	provider, err := s.serviceProviderRepo.FindByUserID(ctx, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(fmt.Sprintf("service provider not found : user_id: %s", req.AuthUser.ID))
+	} else if err != nil {
+		return err
+	}
+
+	service, err := s.serviceRepo.FindByIDAndServiceProviderID(ctx, req.ID, provider.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(types.AppErr{Code: http.StatusNotFound})
+	} else if err != nil {
+		return err
+	}
+
+	tempFiles := []types.TempFile{}
+	for _, img := range req.ImageKeys {
+		file, err := s.fileSvc.GetTemp(ctx, img)
+		if err != nil {
+			return err
+		}
+
+		tempFiles = append(tempFiles, types.TempFile(file))
+	}
+
+	imgKeys, err := s.fileSvc.BulkUploadToS3(ctx, tempFiles, types.ServiceImageDir)
+	if err != nil {
+		return err
+	}
+
+	service.Images = append(service.Images, imgKeys...)
+
+	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	if err != nil {
+		return errors.New(err)
+	}
+
+	defer tx.Rollback()
+
+	if err := s.serviceRepo.UpdateTx(ctx, tx, service); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return errors.New(err)
+	}
+
+	return nil
+}
+
+func (s *serviceImpl) RemoveImages(ctx context.Context, req types.ServiceImageActionReq) error {
+	if err := req.Validate(); err != nil {
+		return err
+	}
+
+	provider, err := s.serviceProviderRepo.FindByUserID(ctx, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(fmt.Sprintf("service provider not found : user_id: %s", req.AuthUser.ID))
+	} else if err != nil {
+		return err
+	}
+
+	service, err := s.serviceRepo.FindByIDAndServiceProviderID(ctx, req.ID, provider.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(types.AppErr{Code: http.StatusNotFound})
+	} else if err != nil {
+		return err
+	}
+
+	for _, k := range req.ImageKeys {
+		if _, exs := slices.BinarySearch(service.Images, k); !exs {
+			return errors.New(types.AppErr{Code: http.StatusNotFound, Message: fmt.Sprintf("image key not found: %s", k)})
+		}
+	}
+
+	images := []string{}
+	for _, img := range service.Images {
+		if !slices.Contains(req.ImageKeys, img) {
+			images = append(images, img)
+		}
+	}
+
+	service.Images = images
+
+	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	if err != nil {
+		return errors.New(err)
+	}
+
+	defer tx.Rollback()
+
+	if err := s.serviceRepo.UpdateTx(ctx, tx, service); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
 		return errors.New(err)
 	}
 

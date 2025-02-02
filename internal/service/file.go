@@ -30,6 +30,7 @@ type File interface {
 	DeleteTemp(ctx context.Context, fileName string) error
 	BulkUploadToS3(ctx context.Context, req []types.TempFile, dir string) ([]string, error)
 	GetS3PresignedURL(ctx context.Context, objectKey string) (string, error)
+	DeleteS3Object(ctx context.Context, objectKey string) error
 }
 
 type fileImpl struct {
@@ -231,4 +232,17 @@ func (r *fileImpl) GetS3PresignedURL(ctx context.Context, objectKey string) (str
 	}
 
 	return signedRes.URL, nil
+}
+
+func (r *fileImpl) DeleteS3Object(ctx context.Context, objectKey string) error {
+	_, err := r.s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(r.cfg.File.AwsS3Bucket),
+		Key:    aws.String(objectKey),
+	})
+
+	if err != nil {
+		return errors.New(err)
+	}
+
+	return nil
 }
