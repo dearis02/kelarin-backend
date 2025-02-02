@@ -193,7 +193,7 @@ type ServiceGetByIDRes struct {
 	FeeStartAt      decimal.Decimal         `json:"fee_start_at"`
 	FeeEndAt        decimal.Decimal         `json:"fee_end_at"`
 	Rules           []ServiceRule           `json:"rules"`
-	Images          []string                `json:"images"`
+	Images          []ImageRes              `json:"images"`
 	IsAvailable     bool                    `json:"is_available"`
 	CreatedAt       time.Time               `json:"created_at"`
 }
@@ -283,6 +283,22 @@ func (r ServiceDeleteReq) Validate() error {
 
 	return validation.ValidateStruct(&r,
 		validation.Field(&r.ID, validation.Required),
+	)
+}
+
+type ServiceImageActionReq struct {
+	AuthUser  AuthUser  `middleware:"user"`
+	ImageKeys []string  `json:"image_keys"`
+	ID        uuid.UUID `uri:"id"`
+}
+
+func (r ServiceImageActionReq) Validate() error {
+	if r.AuthUser == (AuthUser{}) {
+		return errors.New("AuthUser is required")
+	}
+
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.ImageKeys, validation.Required),
 	)
 }
 
