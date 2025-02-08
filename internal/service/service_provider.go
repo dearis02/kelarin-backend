@@ -64,6 +64,20 @@ func (s *serviceProviderImpl) Register(ctx context.Context, req types.ServicePro
 		return err
 	}
 
+	svcProvider, err := s.serviceProviderRepo.FindByUserID(ctx, user.ID)
+	if errors.Is(err, types.ErrNoData) {
+		// do nothing
+	} else if err != nil {
+		return err
+	}
+
+	if svcProvider.ID != uuid.Nil {
+		return errors.New(types.AppErr{
+			Code:    http.StatusForbidden,
+			Message: "service provider already registered",
+		})
+	}
+
 	serviceProvider := types.ServiceProvider{
 		ID:                id,
 		UserID:            user.ID,

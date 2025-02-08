@@ -47,6 +47,7 @@ func main() {
 
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AllowOrigins = cfg.Server.CORS.AllowedOrigins
+	corsConfig.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
 	g.Use(cors.New(corsConfig))
 
 	db, err := dbUtil.NewPostgres(&cfg.DataBase)
@@ -115,6 +116,8 @@ func main() {
 	fileRoutes := routes.NewFile(g, server.FileHandler)
 	serviceProviderRoutes := routes.NewServiceProvider(g, server.ServiceProviderHandler)
 	serviceRoutes := routes.NewService(g, server.ServiceHandler)
+	provinceRoutes := routes.NewProvince(g, server.ProvinceHandler)
+	cityRoutes := routes.NewCity(g, server.CityHandler)
 
 	// End init routes region
 
@@ -125,6 +128,8 @@ func main() {
 	fileRoutes.Register(authMiddleware)
 	serviceProviderRoutes.Register(authMiddleware)
 	serviceRoutes.Register(authMiddleware)
+	provinceRoutes.Register()
+	cityRoutes.Register()
 
 	// register websocket
 	wsClient := &WSClient{

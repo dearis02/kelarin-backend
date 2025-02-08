@@ -34,8 +34,7 @@ func (r *serviceProviderImpl) Create(ctx context.Context, tx *sqlx.Tx, req types
 			address,
 			mobile_phone_number,
 			telephone,
-			logo_image,
-			created_at
+			logo_image
 		)
 		VALUES (
 			:id,
@@ -47,8 +46,7 @@ func (r *serviceProviderImpl) Create(ctx context.Context, tx *sqlx.Tx, req types
 			:address,
 			:mobile_phone_number,
 			:telephone,
-			:logo_image,
-			:created_at
+			:logo_image
 		)
 
 	`

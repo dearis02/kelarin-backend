@@ -8,3 +8,12 @@ type Province struct {
 }
 
 // end of region repo types
+
+// region service types
+
+type ProvinceGetAllRes struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+// end of region service types
