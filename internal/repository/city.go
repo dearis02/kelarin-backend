@@ -12,6 +12,7 @@ import (
 type City interface {
 	FindByIDandProvinceID(ctx context.Context, ID, provinceID int64) (types.City, error)
 	FindByProvinceIDAndName(ctx context.Context, provinceID int64, name string) (types.City, error)
+	FindByProvinceID(ctx context.Context, provinceID int64) ([]types.City, error)
 }
 
 type cityImpl struct {
@@ -67,4 +68,23 @@ func (r *cityImpl) FindByProvinceIDAndName(ctx context.Context, provinceID int64
 	}
 
 	return res, err
+}
+
+func (r *cityImpl) FindByProvinceID(ctx context.Context, provinceID int64) ([]types.City, error) {
+	res := []types.City{}
+
+	query := `
+		SELECT
+			id,
+			province_id,
+			name
+		FROM cities
+		WHERE province_id = $1
+	`
+
+	if err := r.db.SelectContext(ctx, &res, query, provinceID); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
 }

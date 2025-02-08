@@ -13,6 +13,7 @@ type Province interface {
 	FindByID(ctx context.Context, id int64) (types.Province, error)
 	FindByName(ctx context.Context, name string) (types.Province, error)
 	Create(ctx context.Context, req []types.Province) error
+	FindAll(ctx context.Context) ([]types.Province, error)
 }
 
 type provinceImpl struct {
@@ -83,4 +84,21 @@ func (r *provinceImpl) Create(ctx context.Context, req []types.Province) error {
 	}
 
 	return nil
+}
+
+func (r *provinceImpl) FindAll(ctx context.Context) ([]types.Province, error) {
+	res := []types.Province{}
+
+	statement := `
+		SELECT 
+			id,
+			name
+		FROM provinces
+	`
+
+	if err := r.db.SelectContext(ctx, &res, statement); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
 }
