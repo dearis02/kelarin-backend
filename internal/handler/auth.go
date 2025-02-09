@@ -75,3 +75,23 @@ func (h *Auth) ProviderGoogleLogin(c *gin.Context) {
 		Data:       res,
 	})
 }
+
+func (h *Auth) RenewSession(c *gin.Context) {
+	var req types.AuthRenewSessionReq
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	res, err := h.authService.RenewSession(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusCreated, types.ApiResponse{
+		StatusCode: http.StatusCreated,
+		Data:       res,
+	})
+}

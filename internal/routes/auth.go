@@ -22,4 +22,5 @@ func (r *Auth) Register() {
 	r.g.POST("/v1/auth/_login", r.authHandler.Login)
 	r.g.POST("/consumer/v1/auth/_google_login", r.authHandler.ConsumerGoogleLogin)
 	r.g.POST("/provider/v1/auth/_google_login", r.authHandler.ProviderGoogleLogin)
+	r.g.POST("/v1/auth/_renew_session", r.authHandler.RenewSession)
 }
