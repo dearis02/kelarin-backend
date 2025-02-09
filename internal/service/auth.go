@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"kelarin/internal/config"
 	"kelarin/internal/repository"
 	"kelarin/internal/types"
@@ -21,6 +22,7 @@ type Auth interface {
 	LocalCreateSession(ctx context.Context, req types.AuthCreateSessionReq) (types.AuthCreateSessionRes, error)
 	ConsumerCreateSession(ctx context.Context, req types.AuthCreateSessionForGoogleReq) (types.AuthCreateSessionForGoogleLoginRes, error)
 	ProviderCreateSession(ctx context.Context, req types.AuthCreateSessionForGoogleReq) (types.AuthCreateSessionForGoogleLoginRes, error)
+	RenewSession(ctx context.Context, req types.AuthRenewSessionReq) (types.AuthRenewSessionRes, error)
 }
 
 type authImpl struct {
@@ -292,11 +294,10 @@ func (s *authImpl) GenerateToken(authUser types.AuthUser) (types.AuthGenerateTok
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.config.JWT.RefreshTokenExpiration)),
 		},
-		ID:                     authUser.SessionID,
-		Subject:                authUser.ID,
-		Role:                   authUser.Role,
-		Name:                   authUser.Name,
-		IncompleteRegistration: authUser.IncompleteRegistration,
+		ID:      authUser.SessionID,
+		Subject: authUser.ID,
+		Role:    authUser.Role,
+		Name:    authUser.Name,
 	})
 
 	signedRefreshToken, err := refreshToken.SignedString([]byte(s.config.JWT.RefreshTokenSecretKey))
@@ -319,6 +320,89 @@ func (s *authImpl) ValidateGoogleIDToken(ctx context.Context, idToken string) (t
 
 	res.Name = payload.Claims["name"].(string)
 	res.Email = payload.Claims["email"].(string)
+
+	return res, nil
+}
+
+func (s *authImpl) RenewSession(ctx context.Context, req types.AuthRenewSessionReq) (types.AuthRenewSessionRes, error) {
+	res := types.AuthRenewSessionRes{}
+
+	if err := req.Validate(); err != nil {
+		return res, err
+	}
+
+	claims := &types.AuthJwtCustomClaims{}
+	token, err := jwt.ParseWithClaims(req.RefreshToken, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(s.config.JWT.RefreshTokenSecretKey), nil
+	})
+	if errors.Is(err, jwt.ErrTokenExpired) {
+		return res, types.AuthErrTokenExpired
+	} else if err != nil {
+		return res, types.AuthErrInvalidToken
+	}
+
+	if !token.Valid {
+		return res, types.AuthErrInvalidToken
+	}
+
+	claims, ok := token.Claims.(*types.AuthJwtCustomClaims)
+	if !ok {
+		return res, types.AuthErrInvalidTokenClaims
+	}
+
+	sessionKey := types.GetSessionKey(claims.ID.String())
+	userId, err := s.sessionRepo.Find(ctx, sessionKey)
+	if errors.Is(err, types.ErrNoData) {
+		return res, types.AuthErrSessionRevoked
+	} else if err != nil {
+		return res, err
+	}
+
+	uuidUserID, err := uuid.Parse(userId)
+	if err != nil {
+		return res, errors.New(err)
+	}
+
+	user, err := s.userRepo.FindByID(ctx, uuidUserID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.New(types.AppErr{Code: http.StatusUnauthorized, Message: "user not found", Err: fmt.Errorf("user not found : id %s", userId)})
+	} else if err != nil {
+		return res, err
+	}
+
+	newSessionID, err := uuid.NewV7()
+	if err != nil {
+		return res, errors.New(err)
+	}
+
+	newSessionKey := types.GetSessionKey(newSessionID.String())
+	if err = s.sessionRepo.RenewAndDelete(ctx, sessionKey, newSessionKey, user.ID.String(), s.config.JWT.RefreshTokenExpiration); err != nil {
+		return res, err
+	}
+
+	incompleteRegistration, err := s.pendingRegistrationRepo.IsExists(ctx, types.GetPendingRegistrationKey(userId))
+	if err != nil {
+		return res, err
+	}
+
+	authUser := types.AuthUser{
+		ID:        claims.Subject,
+		SessionID: newSessionID,
+		Role:      claims.Role,
+		Name:      claims.Name,
+	}
+
+	if incompleteRegistration {
+		authUser.IncompleteRegistration = &incompleteRegistration
+	}
+
+	t, err := s.GenerateToken(authUser)
+	if err != nil {
+		return res, errors.New(err)
+	}
+
+	res.AccessToken = t.AccessToken
+	res.RefreshToken = t.RefreshToken
 
 	return res, nil
 }

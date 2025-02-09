@@ -1,6 +1,9 @@
 package types
 
 import (
+	"net/http"
+
+	"github.com/go-errors/errors"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
 	"github.com/golang-jwt/jwt/v5"
@@ -9,6 +12,13 @@ import (
 
 const (
 	AuthUserContextKey = "user"
+)
+
+var (
+	AuthErrTokenExpired       = errors.New(AppErr{Code: http.StatusUnauthorized, Message: "token expired"})
+	AuthErrInvalidToken       = errors.New(AppErr{Code: http.StatusUnauthorized, Message: "invalid token"})
+	AuthErrInvalidTokenClaims = errors.New(AppErr{Code: http.StatusUnauthorized, Message: "invalid token claims"})
+	AuthErrSessionRevoked     = errors.New(AppErr{Code: http.StatusUnauthorized, Message: "session revoked"})
 )
 
 // region repo types
@@ -81,5 +91,17 @@ type AuthValidateGoogleIDToken struct {
 type AuthHeaderReq struct {
 	Authorization string `header:"Authorization"`
 }
+
+type AuthRenewSessionReq struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+func (r AuthRenewSessionReq) Validate() error {
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.RefreshToken, validation.Required),
+	)
+}
+
+type AuthRenewSessionRes AuthCreateSessionRes
 
 // end of region service types
