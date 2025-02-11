@@ -14,4 +14,5 @@ var HandlerSet = wire.NewSet(
 	handler.NewService,
 	handler.NewProvince,
 	handler.NewCity,
+	handler.NewServiceCategory,
 )

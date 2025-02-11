@@ -14,9 +14,25 @@ type ServiceCategory struct {
 	CreatedAt time.Time `db:"created_at"`
 }
 
+type ServiceCategoryWithServiceID struct {
+	ID        uuid.UUID `db:"id"`
+	ServiceID uuid.UUID `db:"service_id"`
+	Name      string    `db:"name"`
+	CreatedAt time.Time `db:"created_at"`
+}
+
+// end of region repo types
+
+// region service types
+
 type ServiceCategoryRes struct {
 	ID   uuid.UUID `json:"id"`
 	Name string    `json:"name"`
 }
 
-// end of region repo types
+type ServiceCategoryGetAllRes struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+// end region of service types

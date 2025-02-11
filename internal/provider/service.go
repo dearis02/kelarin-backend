@@ -15,4 +15,5 @@ var ServiceSet = wire.NewSet(
 	service.NewService,
 	service.NewProvince,
 	service.NewCity,
+	service.NewServiceCategory,
 )
