@@ -11,7 +11,8 @@ import (
 
 type ServiceCategory interface {
 	FindByIDs(ctx context.Context, IDs []uuid.UUID) ([]types.ServiceCategory, error)
-	FindByServiceIDs(ctx context.Context, IDs []uuid.UUID) ([]types.ServiceCategory, error)
+	FindByServiceIDs(ctx context.Context, IDs []uuid.UUID) ([]types.ServiceCategoryWithServiceID, error)
+	FindAll(ctx context.Context) ([]types.ServiceCategory, error)
 }
 
 type serviceCategoryImpl struct {
@@ -50,12 +51,13 @@ func (r *serviceCategoryImpl) FindByIDs(ctx context.Context, IDs []uuid.UUID) ([
 	return res, nil
 }
 
-func (r *serviceCategoryImpl) FindByServiceIDs(ctx context.Context, serviceIDs []uuid.UUID) ([]types.ServiceCategory, error) {
-	res := []types.ServiceCategory{}
+func (r *serviceCategoryImpl) FindByServiceIDs(ctx context.Context, serviceIDs []uuid.UUID) ([]types.ServiceCategoryWithServiceID, error) {
+	res := []types.ServiceCategoryWithServiceID{}
 
 	statement := `
 		SELECT
 			service_categories.id,
+			service_service_categories.service_id,
 			service_categories.name,
 			service_categories.created_at
 		FROM
@@ -72,6 +74,25 @@ func (r *serviceCategoryImpl) FindByServiceIDs(ctx context.Context, serviceIDs [
 
 	query = r.db.Rebind(query)
 	if err = r.db.SelectContext(ctx, &res, query, args...); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *serviceCategoryImpl) FindAll(ctx context.Context) ([]types.ServiceCategory, error) {
+	res := []types.ServiceCategory{}
+
+	statement := `
+		SELECT
+			id,
+			name,
+			created_at
+		FROM
+			service_categories
+	`
+
+	if err := r.db.SelectContext(ctx, &res, statement); err != nil {
 		return res, errors.New(err)
 	}
 
