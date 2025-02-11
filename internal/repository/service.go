@@ -184,7 +184,7 @@ func (r *serviceImpl) DeleteTx(ctx context.Context, tx *sqlx.Tx, service types.S
 		UPDATE services
 		SET
 			is_deleted = TRUE,
-			delete_at = $1
+			deleted_at = $1
 		WHERE id = $2
 	`
 

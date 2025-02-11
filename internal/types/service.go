@@ -269,6 +269,7 @@ type ServiceGetAllRes struct {
 	Rules           ServiceRules            `json:"rules"`
 	IsAvailable     bool                    `json:"is_available"`
 	CreatedAt       time.Time               `json:"created_at"`
+	Categories      []ServiceCategoryRes    `json:"categories"`
 }
 
 type ServiceDeleteReq struct {
