@@ -63,6 +63,16 @@ func (s *serviceImpl) GetAll(ctx context.Context, req types.ServiceGetAllReq) ([
 		return res, err
 	}
 
+	serviceIDs := []uuid.UUID{}
+	for _, service := range services {
+		serviceIDs = append(serviceIDs, service.ID)
+	}
+
+	categories, err := s.serviceCategoryRepo.FindByServiceIDs(ctx, serviceIDs)
+	if err != nil {
+		return res, err
+	}
+
 	for _, service := range services {
 		res = append(res, types.ServiceGetAllRes{
 			ID:              service.ID,
@@ -74,6 +84,16 @@ func (s *serviceImpl) GetAll(ctx context.Context, req types.ServiceGetAllReq) ([
 			Rules:           service.Rules,
 			IsAvailable:     service.IsAvailable,
 			CreatedAt:       service.CreatedAt,
+			Categories: slices.Collect(func(yield func(types.ServiceCategoryRes) bool) {
+				for _, category := range categories {
+					if category.ServiceID == service.ID {
+						yield(types.ServiceCategoryRes{
+							ID:   category.ID,
+							Name: category.Name,
+						})
+					}
+				}
+			}),
 		})
 	}
 
@@ -470,7 +490,7 @@ func (s *serviceImpl) RemoveImages(ctx context.Context, req types.ServiceImageAc
 	}
 
 	for _, k := range req.ImageKeys {
-		if _, exs := slices.BinarySearch(service.Images, k); !exs {
+		if exs := slices.Contains(service.Images, k); !exs {
 			return errors.New(types.AppErr{Code: http.StatusNotFound, Message: fmt.Sprintf("image key not found: %s", k)})
 		}
 	}
