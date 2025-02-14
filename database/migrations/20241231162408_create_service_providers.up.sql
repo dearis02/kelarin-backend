@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS service_providers (
     logo_image VARCHAR(255),
     credit NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
     average_rating NUMERIC(3, 2) NOT NULL DEFAULT 0.00,
+    rating_count INT NOT NULL DEFAULT 0,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ,

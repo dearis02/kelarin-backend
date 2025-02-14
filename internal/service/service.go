@@ -33,10 +33,11 @@ type serviceImpl struct {
 	serviceRepo                repository.Service
 	serviceCategoryRepo        repository.ServiceCategory
 	serviceServiceCategoryRepo repository.ServiceServiceCategory
+	serviceProviderAreaRepo    repository.ServiceProviderArea
 	fileSvc                    File
 }
 
-func NewService(db *sqlx.DB, serviceIndexRepo repository.ServiceIndex, serviceProviderRepo repository.ServiceProvider, serviceRepo repository.Service, serviceCategoryRepo repository.ServiceCategory, serviceServiceCategoryRepo repository.ServiceServiceCategory, fileSvc File) Service {
+func NewService(db *sqlx.DB, serviceIndexRepo repository.ServiceIndex, serviceProviderRepo repository.ServiceProvider, serviceRepo repository.Service, serviceCategoryRepo repository.ServiceCategory, serviceServiceCategoryRepo repository.ServiceServiceCategory, serviceProviderAreaRepo repository.ServiceProviderArea, fileSvc File) Service {
 	return &serviceImpl{
 		db:                         db,
 		serviceIndexRepo:           serviceIndexRepo,
@@ -44,6 +45,7 @@ func NewService(db *sqlx.DB, serviceIndexRepo repository.ServiceIndex, servicePr
 		serviceRepo:                serviceRepo,
 		serviceCategoryRepo:        serviceCategoryRepo,
 		serviceServiceCategoryRepo: serviceServiceCategoryRepo,
+		serviceProviderAreaRepo:    serviceProviderAreaRepo,
 		fileSvc:                    fileSvc,
 	}
 }
@@ -124,6 +126,13 @@ func (s *serviceImpl) Create(ctx context.Context, req types.ServiceCreateReq) er
 		})
 	}
 
+	area, err := s.serviceProviderAreaRepo.FindByServiceProviderID(ctx, provider.ID)
+	if errors.Is(err, types.ErrNoData) {
+		// do noting
+	} else if err != nil {
+		return err
+	}
+
 	timeNow := time.Now()
 
 	id, err := uuid.NewV7()
@@ -200,6 +209,11 @@ func (s *serviceImpl) Create(ctx context.Context, req types.ServiceCreateReq) er
 		FeeEndAt:        service.FeeEndAt,
 		IsAvailable:     service.IsAvailable,
 		CreatedAt:       timeNow,
+	}
+
+	if area.ID != 0 {
+		indexReq.Province = area.ProvinceName
+		indexReq.City = area.CityName
 	}
 
 	if err := s.serviceIndexRepo.Index(ctx, indexReq); err != nil {
@@ -291,6 +305,13 @@ func (s *serviceImpl) Update(ctx context.Context, req types.ServiceUpdateReq) er
 		return err
 	}
 
+	area, err := s.serviceProviderAreaRepo.FindByServiceProviderID(ctx, provider.ID)
+	if errors.Is(err, types.ErrNoData) {
+		// do noting
+	} else if err != nil {
+		return err
+	}
+
 	idxService, err := s.serviceIndexRepo.FindByID(ctx, service.ID.String())
 	if errors.Is(err, types.ErrNoData) {
 		return errors.New(fmt.Sprintf("service index not found for service_id: %s", service.ID))
@@ -336,6 +357,11 @@ func (s *serviceImpl) Update(ctx context.Context, req types.ServiceUpdateReq) er
 	idxService.FeeStartAt = service.FeeStartAt
 	idxService.FeeEndAt = service.FeeEndAt
 	idxService.IsAvailable = service.IsAvailable
+
+	if area.ID != 0 {
+		idxService.Province = area.ProvinceName
+		idxService.City = area.CityName
+	}
 
 	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
 	if err != nil {

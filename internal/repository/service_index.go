@@ -6,6 +6,10 @@ import (
 	"kelarin/internal/types"
 
 	"github.com/elastic/go-elasticsearch/v8"
+	"github.com/elastic/go-elasticsearch/v8/typedapi/core/search"
+	esTypes "github.com/elastic/go-elasticsearch/v8/typedapi/types"
+	"github.com/elastic/go-elasticsearch/v8/typedapi/types/enums/operator"
+	"github.com/elastic/go-elasticsearch/v8/typedapi/types/enums/sortorder"
 	"github.com/go-errors/errors"
 )
 
@@ -14,6 +18,7 @@ type ServiceIndex interface {
 	FindByID(ctx context.Context, ID string) (types.ServiceIndex, error)
 	Update(ctx context.Context, req types.ServiceIndex) error
 	Delete(ctx context.Context, req types.ServiceIndex) error
+	FindAllByFilter(ctx context.Context, req types.ServiceIndexFilter) ([]types.ServiceIndex, int64, *float64, error)
 }
 
 type serviceIndexImpl struct {
@@ -69,4 +74,100 @@ func (r *serviceIndexImpl) Delete(ctx context.Context, req types.ServiceIndex) e
 	}
 
 	return nil
+}
+
+func (r *serviceIndexImpl) FindAllByFilter(ctx context.Context, req types.ServiceIndexFilter) ([]types.ServiceIndex, int64, *float64, error) {
+	res := []types.ServiceIndex{}
+	var latestTimeStamp *float64
+
+	searchReq := search.Request{
+		Size: &req.Limit,
+		Sort: []esTypes.SortCombinations{
+			esTypes.SortOptions{
+				SortOptions: map[string]esTypes.FieldSort{
+					"created_at": {
+						Order: &sortorder.Desc,
+					},
+				},
+			},
+		},
+	}
+
+	if req.LatestTimestamp.Valid {
+		searchReq.SearchAfter = []esTypes.FieldValue{req.LatestTimestamp}
+	}
+
+	query := &esTypes.Query{}
+
+	if req.Keyword != "" {
+		query.MultiMatch = &esTypes.MultiMatchQuery{
+			Query:    req.Keyword,
+			Fields:   []string{"name", "description", "rules.name"},
+			Operator: &operator.Or,
+		}
+
+		searchReq.Query = query
+	}
+
+	if len(req.Categories) > 0 {
+		query.Terms = &esTypes.TermsQuery{
+			TermsQuery: map[string]esTypes.TermsQueryField{
+				"categories": req.Categories,
+			},
+		}
+
+		searchReq.Query = query
+	}
+
+	areaQuery := make(map[string]esTypes.MatchQuery)
+	if req.Province != "" {
+		areaQuery["province"] = esTypes.MatchQuery{
+			Query:    req.Province,
+			Operator: &operator.And,
+		}
+	}
+	if req.City != "" {
+		areaQuery["city"] = esTypes.MatchQuery{
+			Query:    req.City,
+			Operator: &operator.And,
+		}
+	}
+
+	if len(areaQuery) > 0 {
+		query.Bool = &esTypes.BoolQuery{
+			Must: []esTypes.Query{
+				{
+					Match: areaQuery,
+				},
+			},
+		}
+
+		searchReq.Query = query
+	}
+
+	services, err := r.esDB.Search().Index(types.ServiceElasticSearchIndexName).Request(&searchReq).Do(ctx)
+	if err != nil {
+		return res, 0, latestTimeStamp, errors.New(err)
+	}
+
+	for _, hit := range services.Hits.Hits {
+		var service types.ServiceIndex
+		if err := json.Unmarshal(hit.Source_, &service); err != nil {
+			return res, 0, latestTimeStamp, errors.New(err)
+		}
+
+		res = append(res, service)
+	}
+
+	if len(services.Hits.Hits) > 0 {
+		if latest, ok := services.Hits.Hits[len(services.Hits.Hits)-1].Sort[0].(float64); !ok {
+			return res, 0, latestTimeStamp, errors.New("latest_timestamp is not float64")
+		} else {
+			latestTimeStamp = &latest
+		}
+	} else {
+		latestTimeStamp = nil
+	}
+
+	return res, services.Hits.Total.Value, latestTimeStamp, nil
 }

@@ -5,9 +5,13 @@ import (
 	"kelarin/internal/service"
 	"kelarin/internal/types"
 	"net/http"
+	"slices"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-errors/errors"
+	"github.com/volatiletech/null/v9"
 )
 
 type Service interface {
@@ -18,16 +22,20 @@ type Service interface {
 	Delete(c *gin.Context)
 	AddImages(c *gin.Context)
 	RemoveImages(c *gin.Context)
+
+	ConsumerGetAll(c *gin.Context)
 }
 
 type serviceImpl struct {
 	serviceSvc     service.Service
+	consumerSvc    service.ConsumerService
 	authMiddleware middleware.Auth
 }
 
-func NewService(serviceSvc service.Service, authMiddleware middleware.Auth) Service {
+func NewService(serviceSvc service.Service, consumerSvc service.ConsumerService, authMiddleware middleware.Auth) Service {
 	return &serviceImpl{
 		serviceSvc:     serviceSvc,
+		consumerSvc:    consumerSvc,
 		authMiddleware: authMiddleware,
 	}
 }
@@ -180,5 +188,52 @@ func (h *serviceImpl) RemoveImages(c *gin.Context) {
 
 	c.JSON(http.StatusOK, types.ApiResponse{
 		StatusCode: http.StatusOK,
+	})
+}
+
+func (h *serviceImpl) ConsumerGetAll(c *gin.Context) {
+	var req types.ConsumerServiceGetAllReq
+	var err error
+
+	req.Keyword = c.Query("keyword")
+	req.Province = c.Query("province")
+	req.City = c.Query("city")
+	req.Size = c.Query("size")
+	req.Page = c.Query("page")
+	categories := c.QueryArray("categories")
+	categories = slices.Collect(func(yield func(string) bool) {
+		for _, category := range categories {
+			if category == "" {
+				continue
+			}
+
+			if !yield(category) {
+				break
+			}
+		}
+	})
+
+	latestTimestamp := c.Query("latest_timestamp")
+	if latestTimestamp != "" {
+		timestamp, err := strconv.ParseInt(latestTimestamp, 10, 64)
+		if err != nil {
+			c.Error(errors.New(types.AppErr{Code: http.StatusBadRequest, Message: "invalid latest_timestamp metadata"}))
+			return
+		}
+
+		req.LatestTimestamp = null.TimeFrom(time.UnixMilli(timestamp))
+	}
+
+	res, paginationRes, metadata, err := h.consumerSvc.GetAll(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
+		Data:       res,
+		Pagination: &paginationRes,
+		Metadata:   metadata,
 	})
 }

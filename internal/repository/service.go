@@ -8,6 +8,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 type Service interface {
@@ -17,6 +18,7 @@ type Service interface {
 	FindByID(ctx context.Context, ID uuid.UUID) (types.Service, error)
 	FindAllByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.Service, error)
 	DeleteTx(ctx context.Context, tx *sqlx.Tx, service types.Service) error
+	FindByIDs(ctx context.Context, IDs []uuid.UUID) ([]types.Service, error)
 }
 
 type serviceImpl struct {
@@ -193,4 +195,32 @@ func (r *serviceImpl) DeleteTx(ctx context.Context, tx *sqlx.Tx, service types.S
 	}
 
 	return nil
+}
+
+func (r *serviceImpl) FindByIDs(ctx context.Context, IDs []uuid.UUID) ([]types.Service, error) {
+	res := []types.Service{}
+
+	statement := `
+		SELECT
+			id,
+			service_provider_id,
+			name,
+			description,
+			delivery_methods,
+			fee_start_at,
+			fee_end_at,
+			rules,
+			images,
+			is_available,
+			created_at
+		FROM services
+		WHERE id = ANY($1)
+		AND is_deleted = false
+	`
+
+	if err := r.db.SelectContext(ctx, &res, statement, pq.Array(IDs)); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
 }

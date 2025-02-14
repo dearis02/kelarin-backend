@@ -18,19 +18,21 @@ const ServiceElasticSearchIndexName = "services"
 // region repo types
 
 type Service struct {
-	ID                uuid.UUID       `db:"id"`
-	ServiceProviderID uuid.UUID       `db:"service_provider_id"`
-	Name              string          `db:"name"`
-	Description       string          `db:"description"`
-	DeliveryMethods   DeliveryMethods `db:"delivery_methods"`
-	FeeStartAt        decimal.Decimal `db:"fee_start_at"`
-	FeeEndAt          decimal.Decimal `db:"fee_end_at"`
-	Rules             ServiceRules    `db:"rules"`
-	Images            pq.StringArray  `db:"images"`
-	IsAvailable       bool            `db:"is_available"`
-	IsDeleted         bool            `db:"is_deleted"`
-	CreatedAt         time.Time       `db:"created_at"`
-	DeletedAt         null.Time       `db:"deleted_at"`
+	ID                    uuid.UUID       `db:"id"`
+	ServiceProviderID     uuid.UUID       `db:"service_provider_id"`
+	Name                  string          `db:"name"`
+	Description           string          `db:"description"`
+	DeliveryMethods       DeliveryMethods `db:"delivery_methods"`
+	FeeStartAt            decimal.Decimal `db:"fee_start_at"`
+	FeeEndAt              decimal.Decimal `db:"fee_end_at"`
+	Rules                 ServiceRules    `db:"rules"`
+	Images                pq.StringArray  `db:"images"`
+	IsAvailable           bool            `db:"is_available"`
+	ReceivedRatingCount   int32           `db:"received_rating_count"`
+	ReceivedRatingAverage float32         `db:"received_rating_average"`
+	IsDeleted             bool            `db:"is_deleted"`
+	CreatedAt             time.Time       `db:"created_at"`
+	DeletedAt             null.Time       `db:"deleted_at"`
 }
 
 type DeliveryMethods []ServiceDeliveryMethod
@@ -170,6 +172,8 @@ type ServiceIndex struct {
 	ID              uuid.UUID               `json:"id"`
 	Name            string                  `json:"name"`
 	Description     string                  `json:"description"`
+	Province        null.String             `json:"province"`
+	City            null.String             `json:"city"`
 	DeliveryMethods []ServiceDeliveryMethod `json:"delivery_methods"`
 	Categories      []string                `json:"categories"`
 	Rules           ServiceRules            `json:"rules"`
@@ -301,6 +305,15 @@ func (r ServiceImageActionReq) Validate() error {
 	return validation.ValidateStruct(&r,
 		validation.Field(&r.ImageKeys, validation.Required),
 	)
+}
+
+type ServiceIndexFilter struct {
+	Limit           int
+	LatestTimestamp null.Time
+	Keyword         string
+	Province        string
+	City            string
+	Categories      []string
 }
 
 // end of region service types

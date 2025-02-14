@@ -7,11 +7,13 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 type ServiceProvider interface {
 	Create(ctx context.Context, tx *sqlx.Tx, req types.ServiceProvider) error
 	FindByUserID(ctx context.Context, userID uuid.UUID) (types.ServiceProvider, error)
+	FindByIDs(ctx context.Context, IDs []uuid.UUID) ([]types.ServiceProvider, error)
 }
 
 type serviceProviderImpl struct {
@@ -84,6 +86,38 @@ func (r *serviceProviderImpl) FindByUserID(ctx context.Context, userID uuid.UUID
 	err := r.db.GetContext(ctx, &res, statement, userID)
 	if err != nil {
 		return types.ServiceProvider{}, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *serviceProviderImpl) FindByIDs(ctx context.Context, IDs []uuid.UUID) ([]types.ServiceProvider, error) {
+	res := []types.ServiceProvider{}
+
+	statement := `
+		SELECT
+			id,
+			user_id,
+			name,
+			description,
+			has_physical_office,
+			office_coordinates,
+			address,
+			mobile_phone_number,
+			telephone,
+			logo_image,
+			average_rating,
+			credit,
+			is_deleted,
+			created_at
+		FROM service_providers
+		WHERE id = ANY($1)
+		ORDER BY id DESC
+	`
+
+	err := r.db.SelectContext(ctx, &res, statement, pq.Array(IDs))
+	if err != nil {
+		return res, errors.New(err)
 	}
 
 	return res, nil
