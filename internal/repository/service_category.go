@@ -7,6 +7,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 type ServiceCategory interface {
@@ -54,7 +55,7 @@ func (r *serviceCategoryImpl) FindByIDs(ctx context.Context, IDs []uuid.UUID) ([
 func (r *serviceCategoryImpl) FindByServiceIDs(ctx context.Context, serviceIDs []uuid.UUID) ([]types.ServiceCategoryWithServiceID, error) {
 	res := []types.ServiceCategoryWithServiceID{}
 
-	statement := `
+	query := `
 		SELECT
 			service_categories.id,
 			service_service_categories.service_id,
@@ -64,16 +65,10 @@ func (r *serviceCategoryImpl) FindByServiceIDs(ctx context.Context, serviceIDs [
 			service_categories
 		INNER JOIN service_service_categories
 			ON service_categories.id = service_service_categories.service_category_id
-		WHERE service_service_categories.service_id IN(?)
+		WHERE service_service_categories.service_id = ANY($1)
 	`
 
-	query, args, err := sqlx.In(statement, serviceIDs)
-	if err != nil {
-		return res, errors.New(err)
-	}
-
-	query = r.db.Rebind(query)
-	if err = r.db.SelectContext(ctx, &res, query, args...); err != nil {
+	if err := r.db.SelectContext(ctx, &res, query, pq.Array(serviceIDs)); err != nil {
 		return res, errors.New(err)
 	}
 

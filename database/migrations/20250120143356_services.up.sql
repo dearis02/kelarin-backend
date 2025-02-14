@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS services(
     rules JSONB NOT NULL DEFAULT '{}',
     is_available BOOLEAN NOT NULL DEFAULT TRUE,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    received_rating_count INT NOT NULL DEFAULT 0,
+    received_rating_average FLOAT4 NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ,
     FOREIGN KEY (service_provider_id) REFERENCES service_providers(id)
