@@ -29,10 +29,16 @@ type ServiceProvider struct {
 	Telephone         string          `db:"telephone"`
 	LogoImage         string          `db:"logo_image"`
 	AverageRating     decimal.Decimal `db:"average_rating"`
+	RatingCount       int32           `db:"rating_count"`
 	Credit            decimal.Decimal `db:"credit"`
 	IsDeleted         bool            `db:"is_deleted"`
 	CreatedAt         time.Time       `db:"created_at"`
 	DeletedAt         null.Time       `db:"deleted_at"`
+}
+
+type ServiceProviderAddress struct {
+	ID      uuid.UUID `db:"id"`
+	Address string    `db:"address"`
 }
 
 // end of region repo types
