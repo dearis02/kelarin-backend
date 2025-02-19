@@ -97,52 +97,55 @@ func (r *serviceIndexImpl) FindAllByFilter(ctx context.Context, req types.Servic
 		searchReq.SearchAfter = []esTypes.FieldValue{req.LatestTimestamp}
 	}
 
-	query := &esTypes.Query{}
+	mustQuery := []esTypes.Query{}
+	filterQuery := []esTypes.Query{}
 
 	if req.Keyword != "" {
-		query.MultiMatch = &esTypes.MultiMatchQuery{
-			Query:    req.Keyword,
-			Fields:   []string{"name", "description", "rules.name"},
-			Operator: &operator.Or,
-		}
-
-		searchReq.Query = query
+		mustQuery = append(mustQuery, esTypes.Query{
+			MultiMatch: &esTypes.MultiMatchQuery{
+				Query:    req.Keyword,
+				Fields:   []string{"name", "description", "rules.name"},
+				Operator: &operator.Or,
+			},
+		})
 	}
 
 	if len(req.Categories) > 0 {
-		query.Terms = &esTypes.TermsQuery{
-			TermsQuery: map[string]esTypes.TermsQueryField{
-				"categories": req.Categories,
-			},
-		}
-
-		searchReq.Query = query
-	}
-
-	areaQuery := make(map[string]esTypes.MatchQuery)
-	if req.Province != "" {
-		areaQuery["province"] = esTypes.MatchQuery{
-			Query:    req.Province,
-			Operator: &operator.And,
-		}
-	}
-	if req.City != "" {
-		areaQuery["city"] = esTypes.MatchQuery{
-			Query:    req.City,
-			Operator: &operator.And,
-		}
-	}
-
-	if len(areaQuery) > 0 {
-		query.Bool = &esTypes.BoolQuery{
-			Must: []esTypes.Query{
-				{
-					Match: areaQuery,
+		filterQuery = append(filterQuery, esTypes.Query{
+			Terms: &esTypes.TermsQuery{
+				TermsQuery: map[string]esTypes.TermsQueryField{
+					"categories": req.Categories,
 				},
 			},
-		}
+		})
+	}
 
-		searchReq.Query = query
+	if req.Province != "" {
+		mustQuery = append(mustQuery, esTypes.Query{
+			Match: map[string]esTypes.MatchQuery{
+				"province": {
+					Query:    req.Province,
+					Operator: &operator.And,
+				},
+			},
+		})
+	}
+	if req.City != "" {
+		mustQuery = append(mustQuery, esTypes.Query{
+			Match: map[string]esTypes.MatchQuery{
+				"city": {
+					Query:    req.City,
+					Operator: &operator.And,
+				},
+			},
+		})
+	}
+
+	searchReq.Query = &esTypes.Query{
+		Bool: &esTypes.BoolQuery{
+			Must:   mustQuery,
+			Filter: filterQuery,
+		},
 	}
 
 	services, err := r.esDB.Search().Index(types.ServiceElasticSearchIndexName).Request(&searchReq).Do(ctx)
