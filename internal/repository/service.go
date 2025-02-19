@@ -46,6 +46,8 @@ func (r *serviceImpl) FindByID(ctx context.Context, ID uuid.UUID) (types.Service
 			rules,
 			images,
 			is_available,
+			received_rating_count,
+			received_rating_average,
 			created_at
 		FROM services
 		WHERE id = $1
@@ -113,6 +115,8 @@ func (r *serviceImpl) FindByIDAndServiceProviderID(ctx context.Context, ID, serv
 			rules,
 			images,
 			is_available,
+			received_rating_count,
+			received_rating_average,
 			created_at
 		FROM services
 		WHERE id = $1
@@ -167,6 +171,8 @@ func (r *serviceImpl) FindAllByServiceProviderID(ctx context.Context, servicePro
 			rules,
 			images,
 			is_available,
+			received_rating_count,
+			received_rating_average,
 			created_at
 		FROM services
 		WHERE service_provider_id = $1
@@ -212,6 +218,8 @@ func (r *serviceImpl) FindByIDs(ctx context.Context, IDs []uuid.UUID) ([]types.S
 			rules,
 			images,
 			is_available,
+			received_rating_count,
+			received_rating_average,
 			created_at
 		FROM services
 		WHERE id = ANY($1)
