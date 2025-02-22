@@ -18,22 +18,22 @@ const (
 // region repo types
 
 type ServiceProvider struct {
-	ID                uuid.UUID       `db:"id"`
-	UserID            uuid.UUID       `db:"user_id"`
-	Name              string          `db:"name"`
-	Description       string          `db:"description"`
-	HasPhysicalOffice bool            `db:"has_physical_office"`
-	OfficeCoordinates null.String     `db:"office_coordinates"`
-	Address           string          `db:"address"`
-	MobilePhoneNumber string          `db:"mobile_phone_number"`
-	Telephone         string          `db:"telephone"`
-	LogoImage         string          `db:"logo_image"`
-	AverageRating     decimal.Decimal `db:"average_rating"`
-	RatingCount       int32           `db:"rating_count"`
-	Credit            decimal.Decimal `db:"credit"`
-	IsDeleted         bool            `db:"is_deleted"`
-	CreatedAt         time.Time       `db:"created_at"`
-	DeletedAt         null.Time       `db:"deleted_at"`
+	ID                    uuid.UUID       `db:"id"`
+	UserID                uuid.UUID       `db:"user_id"`
+	Name                  string          `db:"name"`
+	Description           string          `db:"description"`
+	HasPhysicalOffice     bool            `db:"has_physical_office"`
+	OfficeCoordinates     null.String     `db:"office_coordinates"`
+	Address               string          `db:"address"`
+	MobilePhoneNumber     string          `db:"mobile_phone_number"`
+	Telephone             string          `db:"telephone"`
+	LogoImage             string          `db:"logo_image"`
+	ReceivedRatingCount   int32           `db:"received_rating_count"`
+	ReceivedRatingAverage float64         `db:"received_rating_average"`
+	Credit                decimal.Decimal `db:"credit"`
+	IsDeleted             bool            `db:"is_deleted"`
+	CreatedAt             time.Time       `db:"created_at"`
+	DeletedAt             null.Time       `db:"deleted_at"`
 }
 
 type ServiceProviderAddress struct {

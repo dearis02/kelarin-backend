@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-errors/errors"
+	"github.com/google/uuid"
 	"github.com/volatiletech/null/v9"
 )
 
@@ -24,6 +25,7 @@ type Service interface {
 	RemoveImages(c *gin.Context)
 
 	ConsumerGetAll(c *gin.Context)
+	ConsumerGetByID(c *gin.Context)
 }
 
 type serviceImpl struct {
@@ -235,5 +237,24 @@ func (h *serviceImpl) ConsumerGetAll(c *gin.Context) {
 		Data:       res,
 		Pagination: &paginationRes,
 		Metadata:   metadata,
+	})
+}
+
+func (h *serviceImpl) ConsumerGetByID(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.Error(types.AppErr{Code: http.StatusBadRequest, Message: "invalid id param"})
+		return
+	}
+
+	res, err := h.consumerSvc.GetByID(c.Request.Context(), id)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
+		Data:       res,
 	})
 }
