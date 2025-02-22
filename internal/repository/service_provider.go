@@ -14,6 +14,7 @@ type ServiceProvider interface {
 	Create(ctx context.Context, tx *sqlx.Tx, req types.ServiceProvider) error
 	FindByUserID(ctx context.Context, userID uuid.UUID) (types.ServiceProvider, error)
 	FindByIDs(ctx context.Context, IDs []uuid.UUID) ([]types.ServiceProvider, error)
+	FindByID(ctx context.Context, ID uuid.UUID) (types.ServiceProvider, error)
 }
 
 type serviceProviderImpl struct {
@@ -75,7 +76,8 @@ func (r *serviceProviderImpl) FindByUserID(ctx context.Context, userID uuid.UUID
 			mobile_phone_number,
 			telephone,
 			logo_image,
-			average_rating,
+			received_rating_count,
+			received_rating_average,
 			credit,
 			is_deleted,
 			created_at
@@ -106,7 +108,8 @@ func (r *serviceProviderImpl) FindByIDs(ctx context.Context, IDs []uuid.UUID) ([
 			mobile_phone_number,
 			telephone,
 			logo_image,
-			average_rating,
+			received_rating_count,
+			received_rating_average,
 			credit,
 			is_deleted,
 			created_at
@@ -117,6 +120,40 @@ func (r *serviceProviderImpl) FindByIDs(ctx context.Context, IDs []uuid.UUID) ([
 
 	err := r.db.SelectContext(ctx, &res, statement, pq.Array(IDs))
 	if err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *serviceProviderImpl) FindByID(ctx context.Context, ID uuid.UUID) (types.ServiceProvider, error) {
+	res := types.ServiceProvider{}
+
+	statement := `
+		SELECT
+			id,
+			user_id,
+			name,
+			description,
+			has_physical_office,
+			office_coordinates,
+			address,
+			mobile_phone_number,
+			telephone,
+			logo_image,
+			received_rating_count,
+			received_rating_average,
+			credit,
+			is_deleted,
+			created_at
+		FROM service_providers
+		WHERE id = $1
+	`
+
+	err := r.db.GetContext(ctx, &res, statement, ID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, types.ErrNoData
+	} else if err != nil {
 		return res, errors.New(err)
 	}
 
