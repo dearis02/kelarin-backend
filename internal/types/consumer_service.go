@@ -61,6 +61,7 @@ type ConsumerServiceServiceProviderRes struct {
 	LogoImageURL          string    `json:"logo_image_url"`
 	ReceivedRatingCount   int32     `json:"received_rating_count"`
 	ReceivedRatingAverage float64   `json:"received_rating_average"`
+	JoinedAt              string    `json:"joined_at"`
 }
 
 // end of region service types

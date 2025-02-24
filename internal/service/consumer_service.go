@@ -6,6 +6,7 @@ import (
 	"kelarin/internal/types"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
@@ -193,6 +194,7 @@ func (s *consumerServiceImpl) GetByID(ctx context.Context, ID uuid.UUID) (types.
 			LogoImageURL:          providerLogoURL,
 			ReceivedRatingCount:   provider.ReceivedRatingCount,
 			ReceivedRatingAverage: provider.ReceivedRatingAverage,
+			JoinedAt:              provider.CreatedAt.Format(time.DateOnly),
 		},
 	}
 
