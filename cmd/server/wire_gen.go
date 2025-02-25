@@ -57,6 +57,12 @@ func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config2 *config.Con
 	handlerCity := handler.NewCity(serviceCity)
 	serviceCategory2 := service.NewServiceCategory(serviceCategory)
 	handlerServiceCategory := handler.NewServiceCategory(serviceCategory2)
-	server := provider.NewServer(handlerUser, handlerAuth, handlerFile, handlerServiceProvider, handlerService, handlerProvince, handlerCity, handlerServiceCategory)
+	userAddress := repository.NewUserAddress(db)
+	serviceUserAddress := service.NewUserAddress(userAddress, geocoding)
+	handlerUserAddress := handler.NewUserAddress(serviceUserAddress, authMiddleware)
+	offer := repository.NewOffer(db)
+	serviceOffer := service.NewOffer(offer, userAddress, repositoryService)
+	handlerOffer := handler.NewOffer(serviceOffer, authMiddleware)
+	server := provider.NewServer(handlerUser, handlerAuth, handlerFile, handlerServiceProvider, handlerService, handlerProvince, handlerCity, handlerServiceCategory, handlerUserAddress, handlerOffer)
 	return server, nil
 }

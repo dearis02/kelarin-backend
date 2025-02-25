@@ -74,6 +74,10 @@ type AuthUser struct {
 	IncompleteRegistration *bool // for service provider role
 }
 
+func (r AuthUser) IsZero() bool {
+	return r == (AuthUser{})
+}
+
 type AuthGenerateToken struct {
 	AccessToken  string
 	RefreshToken string
