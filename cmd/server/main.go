@@ -119,6 +119,8 @@ func main() {
 	provinceRoutes := routes.NewProvince(g, server.ProvinceHandler)
 	cityRoutes := routes.NewCity(g, server.CityHandler)
 	serviceCategoryRoutes := routes.NewServiceCategory(g, server.ServiceCategoryHandler)
+	userAddressRoutes := routes.NewUserAddress(g, server.UserAddressHandler)
+	offerRoutes := routes.NewOffer(g, server.OfferHandler)
 
 	// End init routes region
 
@@ -132,6 +134,8 @@ func main() {
 	provinceRoutes.Register()
 	cityRoutes.Register()
 	serviceCategoryRoutes.Register(authMiddleware)
+	userAddressRoutes.Register(authMiddleware)
+	offerRoutes.Register(authMiddleware)
 
 	// register websocket
 	wsClient := &WSClient{
