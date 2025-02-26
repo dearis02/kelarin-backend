@@ -14,6 +14,7 @@ type UserAddress interface {
 	FindByIDAndUserID(ctx context.Context, ID, userID uuid.UUID) (types.UserAddress, error)
 	FindByUserID(ctx context.Context, userID uuid.UUID) ([]types.UserAddress, error)
 	Create(ctx context.Context, address types.UserAddress) error
+	Update(ctx context.Context, address types.UserAddress) error
 }
 
 type userAddressImpl struct {
@@ -105,4 +106,23 @@ func (r *userAddressImpl) FindByUserID(ctx context.Context, userID uuid.UUID) ([
 	}
 
 	return res, nil
+}
+
+func (r *userAddressImpl) Update(ctx context.Context, address types.UserAddress) error {
+	query := `
+		UPDATE user_addresses
+		SET
+			name = :name,
+			coordinates = :coordinates,
+			province = :province,
+			city = :city,
+			address = :address
+		WHERE id = :id
+	`
+
+	if _, err := r.db.NamedExecContext(ctx, query, address); err != nil {
+		return errors.New(err)
+	}
+
+	return nil
 }
