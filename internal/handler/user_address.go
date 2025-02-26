@@ -12,6 +12,7 @@ import (
 type UserAddress interface {
 	Create(c *gin.Context)
 	GetAll(c *gin.Context)
+	Update(c *gin.Context)
 }
 
 type userAddressImpl struct {
@@ -59,5 +60,27 @@ func (h *userAddressImpl) GetAll(c *gin.Context) {
 	c.JSON(http.StatusOK, types.ApiResponse{
 		StatusCode: http.StatusOK,
 		Data:       res,
+	})
+}
+
+func (h *userAddressImpl) Update(c *gin.Context) {
+	var req types.UserAddressUpdateReq
+	if err := req.ID.UnmarshalText([]byte(c.Param("id"))); err != nil {
+		c.Error(types.AppErr{Code: http.StatusBadRequest, Message: "invalid id"})
+		return
+	}
+
+	if err := h.authMw.BindWithRequest(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	if err := h.userAddressSvc.Update(c.Request.Context(), req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
 	})
 }

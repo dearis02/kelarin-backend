@@ -22,4 +22,5 @@ func NewUserAddress(g *gin.Engine, userAddressHandler handler.UserAddress) *User
 func (r *UserAddress) Register(authMw middleware.Auth) {
 	r.g.GET("/consumer/v1/addresses", authMw.Consumer, r.userAddressHandler.GetAll)
 	r.g.POST("/consumer/v1/addresses", authMw.Consumer, r.userAddressHandler.Create)
+	r.g.PUT("/consumer/v1/addresses/:id", authMw.Consumer, r.userAddressHandler.Update)
 }

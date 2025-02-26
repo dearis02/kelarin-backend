@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"kelarin/internal/repository"
 	"kelarin/internal/types"
+	"net/http"
 
+	"github.com/go-errors/errors"
 	"github.com/google/uuid"
 	"github.com/twpayne/go-geom/encoding/ewkb"
 	"github.com/volatiletech/null/v9"
@@ -15,6 +17,7 @@ import (
 type UserAddress interface {
 	Create(ctx context.Context, req types.UserAddressCreateReq) error
 	GetAll(ctx context.Context, req types.UserAddressGetAllReq) ([]types.UserAddressGetAllRes, error)
+	Update(ctx context.Context, req types.UserAddressUpdateReq) error
 }
 
 type userAddressImpl struct {
@@ -102,4 +105,32 @@ func (s *userAddressImpl) GetAll(ctx context.Context, req types.UserAddressGetAl
 	}
 
 	return res, nil
+}
+
+func (s *userAddressImpl) Update(ctx context.Context, req types.UserAddressUpdateReq) error {
+	if err := req.Validate(); err != nil {
+		return err
+	}
+
+	address, err := s.userAddressRepo.FindByIDAndUserID(ctx, req.ID, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(types.AppErr{Code: http.StatusNotFound, Message: "address not found"})
+	} else if err != nil {
+		return err
+	}
+
+	address.Name = req.Name
+	address.Province = req.Province
+	address.City = req.City
+	address.Address = req.Address
+
+	if req.Lat.Valid && req.Lng.Valid {
+		address.Coordinates = null.StringFrom(fmt.Sprintf("POINT(%s %s)", req.Lng.Decimal, req.Lat.Decimal))
+	}
+
+	if err = s.userAddressRepo.Update(ctx, address); err != nil {
+		return err
+	}
+
+	return nil
 }
