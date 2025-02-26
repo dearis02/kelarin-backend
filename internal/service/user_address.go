@@ -7,7 +7,6 @@ import (
 	"kelarin/internal/repository"
 	"kelarin/internal/types"
 
-	"github.com/golang/geo/s2"
 	"github.com/google/uuid"
 	"github.com/twpayne/go-geom/encoding/ewkb"
 	"github.com/volatiletech/null/v9"
@@ -42,6 +41,7 @@ func (s *userAddressImpl) Create(ctx context.Context, req types.UserAddressCreat
 
 	userAddress := types.UserAddress{
 		ID:       id,
+		Name:     req.Name,
 		UserID:   req.AuthUser.ID,
 		Province: req.Province,
 		City:     req.City,
@@ -49,26 +49,7 @@ func (s *userAddressImpl) Create(ctx context.Context, req types.UserAddressCreat
 	}
 
 	if req.Lat.Valid && req.Lng.Valid {
-		lat := req.Lat.Decimal.InexactFloat64()
-		lng := req.Lng.Decimal.InexactFloat64()
-
-		reverseGeocodingRes, err := s.geocodingSvc.Reverse(ctx, types.GeocodingReverseReq{
-			LatLong: s2.LatLngFromDegrees(lat, lng),
-		})
-		if err != nil {
-			return err
-		}
-
-		userAddress.Coordinates = null.StringFrom(fmt.Sprintf("POINT(%f %f)", lat, lng))
-		userAddress.Address = reverseGeocodingRes.Results[0].Formatted
-
-		if reverseGeocodingRes.Results[0].Components.City != "" {
-			userAddress.City = reverseGeocodingRes.Results[0].Components.City
-		} else if reverseGeocodingRes.Results[0].Components.County != "" {
-			userAddress.City = reverseGeocodingRes.Results[0].Components.County
-		}
-
-		userAddress.Province = reverseGeocodingRes.Results[0].Components.State
+		userAddress.Coordinates = null.StringFrom(fmt.Sprintf("POINT(%s %s)", req.Lng.Decimal, req.Lat.Decimal))
 	}
 
 	if err = s.userAddressRepo.Create(ctx, userAddress); err != nil {
@@ -105,12 +86,13 @@ func (s *userAddressImpl) GetAll(ctx context.Context, req types.UserAddressGetAl
 				return res, err
 			}
 
-			lat = null.Float64From(ewkbPoint.X())
-			lng = null.Float64From(ewkbPoint.Y())
+			lng = null.Float64From(ewkbPoint.X())
+			lat = null.Float64From(ewkbPoint.Y())
 		}
 
 		res = append(res, types.UserAddressGetAllRes{
 			ID:       a.ID,
+			Name:     a.Name,
 			Lat:      lat,
 			Lng:      lng,
 			Province: a.Province,

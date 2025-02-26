@@ -33,6 +33,7 @@ func (r *userAddressImpl) FindByIDAndUserID(ctx context.Context, ID, userID uuid
 		SELECT 
 			id,
 			user_id,
+			name,
 			coordinates,
 			province,
 			city,
@@ -57,6 +58,7 @@ func (r *userAddressImpl) Create(ctx context.Context, address types.UserAddress)
 		INSERT INTO user_addresses(
 			id,
 			user_id,
+			name,
 			coordinates,
 			province,
 			city,
@@ -65,6 +67,7 @@ func (r *userAddressImpl) Create(ctx context.Context, address types.UserAddress)
 		VALUES(
 			:id,
 			:user_id,
+			:name,
 			:coordinates,
 			:province,
 			:city,
@@ -86,12 +89,14 @@ func (r *userAddressImpl) FindByUserID(ctx context.Context, userID uuid.UUID) ([
 		SELECT 
 			id,
 			user_id,
+			name,
 			coordinates,
 			province,
 			city,
 			address
 		FROM user_addresses
 		WHERE user_id = $1
+		ORDER BY id DESC
 	`
 
 	err := r.db.SelectContext(ctx, &res, query, userID)

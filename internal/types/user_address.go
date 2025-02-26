@@ -12,6 +12,7 @@ import (
 
 type UserAddress struct {
 	ID          uuid.UUID   `db:"id"`
+	Name        string      `db:"name"`
 	UserID      uuid.UUID   `db:"user_id"`
 	Coordinates null.String `db:"coordinates"`
 	Province    string      `db:"province"`
@@ -25,6 +26,7 @@ type UserAddress struct {
 
 type UserAddressCreateReq struct {
 	AuthUser AuthUser            `middleware:"user"`
+	Name     string              `json:"name"`
 	Lat      decimal.NullDecimal `json:"lat"`
 	Lng      decimal.NullDecimal `json:"lng"`
 	Province string              `json:"province"`
@@ -60,6 +62,7 @@ func (r UserAddressCreateReq) Validate() error {
 	}
 
 	return validation.ValidateStruct(&r,
+		validation.Field(&r.Name, validation.Required, validation.Length(1, 100)),
 		validation.Field(&r.Province, validation.Required, validation.Length(1, 255)),
 		validation.Field(&r.City, validation.Required, validation.Length(1, 255)),
 		validation.Field(&r.Address, validation.Required),
@@ -80,6 +83,7 @@ func (r UserAddressGetAllReq) Validate() error {
 
 type UserAddressGetAllRes struct {
 	ID       uuid.UUID    `json:"id"`
+	Name     string       `json:"name"`
 	Lat      null.Float64 `json:"lat"`
 	Lng      null.Float64 `json:"lng"`
 	Province string       `json:"province"`
