@@ -9,12 +9,12 @@ import (
 )
 
 type ApiResponse struct {
-	StatusCode int            `json:"status_code"`
-	Message    string         `json:"message,omitempty"`
-	Data       interface{}    `json:"data,omitempty"`
-	Errors     []any          `json:"errors,omitempty"`
-	Pagination *PaginationRes `json:"pagination,omitempty"`
-	Metadata   any            `json:"metadata,omitempty"`
+	StatusCode int         `json:"status_code"`
+	Message    string      `json:"message,omitempty"`
+	Data       interface{} `json:"data,omitempty"`
+	Errors     []any       `json:"errors,omitempty"`
+	Pagination any         `json:"pagination,omitempty"`
+	Metadata   any         `json:"metadata,omitempty"`
 }
 
 func (r ApiResponse) MarshalJSON() ([]byte, error) {

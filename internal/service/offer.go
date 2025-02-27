@@ -14,19 +14,22 @@ import (
 
 type Offer interface {
 	ConsumerCreate(ctx context.Context, req types.OfferConsumerCreateReq) error
+	ConsumerGetAll(ctx context.Context, req types.OfferConsumerGetAllReq) ([]types.OfferConsumerGetAllRes, error)
 }
 
 type offerImpl struct {
 	offerRepo       repository.Offer
 	userAddressRepo repository.UserAddress
 	serviceRepo     repository.Service
+	fileSvc         File
 }
 
-func NewOffer(offerRepo repository.Offer, userAddressRepo repository.UserAddress, serviceRepo repository.Service) Offer {
+func NewOffer(offerRepo repository.Offer, userAddressRepo repository.UserAddress, serviceRepo repository.Service, fileSvc File) Offer {
 	return &offerImpl{
 		offerRepo:       offerRepo,
 		userAddressRepo: userAddressRepo,
 		serviceRepo:     serviceRepo,
+		fileSvc:         fileSvc,
 	}
 }
 
@@ -73,6 +76,16 @@ func (s *offerImpl) ConsumerCreate(ctx context.Context, req types.OfferConsumerC
 		return errors.New(err)
 	}
 
+	startTime, err := time.Parse(time.TimeOnly, req.ServiceStartTime)
+	if err != nil {
+		return err
+	}
+
+	endTime, err := time.Parse(time.TimeOnly, req.ServiceEndTime)
+	if err != nil {
+		return err
+	}
+
 	offer := types.Offer{
 		ID:               id,
 		UserID:           req.AuthUser.ID,
@@ -82,8 +95,8 @@ func (s *offerImpl) ConsumerCreate(ctx context.Context, req types.OfferConsumerC
 		ServiceCost:      decimal.NewFromFloat(req.ServiceCost),
 		ServiceStartDate: startDate,
 		ServiceEndDate:   endDate,
-		ServiceStartTime: req.ServiceStartTime,
-		ServiceEndTime:   req.ServiceEndTime,
+		ServiceStartTime: startTime,
+		ServiceEndTime:   endTime,
 		Status:           types.OfferStatusPending,
 		CreatedAt:        time.Now(),
 	}
@@ -93,4 +106,64 @@ func (s *offerImpl) ConsumerCreate(ctx context.Context, req types.OfferConsumerC
 	}
 
 	return nil
+}
+
+func (s *offerImpl) ConsumerGetAll(ctx context.Context, req types.OfferConsumerGetAllReq) ([]types.OfferConsumerGetAllRes, error) {
+	res := []types.OfferConsumerGetAllRes{}
+
+	if err := req.Validate(); err != nil {
+		return res, err
+	}
+
+	offers, err := s.offerRepo.FindAllByUserID(ctx, req.AuthUser.ID)
+	if err != nil {
+		return res, err
+	}
+
+	var reqTimeZone *time.Location
+	if req.TimeZone != "" {
+		reqTimeZone, err = time.LoadLocation(req.TimeZone)
+	} else {
+		reqTimeZone, err = time.LoadLocation(types.AppTimeZone)
+	}
+
+	if err != nil {
+		return res, errors.New(types.AppErr{Code: http.StatusBadRequest, Message: "invalid timezone"})
+	}
+
+	for _, o := range offers {
+		serviceImgURL, err := s.fileSvc.GetS3PresignedURL(ctx, o.ServiceImage)
+		if err != nil {
+			return res, err
+		}
+
+		serviceProviderLogoURL, err := s.fileSvc.GetS3PresignedURL(ctx, o.ServiceProviderLogo)
+		if err != nil {
+			return res, err
+		}
+
+		res = append(res, types.OfferConsumerGetAllRes{
+			ID:                  o.ID,
+			ServiceCost:         o.ServiceCost,
+			ServiceStartDate:    o.ServiceStartDate.Format(time.DateOnly),
+			ServiceEndDate:      o.ServiceEndDate.Format(time.DateOnly),
+			ServiceStartTime:    o.ServiceStartTime.In(reqTimeZone).Format(time.TimeOnly),
+			ServiceEndTime:      o.ServiceEndTime.In(reqTimeZone).Format(time.TimeOnly),
+			ServiceTimeTimeZone: reqTimeZone.String(),
+			// HasPendingNegotiation: false, TODO: need to implement this
+			CreatedAt: o.CreatedAt,
+			Service: types.OfferConsumerGetAllResService{
+				ID:       o.ServiceID,
+				Name:     o.ServiceName,
+				ImageURL: serviceImgURL,
+			},
+			ServiceProvider: types.OfferConsumerGetAllResServiceProvider{
+				ID:      o.ServiceProviderID,
+				Name:    o.ServiceProviderName,
+				LogoURL: serviceProviderLogoURL,
+			},
+		})
+	}
+
+	return res, nil
 }

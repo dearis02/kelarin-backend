@@ -21,8 +21,8 @@ type Offer struct {
 	ServiceCost      decimal.Decimal `db:"service_cost"`
 	ServiceStartDate time.Time       `db:"service_start_date"`
 	ServiceEndDate   time.Time       `db:"service_end_date"`
-	ServiceStartTime string          `db:"service_start_time"`
-	ServiceEndTime   string          `db:"service_end_time"`
+	ServiceStartTime time.Time       `db:"service_start_time"`
+	ServiceEndTime   time.Time       `db:"service_end_time"`
 	Status           OfferStatus     `db:"status"`
 	CreatedAt        time.Time       `db:"created_at"`
 }
@@ -35,6 +35,15 @@ const (
 	OfferStatusRejected OfferStatus = "rejected"
 	OfferStatusCanceled OfferStatus = "canceled"
 )
+
+type OfferWithServiceAndProvider struct {
+	Offer
+	ServiceName         string    `db:"service_name"`
+	ServiceImage        string    `db:"service_image"`
+	ServiceProviderID   uuid.UUID `db:"service_provider_id"`
+	ServiceProviderName string    `db:"service_provider_name"`
+	ServiceProviderLogo string    `db:"service_provider_logo_image"`
+}
 
 // endregion repo types
 
@@ -95,16 +104,6 @@ func (r OfferConsumerCreateReq) Validate(serviceFeeStart decimal.Decimal) error 
 		return errors.New(err)
 	}
 
-	endTime, err := time.Parse(time.TimeOnly, r.ServiceEndTime)
-	if err != nil {
-		return errors.New(err)
-	}
-
-	if startTime.After(endTime) || startTime.Equal(endTime) {
-		ve["service_end_time"] = validation.NewError("service_end_time_min", "service_end_time must be greater than service_start_time")
-		return ve
-	}
-
 	if startDate.Equal(now.Truncate(24 * time.Hour)) {
 		if startTime.Before(now.Truncate(1 * time.Hour)) {
 			ve["service_start_time"] = validation.NewError("service_start_time_min", "service_start_time min less than 1 hour from now")
@@ -121,6 +120,45 @@ func (r OfferConsumerCreateReq) Validate(serviceFeeStart decimal.Decimal) error 
 	}
 
 	return nil
+}
+
+type OfferConsumerGetAllReq struct {
+	AuthUser AuthUser `middleware:"user"`
+	TimeZone string   `header:"Time-Zone"`
+}
+
+func (r OfferConsumerGetAllReq) Validate() error {
+	if r.AuthUser.IsZero() {
+		return errors.New("AuthUser is required")
+	}
+
+	return nil
+}
+
+type OfferConsumerGetAllRes struct {
+	ID                    uuid.UUID                             `json:"id"`
+	ServiceCost           decimal.Decimal                       `json:"service_cost"`
+	ServiceStartDate      string                                `json:"service_start_date"`
+	ServiceEndDate        string                                `json:"service_end_date"`
+	ServiceStartTime      string                                `json:"service_start_time"`
+	ServiceEndTime        string                                `json:"service_end_time"`
+	ServiceTimeTimeZone   string                                `json:"service_time_time_zone"`
+	HasPendingNegotiation bool                                  `json:"has_pending_negotiation"`
+	CreatedAt             time.Time                             `json:"created_at"`
+	Service               OfferConsumerGetAllResService         `json:"service"`
+	ServiceProvider       OfferConsumerGetAllResServiceProvider `json:"service_provider"`
+}
+
+type OfferConsumerGetAllResService struct {
+	ID       uuid.UUID `json:"id"`
+	Name     string    `json:"name"`
+	ImageURL string    `json:"image_url"`
+}
+
+type OfferConsumerGetAllResServiceProvider struct {
+	ID      uuid.UUID `json:"id"`
+	Name    string    `json:"name"`
+	LogoURL string    `json:"logo_url"`
 }
 
 // endregion service types

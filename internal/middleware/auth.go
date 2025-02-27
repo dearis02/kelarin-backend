@@ -17,7 +17,7 @@ type Auth interface {
 	Authenticated(c *gin.Context)
 	Consumer(c *gin.Context)
 	ServiceProvider(c *gin.Context)
-	BindWithRequest(c *gin.Context, req interface{}) error
+	BindWithRequest(c *gin.Context, req any) error
 	WS(c *gin.Context)
 }
 
@@ -147,7 +147,7 @@ func (m *authImpl) parseJwt(accToken string) (*types.AuthJwtCustomClaims, error)
 }
 
 // BindWithRequest binds the request body to the req struct and also binds the AuthUser to the struct field with the middleware tag
-func (authImpl) BindWithRequest(c *gin.Context, req interface{}) error {
+func (authImpl) BindWithRequest(c *gin.Context, req any) error {
 	reqValue := reflect.ValueOf(req)
 	if reqValue.Kind() != reflect.Ptr || reqValue.Elem().Kind() != reflect.Struct {
 		return errors.New("req must be a pointer to a struct")
@@ -155,6 +155,10 @@ func (authImpl) BindWithRequest(c *gin.Context, req interface{}) error {
 
 	if err := c.ShouldBind(req); err != nil {
 		return errors.New(types.AppErr{Code: http.StatusBadRequest, Message: err.Error()})
+	}
+
+	if err := c.ShouldBindHeader(req); err != nil {
+		return err
 	}
 
 	reqType := reqValue.Elem().Type()
