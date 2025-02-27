@@ -111,7 +111,8 @@ func (r OfferConsumerCreateReq) Validate(serviceFeeStart decimal.Decimal) error 
 		}
 	}
 
-	if !serviceFeeStart.LessThan(decimal.NewFromFloat(r.ServiceCost)) {
+	serviceCost := decimal.NewFromFloat(r.ServiceCost)
+	if !serviceCost.GreaterThanOrEqual(serviceFeeStart) {
 		ve["service_cost"] = validation.NewError("service_cost_min", fmt.Sprintf("service_cost must be greater or equal than %s", serviceFeeStart))
 	}
 
