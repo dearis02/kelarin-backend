@@ -13,6 +13,7 @@ import (
 type Offer interface {
 	Create(ctx context.Context, offer types.Offer) error
 	IsPendingOfferExists(ctx context.Context, userID, serviceID uuid.UUID) (bool, error)
+	FindAllByUserID(ctx context.Context, userID uuid.UUID) ([]types.OfferWithServiceAndProvider, error)
 }
 
 type offerImpl struct {
@@ -82,4 +83,42 @@ func (r *offerImpl) IsPendingOfferExists(ctx context.Context, userID, serviceID 
 	}
 
 	return exs, nil
+}
+
+func (r *offerImpl) FindAllByUserID(ctx context.Context, userID uuid.UUID) ([]types.OfferWithServiceAndProvider, error) {
+	res := []types.OfferWithServiceAndProvider{}
+
+	query := `
+		SELECT
+			offers.id,
+			offers.user_id,
+			offers.user_address_id,
+			offers.service_id,
+			offers.detail,
+			offers.service_cost,
+			offers.service_start_date,
+			offers.service_end_date,
+			offers.service_start_time,
+			offers.service_end_time,
+			offers.status,
+			offers.created_at,
+			services.name AS service_name,
+			services.images[1] AS service_image,
+			service_providers.id AS service_provider_id,
+			service_providers.name AS service_provider_name,
+			service_providers.logo_image AS service_provider_logo_image
+		FROM offers
+		INNER JOIN services
+			ON services.id = offers.service_id
+		INNER JOIN service_providers
+			ON service_providers.id = services.service_provider_id
+		WHERE offers.user_id = $1
+		ORDER BY offers.id DESC
+	`
+
+	if err := r.db.SelectContext(ctx, &res, query, userID); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
 }

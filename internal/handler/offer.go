@@ -11,6 +11,7 @@ import (
 
 type Offer interface {
 	ConsumerCreate(c *gin.Context)
+	ConsumerGetAll(c *gin.Context)
 }
 
 type offerImpl struct {
@@ -39,5 +40,24 @@ func (h *offerImpl) ConsumerCreate(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, types.ApiResponse{
 		StatusCode: http.StatusCreated,
+	})
+}
+
+func (h *offerImpl) ConsumerGetAll(c *gin.Context) {
+	var req types.OfferConsumerGetAllReq
+	if err := h.authMw.BindWithRequest(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	res, err := h.offerSvc.ConsumerGetAll(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
+		Data:       res,
 	})
 }
