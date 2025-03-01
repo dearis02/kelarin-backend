@@ -6,6 +6,7 @@ import (
 	"kelarin/internal/types"
 	"kelarin/internal/utils"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -21,20 +22,22 @@ type Offer interface {
 }
 
 type offerImpl struct {
-	offerRepo           repository.Offer
-	userAddressRepo     repository.UserAddress
-	serviceRepo         repository.Service
-	fileSvc             File
-	serviceProviderRepo repository.ServiceProvider
+	offerRepo            repository.Offer
+	userAddressRepo      repository.UserAddress
+	serviceRepo          repository.Service
+	fileSvc              File
+	serviceProviderRepo  repository.ServiceProvider
+	offerNegotiationRepo repository.OfferNegotiation
 }
 
-func NewOffer(offerRepo repository.Offer, userAddressRepo repository.UserAddress, serviceRepo repository.Service, fileSvc File, serviceProviderRepo repository.ServiceProvider) Offer {
+func NewOffer(offerRepo repository.Offer, userAddressRepo repository.UserAddress, serviceRepo repository.Service, fileSvc File, serviceProviderRepo repository.ServiceProvider, offerNegotiationRepo repository.OfferNegotiation) Offer {
 	return &offerImpl{
-		offerRepo:           offerRepo,
-		userAddressRepo:     userAddressRepo,
-		serviceRepo:         serviceRepo,
-		fileSvc:             fileSvc,
-		serviceProviderRepo: serviceProviderRepo,
+		offerRepo:            offerRepo,
+		userAddressRepo:      userAddressRepo,
+		serviceRepo:          serviceRepo,
+		fileSvc:              fileSvc,
+		serviceProviderRepo:  serviceProviderRepo,
+		offerNegotiationRepo: offerNegotiationRepo,
 	}
 }
 
@@ -116,11 +119,7 @@ func (s *offerImpl) ConsumerCreate(ctx context.Context, req types.OfferConsumerC
 func (s *offerImpl) ConsumerGetAll(ctx context.Context, req types.OfferConsumerGetAllReq) ([]types.OfferConsumerGetAllRes, error) {
 	res := []types.OfferConsumerGetAllRes{}
 
-	if err := req.Validate(); err != nil {
-		return res, err
-	}
-
-	offers, err := s.offerRepo.FindAllByUserID(ctx, req.AuthUser.ID)
+	err := req.Validate()
 	if err != nil {
 		return res, err
 	}
@@ -136,6 +135,21 @@ func (s *offerImpl) ConsumerGetAll(ctx context.Context, req types.OfferConsumerG
 		return res, errors.New(types.AppErr{Code: http.StatusBadRequest, Message: "invalid timezone"})
 	}
 
+	offers, err := s.offerRepo.FindAllByUserID(ctx, req.AuthUser.ID)
+	if err != nil {
+		return res, err
+	}
+
+	offerIDs := uuid.UUIDs{}
+	for _, o := range offers {
+		offerIDs = append(offerIDs, o.ID)
+	}
+
+	negotiations, err := s.offerNegotiationRepo.FindByOfferIDsAndStatus(ctx, offerIDs, types.OfferNegotiationStatusPending)
+	if err != nil {
+		return res, err
+	}
+
 	for _, o := range offers {
 		serviceImgURL, err := s.fileSvc.GetS3PresignedURL(ctx, o.ServiceImage)
 		if err != nil {
@@ -148,15 +162,15 @@ func (s *offerImpl) ConsumerGetAll(ctx context.Context, req types.OfferConsumerG
 		}
 
 		res = append(res, types.OfferConsumerGetAllRes{
-			ID:                  o.ID,
-			ServiceCost:         o.ServiceCost,
-			ServiceStartDate:    o.ServiceStartDate.Format(time.DateOnly),
-			ServiceEndDate:      o.ServiceEndDate.Format(time.DateOnly),
-			ServiceStartTime:    o.ServiceStartTime.In(reqTimeZone).Format(time.TimeOnly),
-			ServiceEndTime:      o.ServiceEndTime.In(reqTimeZone).Format(time.TimeOnly),
-			ServiceTimeTimeZone: reqTimeZone.String(),
-			// HasPendingNegotiation: false, TODO: need to implement this
-			CreatedAt: o.CreatedAt,
+			ID:                    o.ID,
+			ServiceCost:           o.ServiceCost,
+			ServiceStartDate:      o.ServiceStartDate.Format(time.DateOnly),
+			ServiceEndDate:        o.ServiceEndDate.Format(time.DateOnly),
+			ServiceStartTime:      o.ServiceStartTime.In(reqTimeZone).Format(time.TimeOnly),
+			ServiceEndTime:        o.ServiceEndTime.In(reqTimeZone).Format(time.TimeOnly),
+			ServiceTimeTimeZone:   reqTimeZone.String(),
+			HasPendingNegotiation: slices.ContainsFunc(negotiations, func(n types.OfferNegotiation) bool { return n.OfferID == o.ID }),
+			CreatedAt:             o.CreatedAt,
 			Service: types.OfferConsumerGetAllResService{
 				ID:       o.ServiceID,
 				Name:     o.ServiceName,
@@ -176,14 +190,31 @@ func (s *offerImpl) ConsumerGetAll(ctx context.Context, req types.OfferConsumerG
 func (s *offerImpl) ConsumerGetByID(ctx context.Context, req types.OfferConsumerGetByIDReq) (types.OfferConsumerGetByIDRes, error) {
 	res := types.OfferConsumerGetByIDRes{}
 
-	if err := req.Validate(); err != nil {
+	err := req.Validate()
+	if err != nil {
 		return res, err
+	}
+
+	var timeZone *time.Location
+	if req.TimeZone != "" {
+		timeZone, err = time.LoadLocation(req.TimeZone)
+	} else {
+		timeZone, err = time.LoadLocation(types.AppTimeZone)
+	}
+
+	if err != nil {
+		return res, errors.New(err)
 	}
 
 	offer, err := s.offerRepo.FindByIDAndUserID(ctx, req.ID, req.AuthUser.ID)
 	if errors.Is(err, types.ErrNoData) {
 		return res, errors.New(types.AppErr{Code: http.StatusNotFound, Message: "offer not found"})
 	} else if err != nil {
+		return res, err
+	}
+
+	negotiation, err := s.offerNegotiationRepo.FindByOfferIDAndStatus(ctx, offer.ID, types.OfferNegotiationStatusPending)
+	if !errors.Is(err, types.ErrNoData) && err != nil {
 		return res, err
 	}
 
@@ -208,17 +239,6 @@ func (s *offerImpl) ConsumerGetByID(ctx context.Context, req types.OfferConsumer
 		return res, err
 	}
 
-	var timeZone *time.Location
-	if req.TimeZone != "" {
-		timeZone, err = time.LoadLocation(req.TimeZone)
-	} else {
-		timeZone, err = time.LoadLocation(types.AppTimeZone)
-	}
-
-	if err != nil {
-		return res, errors.New(err)
-	}
-
 	serviceProviderLogoURL, err := s.fileSvc.GetS3PresignedURL(ctx, serviceProvider.LogoImage)
 	if err != nil {
 		return res, err
@@ -237,16 +257,16 @@ func (s *offerImpl) ConsumerGetByID(ctx context.Context, req types.OfferConsumer
 	}
 
 	res = types.OfferConsumerGetByIDRes{
-		ID:                  offer.ID,
-		ServiceCost:         offer.ServiceCost,
-		Detail:              offer.Detail,
-		ServiceStartDate:    offer.ServiceStartDate.Format(time.DateOnly),
-		ServiceEndDate:      offer.ServiceEndDate.Format(time.DateOnly),
-		ServiceStartTime:    offer.ServiceStartTime.In(timeZone).Format(time.TimeOnly),
-		ServiceEndTime:      offer.ServiceEndTime.In(timeZone).Format(time.TimeOnly),
-		ServiceTimeTimeZone: timeZone.String(),
-		// HasPendingNegotiation: false, TODO: need to implement this
-		CreatedAt: offer.CreatedAt,
+		ID:                    offer.ID,
+		ServiceCost:           offer.ServiceCost,
+		Detail:                offer.Detail,
+		ServiceStartDate:      offer.ServiceStartDate.Format(time.DateOnly),
+		ServiceEndDate:        offer.ServiceEndDate.Format(time.DateOnly),
+		ServiceStartTime:      offer.ServiceStartTime.In(timeZone).Format(time.TimeOnly),
+		ServiceEndTime:        offer.ServiceEndTime.In(timeZone).Format(time.TimeOnly),
+		ServiceTimeTimeZone:   timeZone.String(),
+		HasPendingNegotiation: negotiation.Status != "",
+		CreatedAt:             offer.CreatedAt,
 		Service: types.OfferConsumerGetByIDResService{
 			ID:   service.ServiceProviderID,
 			Name: service.Name,

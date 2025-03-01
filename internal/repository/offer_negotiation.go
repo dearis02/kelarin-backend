@@ -8,11 +8,13 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 type OfferNegotiation interface {
 	Create(ctx context.Context, req types.OfferNegotiation) error
 	FindByOfferIDAndStatus(ctx context.Context, offerID uuid.UUID, status types.OfferNegotiationStatus) (types.OfferNegotiation, error)
+	FindByOfferIDsAndStatus(ctx context.Context, offerIDs []uuid.UUID, status types.OfferNegotiationStatus) ([]types.OfferNegotiation, error)
 }
 
 type offerNegotiationImpl struct {
@@ -52,7 +54,7 @@ func (r *offerNegotiationImpl) Create(ctx context.Context, req types.OfferNegoti
 	return nil
 }
 
-func (r offerNegotiationImpl) FindByOfferIDAndStatus(ctx context.Context, offerID uuid.UUID, status types.OfferNegotiationStatus) (types.OfferNegotiation, error) {
+func (r *offerNegotiationImpl) FindByOfferIDAndStatus(ctx context.Context, offerID uuid.UUID, status types.OfferNegotiationStatus) (types.OfferNegotiation, error) {
 	res := types.OfferNegotiation{}
 
 	query := `
@@ -73,6 +75,29 @@ func (r offerNegotiationImpl) FindByOfferIDAndStatus(ctx context.Context, offerI
 		return res, types.ErrNoData
 	} else if err != nil {
 		return res, err
+	}
+
+	return res, nil
+}
+
+func (r *offerNegotiationImpl) FindByOfferIDsAndStatus(ctx context.Context, offerIDs []uuid.UUID, status types.OfferNegotiationStatus) ([]types.OfferNegotiation, error) {
+	res := []types.OfferNegotiation{}
+
+	query := `
+		SELECT
+			id,
+			offer_id,
+			message,
+			requested_service_cost,
+			status,
+			created_at
+		FROM offer_negotiations
+		WHERE offer_id = ANY($1)
+			AND status = $2
+	`
+
+	if err := r.db.SelectContext(ctx, &res, query, pq.Array(offerIDs), status); err != nil {
+		return res, errors.New(err)
 	}
 
 	return res, nil
