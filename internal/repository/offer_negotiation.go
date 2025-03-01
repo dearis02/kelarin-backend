@@ -15,6 +15,7 @@ type OfferNegotiation interface {
 	Create(ctx context.Context, req types.OfferNegotiation) error
 	FindByOfferIDAndStatus(ctx context.Context, offerID uuid.UUID, status types.OfferNegotiationStatus) (types.OfferNegotiation, error)
 	FindByOfferIDsAndStatus(ctx context.Context, offerIDs []uuid.UUID, status types.OfferNegotiationStatus) ([]types.OfferNegotiation, error)
+	FindAllByOfferID(ctx context.Context, offerID uuid.UUID) ([]types.OfferNegotiation, error)
 }
 
 type offerNegotiationImpl struct {
@@ -97,6 +98,28 @@ func (r *offerNegotiationImpl) FindByOfferIDsAndStatus(ctx context.Context, offe
 	`
 
 	if err := r.db.SelectContext(ctx, &res, query, pq.Array(offerIDs), status); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *offerNegotiationImpl) FindAllByOfferID(ctx context.Context, offerID uuid.UUID) ([]types.OfferNegotiation, error) {
+	res := []types.OfferNegotiation{}
+
+	query := `
+		SELECT
+			id,
+			offer_id,
+			message,
+			requested_service_cost,
+			status,
+			created_at
+		FROM offer_negotiations
+		WHERE offer_id = $1
+	`
+
+	if err := r.db.SelectContext(ctx, &res, query, offerID); err != nil {
 		return res, errors.New(err)
 	}
 
