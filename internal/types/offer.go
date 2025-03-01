@@ -8,6 +8,7 @@ import (
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
+	"github.com/volatiletech/null/v9"
 )
 
 // region repo types
@@ -159,6 +160,63 @@ type OfferConsumerGetAllResServiceProvider struct {
 	ID      uuid.UUID `json:"id"`
 	Name    string    `json:"name"`
 	LogoURL string    `json:"logo_url"`
+}
+
+type OfferConsumerGetByIDReq struct {
+	AuthUser AuthUser  `middleware:"user"`
+	ID       uuid.UUID `param:"id"`
+	TimeZone string    `header:"Time-Zone"`
+}
+
+func (r OfferConsumerGetByIDReq) Validate() error {
+	if r.AuthUser.IsZero() {
+		return errors.New("AuthUser is required")
+	}
+
+	if r.ID == uuid.Nil {
+		return ErrIDRouteParamRequired
+	}
+
+	return nil
+}
+
+type OfferConsumerGetByIDRes struct {
+	ID                    uuid.UUID                              `json:"id"`
+	ServiceCost           decimal.Decimal                        `json:"service_cost"`
+	Detail                string                                 `json:"detail"`
+	ServiceStartDate      string                                 `json:"service_start_date"`
+	ServiceEndDate        string                                 `json:"service_end_date"`
+	ServiceStartTime      string                                 `json:"service_start_time"`
+	ServiceEndTime        string                                 `json:"service_end_time"`
+	ServiceTimeTimeZone   string                                 `json:"service_time_time_zone"`
+	HasPendingNegotiation bool                                   `json:"has_pending_negotiation"`
+	CreatedAt             time.Time                              `json:"created_at"`
+	Service               OfferConsumerGetByIDResService         `json:"service"`
+	ServiceProvider       OfferConsumerGetByIDResServiceProvider `json:"service_provider"`
+	Address               OfferConsumerGetByIDResAddress         `json:"address"`
+}
+
+type OfferConsumerGetByIDResService struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+type OfferConsumerGetByIDResServiceProvider struct {
+	ID                    uuid.UUID `json:"id"`
+	Name                  string    `json:"name"`
+	LogoURL               string    `json:"logo_url"`
+	ReceivedRatingCount   int32     `json:"received_rating_count"`
+	ReceivedRatingAverage float64   `json:"received_rating_average"`
+}
+
+type OfferConsumerGetByIDResAddress struct {
+	ID       uuid.UUID    `json:"id"`
+	Name     string       `json:"name"`
+	Province string       `json:"province"`
+	City     string       `json:"city"`
+	Lat      null.Float64 `json:"lat"`
+	Lng      null.Float64 `json:"lng"`
+	Address  string       `json:"address"`
 }
 
 // endregion service types

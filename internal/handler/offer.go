@@ -12,6 +12,7 @@ import (
 type Offer interface {
 	ConsumerCreate(c *gin.Context)
 	ConsumerGetAll(c *gin.Context)
+	ConsumerGetByID(c *gin.Context)
 }
 
 type offerImpl struct {
@@ -51,6 +52,30 @@ func (h *offerImpl) ConsumerGetAll(c *gin.Context) {
 	}
 
 	res, err := h.offerSvc.ConsumerGetAll(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
+		Data:       res,
+	})
+}
+
+func (h *offerImpl) ConsumerGetByID(c *gin.Context) {
+	var req types.OfferConsumerGetByIDReq
+	if err := req.ID.UnmarshalText([]byte(c.Param("id"))); err != nil {
+		c.Error(err)
+		return
+	}
+
+	if err := h.authMw.BindWithRequest(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	res, err := h.offerSvc.ConsumerGetByID(c.Request.Context(), req)
 	if err != nil {
 		c.Error(err)
 		return

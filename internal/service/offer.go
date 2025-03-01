@@ -4,32 +4,37 @@ import (
 	"context"
 	"kelarin/internal/repository"
 	"kelarin/internal/types"
+	"kelarin/internal/utils"
 	"net/http"
 	"time"
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
+	"github.com/volatiletech/null/v9"
 )
 
 type Offer interface {
 	ConsumerCreate(ctx context.Context, req types.OfferConsumerCreateReq) error
 	ConsumerGetAll(ctx context.Context, req types.OfferConsumerGetAllReq) ([]types.OfferConsumerGetAllRes, error)
+	ConsumerGetByID(ctx context.Context, req types.OfferConsumerGetByIDReq) (types.OfferConsumerGetByIDRes, error)
 }
 
 type offerImpl struct {
-	offerRepo       repository.Offer
-	userAddressRepo repository.UserAddress
-	serviceRepo     repository.Service
-	fileSvc         File
+	offerRepo           repository.Offer
+	userAddressRepo     repository.UserAddress
+	serviceRepo         repository.Service
+	fileSvc             File
+	serviceProviderRepo repository.ServiceProvider
 }
 
-func NewOffer(offerRepo repository.Offer, userAddressRepo repository.UserAddress, serviceRepo repository.Service, fileSvc File) Offer {
+func NewOffer(offerRepo repository.Offer, userAddressRepo repository.UserAddress, serviceRepo repository.Service, fileSvc File, serviceProviderRepo repository.ServiceProvider) Offer {
 	return &offerImpl{
-		offerRepo:       offerRepo,
-		userAddressRepo: userAddressRepo,
-		serviceRepo:     serviceRepo,
-		fileSvc:         fileSvc,
+		offerRepo:           offerRepo,
+		userAddressRepo:     userAddressRepo,
+		serviceRepo:         serviceRepo,
+		fileSvc:             fileSvc,
+		serviceProviderRepo: serviceProviderRepo,
 	}
 }
 
@@ -163,6 +168,105 @@ func (s *offerImpl) ConsumerGetAll(ctx context.Context, req types.OfferConsumerG
 				LogoURL: serviceProviderLogoURL,
 			},
 		})
+	}
+
+	return res, nil
+}
+
+func (s *offerImpl) ConsumerGetByID(ctx context.Context, req types.OfferConsumerGetByIDReq) (types.OfferConsumerGetByIDRes, error) {
+	res := types.OfferConsumerGetByIDRes{}
+
+	if err := req.Validate(); err != nil {
+		return res, err
+	}
+
+	offer, err := s.offerRepo.FindByIDAndUserID(ctx, req.ID, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.New(types.AppErr{Code: http.StatusNotFound, Message: "offer not found"})
+	} else if err != nil {
+		return res, err
+	}
+
+	service, err := s.serviceRepo.FindByID(ctx, offer.ServiceID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("service not found: id %s", offer.ServiceID)
+	} else if err != nil {
+		return res, err
+	}
+
+	serviceProvider, err := s.serviceProviderRepo.FindByID(ctx, service.ServiceProviderID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("service provider not found: id %s", service.ServiceProviderID)
+	} else if err != nil {
+		return res, err
+	}
+
+	address, err := s.userAddressRepo.FindByIDAndUserID(ctx, offer.UserAddressID, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("address not found: id %s", offer.UserAddressID)
+	} else if err != nil {
+		return res, err
+	}
+
+	var timeZone *time.Location
+	if req.TimeZone != "" {
+		timeZone, err = time.LoadLocation(req.TimeZone)
+	} else {
+		timeZone, err = time.LoadLocation(types.AppTimeZone)
+	}
+
+	if err != nil {
+		return res, errors.New(err)
+	}
+
+	serviceProviderLogoURL, err := s.fileSvc.GetS3PresignedURL(ctx, serviceProvider.LogoImage)
+	if err != nil {
+		return res, err
+	}
+
+	var lat null.Float64
+	var lng null.Float64
+	if address.Coordinates.Valid {
+		latitude, longitude, err := utils.ParseLatLngFromHexStr(address.Coordinates.String)
+		if err != nil {
+			return res, err
+		}
+
+		lat = null.Float64From(latitude)
+		lng = null.Float64From(longitude)
+	}
+
+	res = types.OfferConsumerGetByIDRes{
+		ID:                  offer.ID,
+		ServiceCost:         offer.ServiceCost,
+		Detail:              offer.Detail,
+		ServiceStartDate:    offer.ServiceStartDate.Format(time.DateOnly),
+		ServiceEndDate:      offer.ServiceEndDate.Format(time.DateOnly),
+		ServiceStartTime:    offer.ServiceStartTime.In(timeZone).Format(time.TimeOnly),
+		ServiceEndTime:      offer.ServiceEndTime.In(timeZone).Format(time.TimeOnly),
+		ServiceTimeTimeZone: timeZone.String(),
+		// HasPendingNegotiation: false, TODO: need to implement this
+		CreatedAt: offer.CreatedAt,
+		Service: types.OfferConsumerGetByIDResService{
+			ID:   service.ServiceProviderID,
+			Name: service.Name,
+		},
+		ServiceProvider: types.OfferConsumerGetByIDResServiceProvider{
+			ID:                    serviceProvider.ID,
+			Name:                  serviceProvider.Name,
+			LogoURL:               serviceProviderLogoURL,
+			ReceivedRatingCount:   serviceProvider.ReceivedRatingCount,
+			ReceivedRatingAverage: serviceProvider.ReceivedRatingAverage,
+		},
+		Address: types.OfferConsumerGetByIDResAddress{
+			ID:       address.ID,
+			Name:     address.Name,
+			Province: address.Province,
+			City:     address.City,
+			Lat:      lat,
+			Lng:      lng,
+			Address:  address.Address,
+		},
 	}
 
 	return res, nil
