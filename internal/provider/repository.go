@@ -21,4 +21,5 @@ var RepositorySet = wire.NewSet(
 	repository.NewServiceIndex,
 	repository.NewUserAddress,
 	repository.NewOffer,
+	repository.NewOfferNegotiation,
 )

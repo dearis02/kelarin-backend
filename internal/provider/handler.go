@@ -17,4 +17,5 @@ var HandlerSet = wire.NewSet(
 	handler.NewServiceCategory,
 	handler.NewUserAddress,
 	handler.NewOffer,
+	handler.NewOfferNegotiation,
 )

@@ -218,7 +218,7 @@ func (s *authImpl) ProviderCreateSession(ctx context.Context, req types.AuthCrea
 	}
 
 	if user.Role != types.UserRoleServiceProvider {
-		return res, errors.New(types.AppErr{Code: http.StatusUnauthorized, Message: "this account has been registered, use another account"})
+		return res, errors.New(types.AppErr{Code: http.StatusUnauthorized, Message: "this account not registered as a provider, use another account"})
 	}
 
 	if user.IsSuspended {
