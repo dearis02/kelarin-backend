@@ -15,6 +15,7 @@ type Offer interface {
 	IsPendingOfferExists(ctx context.Context, userID, serviceID uuid.UUID) (bool, error)
 	FindAllByUserID(ctx context.Context, userID uuid.UUID) ([]types.OfferWithServiceAndProvider, error)
 	FindByIDAndUserID(ctx context.Context, ID, userID uuid.UUID) (types.Offer, error)
+	FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Offer, error)
 }
 
 type offerImpl struct {
@@ -147,6 +148,40 @@ func (r *offerImpl) FindByIDAndUserID(ctx context.Context, ID, userID uuid.UUID)
 	`
 
 	err := r.db.GetContext(ctx, &res, query, ID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, types.ErrNoData
+	} else if err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *offerImpl) FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Offer, error) {
+	res := types.Offer{}
+
+	query := `
+		SELECT
+			offers.id,
+			offers.user_id,
+			offers.user_address_id,
+			offers.service_id,
+			offers.detail,
+			offers.service_cost,
+			offers.service_start_date,
+			offers.service_end_date,
+			offers.service_start_time,
+			offers.service_end_time,
+			offers.status,
+			offers.created_at
+		FROM offers
+		INNER JOIN services
+			ON services.id = offers.service_id
+		WHERE offers.id = $1
+			AND services.service_provider_id = $2
+	`
+
+	err := r.db.GetContext(ctx, &res, query, ID, serviceProviderID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return res, types.ErrNoData
 	} else if err != nil {

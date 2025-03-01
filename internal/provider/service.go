@@ -19,4 +19,5 @@ var ServiceSet = wire.NewSet(
 	service.NewConsumerService,
 	service.NewUserAddress,
 	service.NewOffer,
+	service.NewOfferNegotiation,
 )
