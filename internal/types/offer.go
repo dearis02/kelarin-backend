@@ -194,6 +194,7 @@ type OfferConsumerGetByIDRes struct {
 	Service               OfferConsumerGetByIDResService         `json:"service"`
 	ServiceProvider       OfferConsumerGetByIDResServiceProvider `json:"service_provider"`
 	Address               OfferConsumerGetByIDResAddress         `json:"address"`
+	Negotiations          []OfferConsumerGetByIDResNegotiation   `json:"negotiations"`
 }
 
 type OfferConsumerGetByIDResService struct {
@@ -217,6 +218,14 @@ type OfferConsumerGetByIDResAddress struct {
 	Lat      null.Float64 `json:"lat"`
 	Lng      null.Float64 `json:"lng"`
 	Address  string       `json:"address"`
+}
+
+type OfferConsumerGetByIDResNegotiation struct {
+	ID                   uuid.UUID              `json:"id"`
+	Message              string                 `json:"message"`
+	RequestedServiceCost decimal.Decimal        `json:"requested_service_cost"`
+	Status               OfferNegotiationStatus `json:"status"`
+	CreatedAt            time.Time              `json:"created_at"`
 }
 
 // endregion service types

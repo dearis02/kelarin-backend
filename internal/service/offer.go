@@ -213,7 +213,7 @@ func (s *offerImpl) ConsumerGetByID(ctx context.Context, req types.OfferConsumer
 		return res, err
 	}
 
-	negotiation, err := s.offerNegotiationRepo.FindByOfferIDAndStatus(ctx, offer.ID, types.OfferNegotiationStatusPending)
+	negotiations, err := s.offerNegotiationRepo.FindAllByOfferID(ctx, offer.ID)
 	if !errors.Is(err, types.ErrNoData) && err != nil {
 		return res, err
 	}
@@ -256,6 +256,17 @@ func (s *offerImpl) ConsumerGetByID(ctx context.Context, req types.OfferConsumer
 		lng = null.Float64From(longitude)
 	}
 
+	negotiationsRes := []types.OfferConsumerGetByIDResNegotiation{}
+	for _, n := range negotiations {
+		negotiationsRes = append(negotiationsRes, types.OfferConsumerGetByIDResNegotiation{
+			ID:                   n.ID,
+			Message:              n.Message,
+			RequestedServiceCost: n.RequestedServiceCost,
+			Status:               n.Status,
+			CreatedAt:            n.CreatedAt,
+		})
+	}
+
 	res = types.OfferConsumerGetByIDRes{
 		ID:                    offer.ID,
 		ServiceCost:           offer.ServiceCost,
@@ -265,7 +276,7 @@ func (s *offerImpl) ConsumerGetByID(ctx context.Context, req types.OfferConsumer
 		ServiceStartTime:      offer.ServiceStartTime.In(timeZone).Format(time.TimeOnly),
 		ServiceEndTime:        offer.ServiceEndTime.In(timeZone).Format(time.TimeOnly),
 		ServiceTimeTimeZone:   timeZone.String(),
-		HasPendingNegotiation: negotiation.Status != "",
+		HasPendingNegotiation: slices.ContainsFunc(negotiations, func(n types.OfferNegotiation) bool { return n.Status == types.OfferNegotiationStatusPending }),
 		CreatedAt:             offer.CreatedAt,
 		Service: types.OfferConsumerGetByIDResService{
 			ID:   service.ServiceProviderID,
@@ -287,6 +298,7 @@ func (s *offerImpl) ConsumerGetByID(ctx context.Context, req types.OfferConsumer
 			Lng:      lng,
 			Address:  address.Address,
 		},
+		Negotiations: negotiationsRes,
 	}
 
 	return res, nil
