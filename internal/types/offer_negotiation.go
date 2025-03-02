@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -66,6 +67,33 @@ func (r OfferNegotiationProviderCreateReq) Validate(minServiceCost decimal.Decim
 	}
 
 	return nil
+}
+
+type OfferNegotiationConsumerActionReq struct {
+	AuthUser AuthUser                       `middleware:"user"`
+	ID       uuid.UUID                      `param:"id"`
+	Action   OfferNegotiationConsumerAction `json:"action"`
+}
+
+type OfferNegotiationConsumerAction string
+
+const (
+	OfferNegotiationConsumerActionAccept OfferNegotiationConsumerAction = "accept"
+	OfferNegotiationConsumerActionReject OfferNegotiationConsumerAction = "reject"
+)
+
+func (r OfferNegotiationConsumerActionReq) Validate() error {
+	if r.AuthUser.IsZero() {
+		return errors.New("AuthUser is required")
+	}
+
+	if r.ID == uuid.Nil {
+		return errors.New(AppErr{Code: http.StatusBadRequest, Message: "invalid id param"})
+	}
+
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.Action, validation.In(OfferNegotiationConsumerActionAccept, OfferNegotiationConsumerActionReject)),
+	)
 }
 
 // endregion service types

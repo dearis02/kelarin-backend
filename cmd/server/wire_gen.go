@@ -64,7 +64,7 @@ func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config2 *config.Con
 	offerNegotiation := repository.NewOfferNegotiation(db)
 	serviceOffer := service.NewOffer(offer, userAddress, repositoryService, serviceFile, serviceProvider, offerNegotiation)
 	handlerOffer := handler.NewOffer(serviceOffer, authMiddleware)
-	serviceOfferNegotiation := service.NewOfferNegotiation(serviceProvider, offerNegotiation, offer, repositoryService)
+	serviceOfferNegotiation := service.NewOfferNegotiation(serviceProvider, offerNegotiation, offer, repositoryService, db)
 	handlerOfferNegotiation := handler.NewOfferNegotiation(authMiddleware, serviceOfferNegotiation)
 	server := provider.NewServer(handlerUser, handlerAuth, handlerFile, handlerServiceProvider, handlerService, handlerProvince, handlerCity, handlerServiceCategory, handlerUserAddress, handlerOffer, handlerOfferNegotiation)
 	return server, nil
