@@ -16,6 +16,7 @@ type Offer interface {
 	FindAllByUserID(ctx context.Context, userID uuid.UUID) ([]types.OfferWithServiceAndProvider, error)
 	FindByIDAndUserID(ctx context.Context, ID, userID uuid.UUID) (types.Offer, error)
 	FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Offer, error)
+	UpdateTx(ctx context.Context, tx *sqlx.Tx, req types.Offer) error
 }
 
 type offerImpl struct {
@@ -189,4 +190,26 @@ func (r *offerImpl) FindByIDAndServiceProviderID(ctx context.Context, ID, servic
 	}
 
 	return res, nil
+}
+
+func (r *offerImpl) UpdateTx(ctx context.Context, tx *sqlx.Tx, req types.Offer) error {
+	query := `
+		UPDATE offers
+		SET
+			user_address_id = :user_address_id,
+			detail = :detail,
+			service_cost = :service_cost,
+			service_start_date = :service_start_date,
+			service_end_date = :service_end_date,
+			service_start_time = :service_start_time,
+			service_end_time = :service_end_time,
+			status = :status
+		WHERE id = :id
+	`
+
+	if _, err := tx.NamedExecContext(ctx, query, req); err != nil {
+		return errors.New(err)
+	}
+
+	return nil
 }

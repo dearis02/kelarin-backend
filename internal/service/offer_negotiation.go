@@ -4,16 +4,19 @@ import (
 	"context"
 	"kelarin/internal/repository"
 	"kelarin/internal/types"
+	dbUtil "kelarin/internal/utils/dbutil"
 	"net/http"
 	"time"
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/shopspring/decimal"
 )
 
 type OfferNegotiation interface {
 	ProviderCreate(ctx context.Context, req types.OfferNegotiationProviderCreateReq) error
+	ConsumerAction(ctx context.Context, req types.OfferNegotiationConsumerActionReq) error
 }
 
 type offerNegotiationImpl struct {
@@ -21,14 +24,16 @@ type offerNegotiationImpl struct {
 	offerNegotiationRepo repository.OfferNegotiation
 	offerRepo            repository.Offer
 	serviceRepo          repository.Service
+	db                   *sqlx.DB
 }
 
-func NewOfferNegotiation(serviceProviderRepo repository.ServiceProvider, offerNegotiationRepo repository.OfferNegotiation, offerRepo repository.Offer, serviceRepo repository.Service) OfferNegotiation {
+func NewOfferNegotiation(serviceProviderRepo repository.ServiceProvider, offerNegotiationRepo repository.OfferNegotiation, offerRepo repository.Offer, serviceRepo repository.Service, db *sqlx.DB) OfferNegotiation {
 	return &offerNegotiationImpl{
 		serviceProviderRepo:  serviceProviderRepo,
 		offerNegotiationRepo: offerNegotiationRepo,
 		offerRepo:            offerRepo,
 		serviceRepo:          serviceRepo,
+		db:                   db,
 	}
 }
 
@@ -85,6 +90,61 @@ func (s *offerNegotiationImpl) ProviderCreate(ctx context.Context, req types.Off
 	}
 
 	if err = s.offerNegotiationRepo.Create(ctx, offerNegotiation); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *offerNegotiationImpl) ConsumerAction(ctx context.Context, req types.OfferNegotiationConsumerActionReq) error {
+	if err := req.Validate(); err != nil {
+		return err
+	}
+
+	negotiation, err := s.offerNegotiationRepo.FindByIDAndUserID(ctx, req.ID, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(types.AppErr{Code: http.StatusNotFound, Message: "offer negotiation not found"})
+	} else if err != nil {
+		return err
+	}
+
+	offer, err := s.offerRepo.FindByIDAndUserID(ctx, negotiation.OfferID, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.Errorf("offer not found: id %s", negotiation.OfferID)
+	} else if err != nil {
+		return err
+	}
+
+	if negotiation.Status != types.OfferNegotiationStatusPending {
+		return errors.New(types.AppErr{Code: http.StatusForbidden, Message: "only pending negotiation can be accept or reject"})
+	} else if offer.Status != types.OfferStatusPending {
+		return errors.New(types.AppErr{Code: http.StatusForbidden, Message: "offer is already accepted, rejected, or canceled"})
+	}
+
+	switch req.Action {
+	case types.OfferNegotiationConsumerActionAccept:
+		negotiation.Status = types.OfferNegotiationStatusAccepted
+		offer.ServiceCost = negotiation.RequestedServiceCost
+	case types.OfferNegotiationConsumerActionReject:
+		negotiation.Status = types.OfferNegotiationStatusRejected
+	}
+
+	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	if err != nil {
+		return errors.New(err)
+	}
+
+	defer tx.Rollback()
+
+	if err := s.offerNegotiationRepo.UpdateStatusTx(ctx, tx, negotiation); err != nil {
+		return err
+	}
+
+	if err := s.offerRepo.UpdateTx(ctx, tx, offer); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
 		return err
 	}
 
