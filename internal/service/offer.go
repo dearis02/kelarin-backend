@@ -2,15 +2,18 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"kelarin/internal/repository"
 	"kelarin/internal/types"
 	"kelarin/internal/utils"
+	dbUtil "kelarin/internal/utils/dbutil"
 	"net/http"
 	"slices"
 	"time"
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/shopspring/decimal"
 	"github.com/volatiletech/null/v9"
 )
@@ -22,22 +25,32 @@ type Offer interface {
 }
 
 type offerImpl struct {
-	offerRepo            repository.Offer
-	userAddressRepo      repository.UserAddress
-	serviceRepo          repository.Service
-	fileSvc              File
-	serviceProviderRepo  repository.ServiceProvider
-	offerNegotiationRepo repository.OfferNegotiation
+	offerRepo                       repository.Offer
+	userAddressRepo                 repository.UserAddress
+	serviceRepo                     repository.Service
+	fileSvc                         File
+	serviceProviderRepo             repository.ServiceProvider
+	offerNegotiationRepo            repository.OfferNegotiation
+	serviceProviderNotificationRepo repository.ServiceProviderNotification
+	fcmTokenRepo                    repository.FCMToken
+	notificationSvc                 Notification
+	userRepo                        repository.User
+	db                              *sqlx.DB
 }
 
-func NewOffer(offerRepo repository.Offer, userAddressRepo repository.UserAddress, serviceRepo repository.Service, fileSvc File, serviceProviderRepo repository.ServiceProvider, offerNegotiationRepo repository.OfferNegotiation) Offer {
+func NewOffer(offerRepo repository.Offer, userAddressRepo repository.UserAddress, serviceRepo repository.Service, fileSvc File, serviceProviderRepo repository.ServiceProvider, offerNegotiationRepo repository.OfferNegotiation, serviceProviderNotificationRepo repository.ServiceProviderNotification, fcmTokenRepo repository.FCMToken, notificationSvc Notification, userRepo repository.User, db *sqlx.DB) Offer {
 	return &offerImpl{
-		offerRepo:            offerRepo,
-		userAddressRepo:      userAddressRepo,
-		serviceRepo:          serviceRepo,
-		fileSvc:              fileSvc,
-		serviceProviderRepo:  serviceProviderRepo,
-		offerNegotiationRepo: offerNegotiationRepo,
+		offerRepo:                       offerRepo,
+		userAddressRepo:                 userAddressRepo,
+		serviceRepo:                     serviceRepo,
+		fileSvc:                         fileSvc,
+		serviceProviderRepo:             serviceProviderRepo,
+		offerNegotiationRepo:            offerNegotiationRepo,
+		serviceProviderNotificationRepo: serviceProviderNotificationRepo,
+		fcmTokenRepo:                    fcmTokenRepo,
+		notificationSvc:                 notificationSvc,
+		userRepo:                        userRepo,
+		db:                              db,
 	}
 }
 
@@ -60,6 +73,20 @@ func (s *offerImpl) ConsumerCreate(ctx context.Context, req types.OfferConsumerC
 
 	if exs {
 		return errors.New(types.AppErr{Code: http.StatusForbidden, Message: "there is still pending offer for this service"})
+	}
+
+	user, err := s.userRepo.FindByID(ctx, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.Errorf("user not found: id %s", req.AuthUser.ID)
+	} else if err != nil {
+		return err
+	}
+
+	provider, err := s.serviceProviderRepo.FindByID(ctx, service.ServiceProviderID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.Errorf("service provider not found: id %s", service.ServiceProviderID)
+	} else if err != nil {
+		return err
 	}
 
 	address, err := s.userAddressRepo.FindByIDAndUserID(ctx, req.AddressID, req.AuthUser.ID)
@@ -94,6 +121,7 @@ func (s *offerImpl) ConsumerCreate(ctx context.Context, req types.OfferConsumerC
 		return err
 	}
 
+	now := time.Now()
 	offer := types.Offer{
 		ID:               id,
 		UserID:           req.AuthUser.ID,
@@ -106,10 +134,54 @@ func (s *offerImpl) ConsumerCreate(ctx context.Context, req types.OfferConsumerC
 		ServiceStartTime: startTime,
 		ServiceEndTime:   endTime,
 		Status:           types.OfferStatusPending,
-		CreatedAt:        time.Now(),
+		CreatedAt:        now,
 	}
 
-	if err = s.offerRepo.Create(ctx, offer); err != nil {
+	id, err = uuid.NewV7()
+	if err != nil {
+		return errors.New(err)
+	}
+	providerNotification := types.ServiceProviderNotification{
+		ID:                id,
+		ServiceProviderID: service.ServiceProviderID,
+		OfferID:           uuid.NullUUID{UUID: offer.ID, Valid: true},
+		Type:              types.ServiceProviderNotificationTypeOfferReceived,
+		CreatedAt:         now,
+	}
+
+	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	if err = s.offerRepo.CreateTx(ctx, tx, offer); err != nil {
+		return err
+	}
+
+	if err = s.serviceProviderNotificationRepo.CreateTx(ctx, tx, providerNotification); err != nil {
+		return err
+	}
+
+	key := types.FCMTokenKey(provider.UserID)
+	token, err := s.fcmTokenRepo.Find(ctx, key)
+	if !errors.Is(err, types.ErrNoData) && err != nil {
+		return err
+	}
+
+	if token != "" {
+		err = s.notificationSvc.SendPush(ctx, types.NotificationSendReq{
+			Title:   fmt.Sprintf("%s sent you an offer!", user.Name),
+			Message: "Check it now",
+			Token:   token,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
 		return err
 	}
 

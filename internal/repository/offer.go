@@ -11,7 +11,7 @@ import (
 )
 
 type Offer interface {
-	Create(ctx context.Context, offer types.Offer) error
+	CreateTx(ctx context.Context, tx *sqlx.Tx, offer types.Offer) error
 	IsPendingOfferExists(ctx context.Context, userID, serviceID uuid.UUID) (bool, error)
 	FindAllByUserID(ctx context.Context, userID uuid.UUID) ([]types.OfferWithServiceAndProvider, error)
 	FindByIDAndUserID(ctx context.Context, ID, userID uuid.UUID) (types.Offer, error)
@@ -29,7 +29,7 @@ func NewOffer(db *sqlx.DB) Offer {
 	}
 }
 
-func (r *offerImpl) Create(ctx context.Context, offer types.Offer) error {
+func (r *offerImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, offer types.Offer) error {
 	query := `
 		INSERT INTO offers (
 			id,
@@ -61,7 +61,7 @@ func (r *offerImpl) Create(ctx context.Context, offer types.Offer) error {
 		)
 	`
 
-	if _, err := r.db.NamedExecContext(ctx, query, offer); err != nil {
+	if _, err := tx.NamedExecContext(ctx, query, offer); err != nil {
 		return errors.New(err)
 	}
 
