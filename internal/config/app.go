@@ -130,16 +130,17 @@ func (e ElasticsearchConfig) Validate() error {
 }
 
 type Config struct {
-	Environment    string              `yaml:"environment"`
-	Server         Server              `yaml:"server"`
-	DataBase       PostgresConfig      `yaml:"database"`
-	Redis          RedisConfig         `yaml:"redis"`
-	JWT            JWTConfig           `yaml:"jwt"`
-	PrettyLog      bool                `yaml:"pretty_log"`
-	Oauth          OAuthConfig         `yaml:"oauth"`
-	File           File                `yaml:"file"`
-	OpenCageApiKey string              `yaml:"opencage_api_key"`
-	Elasticsearch  ElasticsearchConfig `yaml:"elasticsearch"`
+	Environment            string              `yaml:"environment"`
+	Server                 Server              `yaml:"server"`
+	DataBase               PostgresConfig      `yaml:"database"`
+	Redis                  RedisConfig         `yaml:"redis"`
+	JWT                    JWTConfig           `yaml:"jwt"`
+	PrettyLog              bool                `yaml:"pretty_log"`
+	Oauth                  OAuthConfig         `yaml:"oauth"`
+	File                   File                `yaml:"file"`
+	OpenCageApiKey         string              `yaml:"opencage_api_key"`
+	Elasticsearch          ElasticsearchConfig `yaml:"elasticsearch"`
+	FirebaseCredentialFile string              `yaml:"firebase_credential_file"`
 }
 
 func (c Config) Validate() error {
@@ -151,6 +152,7 @@ func (c Config) Validate() error {
 		validation.Field(&c.Oauth, validation.Required),
 		validation.Field(&c.OpenCageApiKey, validation.Required),
 		validation.Field(&c.Elasticsearch, validation.Required),
+		validation.Field(&c.FirebaseCredentialFile, validation.Required),
 	)
 }
 

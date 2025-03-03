@@ -162,7 +162,7 @@ func (authImpl) BindWithRequest(c *gin.Context, req any) error {
 	}
 
 	reqType := reqValue.Elem().Type()
-	for i := 0; i < reqType.NumField(); i++ {
+	for i := range reqType.NumField() {
 		field := reqType.Field(i)
 		tag := field.Tag.Get("middleware")
 		if tag == "user" {

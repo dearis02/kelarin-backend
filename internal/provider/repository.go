@@ -22,4 +22,6 @@ var RepositorySet = wire.NewSet(
 	repository.NewUserAddress,
 	repository.NewOffer,
 	repository.NewOfferNegotiation,
+	repository.NewFCMToken,
+	repository.NewConsumerNotification,
 )

@@ -12,6 +12,7 @@ import (
 	awsUtil "kelarin/internal/utils/aws"
 	dbUtil "kelarin/internal/utils/dbutil"
 	fileSystemUtil "kelarin/internal/utils/file_system"
+	firebaseUtil "kelarin/internal/utils/firebase_util"
 	"net/http"
 	"os"
 	"os/signal"
@@ -86,7 +87,10 @@ func main() {
 
 	authMiddleware := middleware.NewAuth(cfg)
 
-	server, err := newServer(db, es, cfg, redis, s3Uploader, queueClient, s3Client, s3PresignClient, openCageClient, authMiddleware)
+	firebaseApp := firebaseUtil.NewApp(cfg)
+	firebaseMessagingClient := firebaseUtil.NewMessagingClient(firebaseApp)
+
+	server, err := newServer(db, es, cfg, redis, s3Uploader, queueClient, s3Client, s3PresignClient, openCageClient, authMiddleware, firebaseMessagingClient)
 	if err != nil {
 		log.Fatal().Stack().Err(err).Send()
 	}
@@ -122,6 +126,7 @@ func main() {
 	userAddressRoutes := routes.NewUserAddress(g, server.UserAddressHandler)
 	offerRoutes := routes.NewOffer(g, server.OfferHandler)
 	offerNegotiationRoutes := routes.NewOfferNegotiation(g, server.OfferNegotiationHandler)
+	notificationRoutes := routes.NewNotification(g, server.NotificationHandler)
 
 	// End init routes region
 
@@ -138,6 +143,7 @@ func main() {
 	userAddressRoutes.Register(authMiddleware)
 	offerRoutes.Register(authMiddleware)
 	offerNegotiationRoutes.Register(authMiddleware)
+	notificationRoutes.Register(authMiddleware)
 
 	// register websocket
 	wsClient := &WSClient{

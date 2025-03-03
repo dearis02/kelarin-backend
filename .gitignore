@@ -3,3 +3,4 @@ tmp
 migration-tool
 temp
 elasticsearch_cert.crt
+config/*service-account*.json
