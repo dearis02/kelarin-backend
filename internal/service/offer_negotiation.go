@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"kelarin/internal/repository"
 	"kelarin/internal/types"
 	dbUtil "kelarin/internal/utils/dbutil"
@@ -20,20 +21,28 @@ type OfferNegotiation interface {
 }
 
 type offerNegotiationImpl struct {
-	serviceProviderRepo  repository.ServiceProvider
-	offerNegotiationRepo repository.OfferNegotiation
-	offerRepo            repository.Offer
-	serviceRepo          repository.Service
-	db                   *sqlx.DB
+	serviceProviderRepo      repository.ServiceProvider
+	offerNegotiationRepo     repository.OfferNegotiation
+	offerRepo                repository.Offer
+	serviceRepo              repository.Service
+	db                       *sqlx.DB
+	notificationSvc          Notification
+	fcmTokenRepo             repository.FCMToken
+	fileSvc                  File
+	consumerNotificationRepo repository.ConsumerNotification
 }
 
-func NewOfferNegotiation(serviceProviderRepo repository.ServiceProvider, offerNegotiationRepo repository.OfferNegotiation, offerRepo repository.Offer, serviceRepo repository.Service, db *sqlx.DB) OfferNegotiation {
+func NewOfferNegotiation(serviceProviderRepo repository.ServiceProvider, offerNegotiationRepo repository.OfferNegotiation, offerRepo repository.Offer, serviceRepo repository.Service, db *sqlx.DB, notificationSvc Notification, fcmTokenRepo repository.FCMToken, fileSvc File, consumerNotificationRepo repository.ConsumerNotification) OfferNegotiation {
 	return &offerNegotiationImpl{
-		serviceProviderRepo:  serviceProviderRepo,
-		offerNegotiationRepo: offerNegotiationRepo,
-		offerRepo:            offerRepo,
-		serviceRepo:          serviceRepo,
-		db:                   db,
+		serviceProviderRepo:      serviceProviderRepo,
+		offerNegotiationRepo:     offerNegotiationRepo,
+		offerRepo:                offerRepo,
+		serviceRepo:              serviceRepo,
+		db:                       db,
+		notificationSvc:          notificationSvc,
+		fcmTokenRepo:             fcmTokenRepo,
+		fileSvc:                  fileSvc,
+		consumerNotificationRepo: consumerNotificationRepo,
 	}
 }
 
@@ -75,21 +84,72 @@ func (s *offerNegotiationImpl) ProviderCreate(ctx context.Context, req types.Off
 		return err
 	}
 
+	now := time.Now()
+
 	id, err := uuid.NewV7()
 	if err != nil {
 		return errors.New(err)
 	}
-
 	offerNegotiation := types.OfferNegotiation{
 		ID:                   id,
 		OfferID:              offer.ID,
 		Message:              req.Message,
 		RequestedServiceCost: decimal.NewFromFloat(req.RequestedServiceCost),
 		Status:               types.OfferNegotiationStatusPending,
-		CreatedAt:            time.Now(),
+		CreatedAt:            now,
 	}
 
-	if err = s.offerNegotiationRepo.Create(ctx, offerNegotiation); err != nil {
+	id, err = uuid.NewV7()
+	if err != nil {
+		return errors.New(err)
+	}
+	consumerNotification := types.ConsumerNotification{
+		ID:                 id,
+		UserID:             offer.UserID,
+		OfferNegotiationID: uuid.NullUUID{UUID: offerNegotiation.ID, Valid: true},
+		Type:               types.ConsumerNotificationTypeOfferNegotiationReceived,
+		CreatedAt:          now,
+	}
+
+	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	if err != nil {
+		return errors.New(err)
+	}
+
+	defer tx.Rollback()
+
+	if err = s.offerNegotiationRepo.CreateTx(ctx, tx, offerNegotiation); err != nil {
+		return err
+	}
+
+	if err := s.consumerNotificationRepo.CreateTx(ctx, tx, consumerNotification); err != nil {
+		return err
+	}
+
+	key := types.FCMTokenKey(offer.UserID)
+	fcmToken, err := s.fcmTokenRepo.Find(ctx, key)
+	if !errors.Is(err, types.ErrNoData) && err != nil {
+		return err
+	}
+
+	if fcmToken != "" {
+		providerLogoURL, err := s.fileSvc.GetS3PresignedURL(ctx, provider.LogoImage)
+		if err != nil {
+			return err
+		}
+
+		err = s.notificationSvc.SendPush(ctx, types.NotificationSendReq{
+			Title:    fmt.Sprintf("%s want to negotiate", provider.Name),
+			Message:  req.Message,
+			Token:    fcmToken,
+			ImageURL: providerLogoURL,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
 		return err
 	}
 

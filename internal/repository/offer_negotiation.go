@@ -12,7 +12,7 @@ import (
 )
 
 type OfferNegotiation interface {
-	Create(ctx context.Context, req types.OfferNegotiation) error
+	CreateTx(ctx context.Context, tx *sqlx.Tx, req types.OfferNegotiation) error
 	FindByOfferIDAndStatus(ctx context.Context, offerID uuid.UUID, status types.OfferNegotiationStatus) (types.OfferNegotiation, error)
 	FindByOfferIDsAndStatus(ctx context.Context, offerIDs []uuid.UUID, status types.OfferNegotiationStatus) ([]types.OfferNegotiation, error)
 	FindAllByOfferID(ctx context.Context, offerID uuid.UUID) ([]types.OfferNegotiation, error)
@@ -30,7 +30,7 @@ func NewOfferNegotiation(db *sqlx.DB) OfferNegotiation {
 	}
 }
 
-func (r *offerNegotiationImpl) Create(ctx context.Context, req types.OfferNegotiation) error {
+func (r *offerNegotiationImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, req types.OfferNegotiation) error {
 	query := `
 		INSERT INTO offer_negotiations (
 			id,
@@ -50,7 +50,7 @@ func (r *offerNegotiationImpl) Create(ctx context.Context, req types.OfferNegoti
 		)
 	`
 
-	if _, err := r.db.NamedExecContext(ctx, query, req); err != nil {
+	if _, err := tx.NamedExecContext(ctx, query, req); err != nil {
 		return errors.New(err)
 	}
 
