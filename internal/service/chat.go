@@ -7,6 +7,7 @@ import (
 	"kelarin/internal/repository"
 	"kelarin/internal/types"
 	dbUtil "kelarin/internal/utils/dbutil"
+	"net/http"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -18,24 +19,29 @@ import (
 
 type Chat interface {
 	HandleInboundMessage(client *types.WsClient)
+	CreateChatRoom(ctx context.Context, req types.ChatChatRoomCreateReq) (types.ChatChatRoomCreateRes, error)
 }
 
 type chatImpl struct {
-	db               *sqlx.DB
-	serviceRepo      repository.Service
-	userRepo         repository.User
-	chatRoomRepo     repository.ChatRoom
-	chatRoomUserRepo repository.ChatRoomUser
-	chatMessageRepo  repository.ChatMessage
-	hub              *types.WsHub
+	db                  *sqlx.DB
+	serviceRepo         repository.Service
+	userRepo            repository.User
+	chatRoomRepo        repository.ChatRoom
+	chatRoomUserRepo    repository.ChatRoomUser
+	chatMessageRepo     repository.ChatMessage
+	hub                 *types.WsHub
+	offerRepo           repository.Offer
+	serviceProviderRepo repository.ServiceProvider
 }
 
-func NewChat(userRepo repository.User, chatRoomRepo repository.ChatRoom, chatRoomUserRepo repository.ChatRoomUser, chatMessageRepo repository.ChatMessage) Chat {
+func NewChat(userRepo repository.User, chatRoomRepo repository.ChatRoom, chatRoomUserRepo repository.ChatRoomUser, chatMessageRepo repository.ChatMessage, offerRepo repository.Offer, serviceProviderRepo repository.ServiceProvider) Chat {
 	return &chatImpl{
-		userRepo:         userRepo,
-		chatRoomRepo:     chatRoomRepo,
-		chatRoomUserRepo: chatRoomUserRepo,
-		chatMessageRepo:  chatMessageRepo,
+		userRepo:            userRepo,
+		chatRoomRepo:        chatRoomRepo,
+		chatRoomUserRepo:    chatRoomUserRepo,
+		chatMessageRepo:     chatMessageRepo,
+		offerRepo:           offerRepo,
+		serviceProviderRepo: serviceProviderRepo,
 	}
 }
 
@@ -142,6 +148,7 @@ func (s *chatImpl) SaveSentMessage(ctx context.Context, req types.ChatSaveSentMe
 		}
 
 		newChatRoom := types.ChatChatRoomCreateReq{
+			AuthUser:    req.AuthUser,
 			SenderID:    userSender.ID,
 			RecipientID: recipient.ID,
 			Tx:          tx,
@@ -211,6 +218,36 @@ func (s *chatImpl) CreateChatRoom(ctx context.Context, req types.ChatChatRoomCre
 		}
 
 		chatRoom.ServiceID = uuid.NullUUID{UUID: service.ID, Valid: true}
+	}
+	if req.OfferID.Valid {
+		var offer types.Offer
+		switch req.AuthUser.Role {
+		case types.UserRoleConsumer:
+			offer, err = s.offerRepo.FindByIDAndUserID(ctx, req.OfferID.UUID, req.AuthUser.ID)
+			if errors.Is(err, types.ErrNoData) {
+				return res, errors.New(types.AppErr{Code: http.StatusNotFound, Message: "offer not found"})
+			} else if err != nil {
+				return res, err
+			}
+		case types.UserRoleServiceProvider:
+			provider, err := s.serviceProviderRepo.FindByUserID(ctx, req.AuthUser.ID)
+			if errors.Is(err, types.ErrNoData) {
+				return res, errors.Errorf("provider not found: user_id %s", req.AuthUser.ID)
+			} else if err != nil {
+				return res, err
+			}
+
+			offer, err = s.offerRepo.FindByIDAndServiceProviderID(ctx, req.OfferID.UUID, provider.ID)
+			if errors.Is(err, types.ErrNoData) {
+				return res, errors.New(types.AppErr{Code: http.StatusNotFound, Message: "offer not found"})
+			} else if err != nil {
+				return res, err
+			}
+		default:
+			return res, errors.New(types.AppErr{Code: http.StatusForbidden})
+		}
+
+		chatRoom.OfferID = uuid.NullUUID{UUID: offer.ID, Valid: true}
 	}
 
 	chatRoomUser := []types.ChatRoomUser{

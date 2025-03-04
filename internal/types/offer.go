@@ -2,6 +2,8 @@ package types
 
 import (
 	"fmt"
+	"kelarin/internal/utils"
+	"net/http"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -226,6 +228,81 @@ type OfferConsumerGetByIDResNegotiation struct {
 	RequestedServiceCost decimal.Decimal        `json:"requested_service_cost"`
 	Status               OfferNegotiationStatus `json:"status"`
 	CreatedAt            time.Time              `json:"created_at"`
+}
+
+type OfferProviderActionReq struct {
+	AuthUser AuthUser                     `middleware:"user"`
+	TimeZone string                       `header:"Time-Zone"`
+	ID       uuid.UUID                    `param:"id"`
+	Action   OfferProviderActionReqAction `json:"action"`
+	Date     string                       `json:"date"`
+	Time     string                       `json:"time"`
+}
+
+type OfferProviderActionReqAction string
+
+const (
+	OfferProviderActionReqActionAccept OfferProviderActionReqAction = "accept"
+	OfferProviderActionReqActionReject OfferProviderActionReqAction = "reject"
+)
+
+func (r OfferProviderActionReq) Validate(startDate, endDate, startTime, endTime time.Time) error {
+	if r.AuthUser.IsZero() {
+		return errors.New("AuthUser is required")
+	}
+
+	if r.ID == uuid.Nil {
+		return errors.New(AppErr{Code: http.StatusBadRequest, Message: ErrIDRouteParamRequired.Error()})
+	}
+
+	err := validation.ValidateStruct(&r,
+		validation.Field(&r.Action, validation.Required, validation.In(OfferProviderActionReqActionAccept, OfferProviderActionReqActionReject)),
+		validation.Field(&r.Date,
+			validation.Required.When(r.Action == OfferProviderActionReqActionAccept),
+			validation.Date(time.DateOnly),
+		),
+		validation.Field(&r.Time,
+			validation.Required.When(r.Action == OfferProviderActionReqActionAccept),
+			validation.Date(time.TimeOnly),
+		),
+	)
+
+	if err != nil {
+		return err
+	}
+
+	ve := validation.Errors{}
+
+	if r.Action == OfferProviderActionReqActionAccept {
+		t, err := utils.IsDateBetween(r.Date, startDate, endDate, time.DateOnly)
+		if err != nil {
+			return err
+		}
+
+		if !t {
+			ve["date"] = validation.NewError("date_min_max", fmt.Sprintf("date must be between %s - %s", startDate.Format(time.DateOnly), endDate.Format(time.DateOnly)))
+		}
+
+		tz, err := time.LoadLocation(r.TimeZone)
+		if err != nil {
+			return errors.New(err)
+		}
+
+		t, err = utils.IsTimeBetween(r.Time, tz, startTime, endTime)
+		if err != nil {
+			return err
+		}
+
+		if !t {
+			ve["time"] = validation.NewError("time_min_max", fmt.Sprintf("time must be between %s - %s", startTime.Format(time.TimeOnly), endTime.Format(time.TimeOnly)))
+		}
+	}
+
+	if len(ve) > 0 {
+		return ve
+	}
+
+	return nil
 }
 
 // endregion service types

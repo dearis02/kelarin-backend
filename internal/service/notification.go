@@ -44,7 +44,7 @@ func (s *notificationImpl) SendPush(ctx context.Context, req types.NotificationS
 		},
 		Token: req.Token,
 	})
-	if messaging.IsInvalidArgument(err) {
+	if messaging.IsInvalidArgument(err) || messaging.IsRegistrationTokenNotRegistered(err) {
 		log.Error().Stack().Err(errors.Errorf("invalid fcm token %s", req.Token))
 		return nil
 	} else if err != nil {

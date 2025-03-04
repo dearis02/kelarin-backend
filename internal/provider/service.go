@@ -21,4 +21,5 @@ var ServiceSet = wire.NewSet(
 	service.NewOffer,
 	service.NewOfferNegotiation,
 	service.NewNotification,
+	service.NewChat,
 )
