@@ -28,4 +28,5 @@ var RepositorySet = wire.NewSet(
 	repository.NewChatRoom,
 	repository.NewChatRoomUser,
 	repository.NewChatMessage,
+	repository.NewOrder,
 )
