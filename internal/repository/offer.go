@@ -17,6 +17,7 @@ type Offer interface {
 	FindByIDAndUserID(ctx context.Context, ID, userID uuid.UUID) (types.Offer, error)
 	FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Offer, error)
 	UpdateTx(ctx context.Context, tx *sqlx.Tx, req types.Offer) error
+	FindAllByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.Offer, error)
 }
 
 type offerImpl struct {
@@ -212,4 +213,35 @@ func (r *offerImpl) UpdateTx(ctx context.Context, tx *sqlx.Tx, req types.Offer) 
 	}
 
 	return nil
+}
+
+func (r *offerImpl) FindAllByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.Offer, error) {
+	res := []types.Offer{}
+
+	query := `
+		SELECT
+			offers.id,
+			offers.user_id,
+			offers.user_address_id,
+			offers.service_id,
+			offers.detail,
+			offers.service_cost,
+			offers.service_start_date,
+			offers.service_end_date,
+			offers.service_start_time,
+			offers.service_end_time,
+			offers.status,
+			offers.created_at
+		FROM offers
+		INNER JOIN services
+			ON services.id = offers.service_id
+		WHERE services.service_provider_id = $1
+		ORDER BY offers.id DESC
+	`
+
+	if err := r.db.SelectContext(ctx, &res, query, serviceProviderID); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
 }

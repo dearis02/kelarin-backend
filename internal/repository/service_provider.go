@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"kelarin/internal/types"
 
 	"github.com/go-errors/errors"
@@ -151,8 +152,8 @@ func (r *serviceProviderImpl) FindByID(ctx context.Context, ID uuid.UUID) (types
 	`
 
 	err := r.db.GetContext(ctx, &res, statement, ID)
-	if errors.Is(err, types.ErrNoData) {
-		return res, types.ErrNoData
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, errors.New(types.ErrNoData)
 	} else if err != nil {
 		return res, errors.New(err)
 	}

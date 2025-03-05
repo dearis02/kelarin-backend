@@ -24,6 +24,8 @@ type Offer interface {
 	ConsumerGetByID(ctx context.Context, req types.OfferConsumerGetByIDReq) (types.OfferConsumerGetByIDRes, error)
 
 	ProviderAction(ctx context.Context, req types.OfferProviderActionReq) error
+	ProviderGetAll(ctx context.Context, req types.OfferProviderGetAllReq) ([]types.OfferProviderGetAllRes, error)
+	ProviderGetByID(ctx context.Context, req types.OfferProviderGetByIDReq) (types.OfferProviderGetByIDRes, error)
 }
 
 type offerImpl struct {
@@ -512,4 +514,135 @@ func (s *offerImpl) ProviderAction(ctx context.Context, req types.OfferProviderA
 	}
 
 	return nil
+}
+
+func (s *offerImpl) ProviderGetAll(ctx context.Context, req types.OfferProviderGetAllReq) ([]types.OfferProviderGetAllRes, error) {
+	res := []types.OfferProviderGetAllRes{}
+
+	if err := req.Validate(); err != nil {
+		return res, err
+	}
+
+	provider, err := s.serviceProviderRepo.FindByUserID(ctx, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("service provider not found: user_id %s", req.AuthUser.ID)
+	} else if err != nil {
+		return res, err
+	}
+
+	offers, err := s.offerRepo.FindAllByServiceProviderID(ctx, provider.ID)
+	if err != nil {
+		return res, err
+	}
+
+	for _, o := range offers {
+		res = append(res, types.OfferProviderGetAllRes{
+			ID:               o.ID,
+			Detail:           o.Detail,
+			ServiceCost:      o.ServiceCost,
+			ServiceStartDate: o.ServiceStartDate.Format(time.DateOnly),
+			ServiceEndDate:   o.ServiceEndDate.Format(time.DateOnly),
+			ServiceStartTime: o.ServiceStartTime.Format(time.TimeOnly),
+			ServiceEndTime:   o.ServiceEndTime.Format(time.TimeOnly),
+			Status:           o.Status,
+			CreatedAt:        o.CreatedAt,
+		})
+	}
+
+	return res, nil
+}
+
+func (s *offerImpl) ProviderGetByID(ctx context.Context, req types.OfferProviderGetByIDReq) (types.OfferProviderGetByIDRes, error) {
+	res := types.OfferProviderGetByIDRes{}
+
+	if err := req.Validate(); err != nil {
+		return res, err
+	}
+
+	provider, err := s.serviceProviderRepo.FindByUserID(ctx, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("service provider not found: user_id %s", req.AuthUser.ID)
+	} else if err != nil {
+		return res, err
+	}
+
+	offer, err := s.offerRepo.FindByIDAndServiceProviderID(ctx, req.ID, provider.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.New(types.AppErr{Code: http.StatusNotFound, Message: "offer not found"})
+	} else if err != nil {
+		return res, err
+	}
+
+	negotiations, err := s.offerNegotiationRepo.FindAllByOfferID(ctx, offer.ID)
+	if err != nil {
+		return res, err
+	}
+
+	user, err := s.userRepo.FindByID(ctx, offer.UserID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("user not found: id %s", offer.UserID)
+	} else if err != nil {
+		return res, err
+	}
+
+	address, err := s.userAddressRepo.FindByIDAndUserID(ctx, offer.UserAddressID, offer.UserID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("user address not found: user_id %s", user.ID)
+	} else if err != nil {
+		return res, err
+	}
+
+	var lat null.Float64
+	var lng null.Float64
+	if address.Coordinates.IsValid() {
+		latitude, long, err := utils.ParseLatLngFromHexStr(address.Coordinates.String)
+		if err != nil {
+			return res, errors.New(err)
+		}
+
+		lat = null.Float64From(latitude)
+		lng = null.Float64From(long)
+	}
+
+	negotiationsRes := []types.OfferConsumerGetByIDResNegotiation{}
+
+	for _, n := range negotiations {
+		negotiationsRes = append(negotiationsRes, types.OfferConsumerGetByIDResNegotiation{
+			ID:                   n.ID,
+			Message:              n.Message,
+			RequestedServiceCost: n.RequestedServiceCost,
+			Status:               n.Status,
+			CreatedAt:            n.CreatedAt,
+		})
+	}
+
+	res = types.OfferProviderGetByIDRes{
+		OfferProviderGetAllRes: types.OfferProviderGetAllRes{
+			ID:               offer.ID,
+			Detail:           offer.Detail,
+			ServiceCost:      offer.ServiceCost,
+			ServiceStartDate: offer.ServiceStartDate.Format(time.DateOnly),
+			ServiceEndDate:   offer.ServiceEndDate.Format(time.DateOnly),
+			ServiceStartTime: offer.ServiceStartTime.Format(time.TimeOnly),
+			ServiceEndTime:   offer.ServiceEndTime.Format(time.TimeOnly),
+			Status:           offer.Status,
+			CreatedAt:        offer.CreatedAt,
+		},
+		User: types.OfferGetByIDResUser{
+			ID:   user.ID,
+			Name: user.Name,
+			Address: types.OfferGetByIDResUserAddress{
+				ID:       address.ID,
+				Name:     address.Name,
+				Lat:      lat,
+				Lng:      lng,
+				Province: address.Province,
+				City:     address.City,
+				Address:  address.Address,
+			},
+		},
+		Negotiations: negotiationsRes,
+	}
+
+	return res, nil
 }
