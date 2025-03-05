@@ -40,9 +40,10 @@ type offerImpl struct {
 	db                              *sqlx.DB
 	consumerNotificationRepo        repository.ConsumerNotification
 	chatSvc                         Chat
+	orderRepo                       repository.Order
 }
 
-func NewOffer(offerRepo repository.Offer, userAddressRepo repository.UserAddress, serviceRepo repository.Service, fileSvc File, serviceProviderRepo repository.ServiceProvider, offerNegotiationRepo repository.OfferNegotiation, serviceProviderNotificationRepo repository.ServiceProviderNotification, fcmTokenRepo repository.FCMToken, notificationSvc Notification, userRepo repository.User, db *sqlx.DB, consumerNotificationRepo repository.ConsumerNotification, chatSvc Chat) Offer {
+func NewOffer(offerRepo repository.Offer, userAddressRepo repository.UserAddress, serviceRepo repository.Service, fileSvc File, serviceProviderRepo repository.ServiceProvider, offerNegotiationRepo repository.OfferNegotiation, serviceProviderNotificationRepo repository.ServiceProviderNotification, fcmTokenRepo repository.FCMToken, notificationSvc Notification, userRepo repository.User, db *sqlx.DB, consumerNotificationRepo repository.ConsumerNotification, chatSvc Chat, orderRepo repository.Order) Offer {
 	return &offerImpl{
 		offerRepo:                       offerRepo,
 		userAddressRepo:                 userAddressRepo,
@@ -57,6 +58,7 @@ func NewOffer(offerRepo repository.Offer, userAddressRepo repository.UserAddress
 		db:                              db,
 		consumerNotificationRepo:        consumerNotificationRepo,
 		chatSvc:                         chatSvc,
+		orderRepo:                       orderRepo,
 	}
 }
 
@@ -428,7 +430,35 @@ func (s *offerImpl) ProviderAction(ctx context.Context, req types.OfferProviderA
 	switch req.Action {
 	case types.OfferProviderActionReqActionAccept:
 		offer.Status = types.OfferStatusAccepted
-		// TODO: create order
+
+		serviceDate, err := time.Parse(time.DateOnly, req.Date)
+		if err != nil {
+			return errors.New(err)
+		}
+
+		serviceTime, err := time.Parse(time.TimeOnly, req.Time)
+		if err != nil {
+			return errors.New(err)
+		}
+
+		id, err = uuid.NewV7()
+		if err != nil {
+			return errors.New(err)
+		}
+		oder := types.Order{
+			ID:                id,
+			UserID:            offer.UserID,
+			ServiceProviderID: provider.ID,
+			OfferID:           offer.ID,
+			ServiceFee:        offer.ServiceCost,
+			ServiceDate:       serviceDate,
+			ServiceTime:       serviceTime,
+			CreatedAt:         now,
+		}
+
+		if err := s.orderRepo.CreateTx(ctx, tx, oder); err != nil {
+			return err
+		}
 
 		chatRoomReq := types.ChatChatRoomCreateReq{
 			AuthUser:    req.AuthUser,
