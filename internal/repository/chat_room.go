@@ -30,6 +30,7 @@ func (r *chatRoomImpl) FindByID(ctx context.Context, ID uuid.UUID) (types.ChatRo
 		SELECT
 			id,
 			service_id,
+			offer_id,
 			created_at
 		FROM chat_rooms
 		WHERE id = $1
@@ -50,11 +51,13 @@ func (r *chatRoomImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, req types.Chat
 		INSERT INTO chat_rooms (
 			id,
 			service_id,
+			offer_id,
 			created_at
 		)
 		VALUES (
 			:id, 
 			:service_id, 
+			:offer_id,
 			:created_at
 		)
 	`

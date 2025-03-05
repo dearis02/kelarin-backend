@@ -25,4 +25,7 @@ var RepositorySet = wire.NewSet(
 	repository.NewFCMToken,
 	repository.NewConsumerNotification,
 	repository.NewServiceProviderNotification,
+	repository.NewChatRoom,
+	repository.NewChatRoomUser,
+	repository.NewChatMessage,
 )

@@ -10,13 +10,19 @@ import (
 // region service types
 
 type ChatChatRoomCreateReq struct {
+	AuthUser    AuthUser      `middleware:"user"`
 	ServiceID   uuid.NullUUID `json:"service_id"`
 	SenderID    uuid.UUID     `json:"sender_id"`
 	RecipientID uuid.UUID     `json:"recipient_id"`
+	OfferID     uuid.NullUUID `json:"offer_id"`
 	Tx          *sqlx.Tx
 }
 
 func (r ChatChatRoomCreateReq) Validate() error {
+	if r.AuthUser.IsZero() {
+		return errors.New("AuthUser is required")
+	}
+
 	return validation.ValidateStruct(&r,
 		validation.Field(&r.RecipientID, validation.Required),
 	)

@@ -23,4 +23,6 @@ func (r *Offer) Register(authMw middleware.Auth) {
 	r.g.POST("/consumer/v1/offers", authMw.Consumer, r.offerHandler.ConsumerCreate)
 	r.g.GET("/consumer/v1/offers", authMw.Consumer, r.offerHandler.ConsumerGetAll)
 	r.g.GET("/consumer/v1/offers/:id", authMw.Consumer, r.offerHandler.ConsumerGetByID)
+
+	r.g.POST("/provider/v1/offers/:id", authMw.ServiceProvider, r.offerHandler.ProviderAction)
 }

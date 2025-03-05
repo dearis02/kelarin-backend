@@ -11,6 +11,7 @@ import (
 type ChatRoom struct {
 	ID        uuid.UUID     `db:"id"`
 	ServiceID uuid.NullUUID `db:"service_id"`
+	OfferID   uuid.NullUUID `db:"offer_id"`
 	CreatedAt time.Time     `db:"created_at"`
 }
 

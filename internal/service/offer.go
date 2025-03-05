@@ -22,6 +22,8 @@ type Offer interface {
 	ConsumerCreate(ctx context.Context, req types.OfferConsumerCreateReq) error
 	ConsumerGetAll(ctx context.Context, req types.OfferConsumerGetAllReq) ([]types.OfferConsumerGetAllRes, error)
 	ConsumerGetByID(ctx context.Context, req types.OfferConsumerGetByIDReq) (types.OfferConsumerGetByIDRes, error)
+
+	ProviderAction(ctx context.Context, req types.OfferProviderActionReq) error
 }
 
 type offerImpl struct {
@@ -36,9 +38,12 @@ type offerImpl struct {
 	notificationSvc                 Notification
 	userRepo                        repository.User
 	db                              *sqlx.DB
+	consumerNotificationRepo        repository.ConsumerNotification
+	chatSvc                         Chat
+	orderRepo                       repository.Order
 }
 
-func NewOffer(offerRepo repository.Offer, userAddressRepo repository.UserAddress, serviceRepo repository.Service, fileSvc File, serviceProviderRepo repository.ServiceProvider, offerNegotiationRepo repository.OfferNegotiation, serviceProviderNotificationRepo repository.ServiceProviderNotification, fcmTokenRepo repository.FCMToken, notificationSvc Notification, userRepo repository.User, db *sqlx.DB) Offer {
+func NewOffer(offerRepo repository.Offer, userAddressRepo repository.UserAddress, serviceRepo repository.Service, fileSvc File, serviceProviderRepo repository.ServiceProvider, offerNegotiationRepo repository.OfferNegotiation, serviceProviderNotificationRepo repository.ServiceProviderNotification, fcmTokenRepo repository.FCMToken, notificationSvc Notification, userRepo repository.User, db *sqlx.DB, consumerNotificationRepo repository.ConsumerNotification, chatSvc Chat, orderRepo repository.Order) Offer {
 	return &offerImpl{
 		offerRepo:                       offerRepo,
 		userAddressRepo:                 userAddressRepo,
@@ -51,6 +56,9 @@ func NewOffer(offerRepo repository.Offer, userAddressRepo repository.UserAddress
 		notificationSvc:                 notificationSvc,
 		userRepo:                        userRepo,
 		db:                              db,
+		consumerNotificationRepo:        consumerNotificationRepo,
+		chatSvc:                         chatSvc,
+		orderRepo:                       orderRepo,
 	}
 }
 
@@ -374,4 +382,134 @@ func (s *offerImpl) ConsumerGetByID(ctx context.Context, req types.OfferConsumer
 	}
 
 	return res, nil
+}
+
+func (s *offerImpl) ProviderAction(ctx context.Context, req types.OfferProviderActionReq) error {
+	provider, err := s.serviceProviderRepo.FindByUserID(ctx, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.Errorf("service provider not found: user_id %s", req.AuthUser.ID)
+	} else if err != nil {
+		return err
+	}
+
+	offer, err := s.offerRepo.FindByIDAndServiceProviderID(ctx, req.ID, provider.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(types.AppErr{Code: http.StatusNotFound, Message: "offer not found"})
+	} else if err != nil {
+		return err
+	}
+
+	if err := req.Validate(offer.ServiceStartDate, offer.ServiceEndDate, offer.ServiceStartTime, offer.ServiceEndTime); err != nil {
+		return err
+	}
+
+	token, err := s.fcmTokenRepo.Find(ctx, types.FCMTokenKey(offer.UserID))
+	if !errors.Is(err, types.ErrNoData) && err != nil {
+		return err
+	}
+
+	id, err := uuid.NewV7()
+	if err != nil {
+		return errors.New(err)
+	}
+
+	now := time.Now()
+	pushNotifReq := types.NotificationSendReq{}
+	consumerNotification := types.ConsumerNotification{
+		ID:        id,
+		UserID:    offer.UserID,
+		CreatedAt: now,
+	}
+
+	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	if err != nil {
+		errors.New(err)
+	}
+
+	defer tx.Rollback()
+	switch req.Action {
+	case types.OfferProviderActionReqActionAccept:
+		offer.Status = types.OfferStatusAccepted
+
+		serviceDate, err := time.Parse(time.DateOnly, req.Date)
+		if err != nil {
+			return errors.New(err)
+		}
+
+		serviceTime, err := time.Parse(time.TimeOnly, req.Time)
+		if err != nil {
+			return errors.New(err)
+		}
+
+		id, err = uuid.NewV7()
+		if err != nil {
+			return errors.New(err)
+		}
+		oder := types.Order{
+			ID:                id,
+			UserID:            offer.UserID,
+			ServiceProviderID: provider.ID,
+			OfferID:           offer.ID,
+			ServiceFee:        offer.ServiceCost,
+			ServiceDate:       serviceDate,
+			ServiceTime:       serviceTime,
+			CreatedAt:         now,
+		}
+
+		if err := s.orderRepo.CreateTx(ctx, tx, oder); err != nil {
+			return err
+		}
+
+		chatRoomReq := types.ChatChatRoomCreateReq{
+			AuthUser:    req.AuthUser,
+			SenderID:    req.AuthUser.ID,
+			RecipientID: offer.UserID,
+			OfferID:     uuid.NullUUID{UUID: offer.ID, Valid: true},
+			Tx:          tx,
+		}
+		_, err = s.chatSvc.CreateChatRoom(ctx, chatRoomReq)
+		if err != nil {
+			return err
+		}
+
+		consumerNotification.Type = types.ConsumerNotificationTypeOfferAccepted
+		pushNotifReq = types.NotificationSendReq{
+			Title:   fmt.Sprintf("%s accept your offer", provider.Name),
+			Message: "confirm your payment now",
+			Token:   token,
+		}
+	case types.OfferProviderActionReqActionReject:
+		offer.Status = types.OfferStatusRejected
+
+		consumerNotification.Type = types.ConsumerNotificationTypeOfferRejected
+		pushNotifReq = types.NotificationSendReq{
+			Title:   fmt.Sprintf("%s reject your offer", provider.Name),
+			Message: "your offer has been rejected, you still can sent a new offer :)",
+			Token:   token,
+		}
+	}
+
+	if err := s.consumerNotificationRepo.CreateTx(ctx, tx, consumerNotification); err != nil {
+		return err
+	}
+
+	if token != "" {
+		providerLogoURL, err := s.fileSvc.GetS3PresignedURL(ctx, provider.LogoImage)
+		if err != nil {
+			return err
+		}
+
+		pushNotifReq.ImageURL = providerLogoURL
+		go s.notificationSvc.SendPush(ctx, pushNotifReq)
+	}
+
+	if err = s.offerRepo.UpdateTx(ctx, tx, offer); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
 }
