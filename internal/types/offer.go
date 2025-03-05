@@ -305,4 +305,67 @@ func (r OfferProviderActionReq) Validate(startDate, endDate, startTime, endTime 
 	return nil
 }
 
+type OfferProviderGetAllReq struct {
+	AuthUser AuthUser `middleware:"user"`
+}
+
+func (r OfferProviderGetAllReq) Validate() error {
+	if r.AuthUser.IsZero() {
+		return errors.New("AuthUser is required")
+	}
+
+	return nil
+}
+
+type OfferProviderGetAllRes struct {
+	ID               uuid.UUID       `json:"id"`
+	Detail           string          `json:"detail"`
+	ServiceCost      decimal.Decimal `json:"service_cost"`
+	ServiceStartDate string          `json:"service_start_date"`
+	ServiceEndDate   string          `json:"service_end_date"`
+	ServiceStartTime string          `json:"service_start_time"`
+	ServiceEndTime   string          `json:"service_end_time"`
+	Status           OfferStatus     `json:"status"`
+	CreatedAt        time.Time       `json:"created_at"`
+}
+
+type OfferProviderGetByIDReq struct {
+	AuthUser AuthUser  `middleware:"user"`
+	ID       uuid.UUID `param:"id"`
+}
+
+func (r OfferProviderGetByIDReq) Validate() error {
+	if r.AuthUser.IsZero() {
+		return errors.New("AuthUser is required")
+	}
+
+	if r.ID == uuid.Nil {
+		return errors.New(ErrIDRouteParamRequired)
+	}
+
+	return nil
+}
+
+type OfferProviderGetByIDRes struct {
+	OfferProviderGetAllRes
+	User         OfferGetByIDResUser                  `json:"user"`
+	Negotiations []OfferConsumerGetByIDResNegotiation `json:"negotiations"`
+}
+
+type OfferGetByIDResUser struct {
+	ID      uuid.UUID                  `json:"id"`
+	Name    string                     `json:"name"`
+	Address OfferGetByIDResUserAddress `json:"address"`
+}
+
+type OfferGetByIDResUserAddress struct {
+	ID       uuid.UUID    `json:"id"`
+	Name     string       `json:"name"`
+	Lat      null.Float64 `json:"lat"`
+	Lng      null.Float64 `json:"lng"`
+	Province string       `json:"province"`
+	City     string       `json:"city"`
+	Address  string       `json:"address"`
+}
+
 // endregion service types

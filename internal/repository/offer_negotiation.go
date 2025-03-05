@@ -119,6 +119,7 @@ func (r *offerNegotiationImpl) FindAllByOfferID(ctx context.Context, offerID uui
 			created_at
 		FROM offer_negotiations
 		WHERE offer_id = $1
+		ORDER BY id DESC
 	`
 
 	if err := r.db.SelectContext(ctx, &res, query, offerID); err != nil {

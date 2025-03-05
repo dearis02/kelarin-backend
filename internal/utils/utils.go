@@ -20,7 +20,6 @@ func ParseLatLngFromHexStr(hexStr string) (float64, float64, error) {
 	}
 
 	return ewkbPoint.Y(), ewkbPoint.X(), nil
-
 }
 
 func IsDateBetween(targetDate string, startDate, endDate time.Time, layout string) (bool, error) {

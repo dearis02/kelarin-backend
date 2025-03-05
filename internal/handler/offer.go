@@ -15,6 +15,8 @@ type Offer interface {
 	ConsumerGetByID(c *gin.Context)
 
 	ProviderAction(c *gin.Context)
+	ProviderGetAll(c *gin.Context)
+	ProviderGetByID(c *gin.Context)
 }
 
 type offerImpl struct {
@@ -109,5 +111,48 @@ func (h *offerImpl) ProviderAction(c *gin.Context) {
 
 	c.JSON(http.StatusOK, types.ApiResponse{
 		StatusCode: http.StatusOK,
+	})
+}
+
+func (h *offerImpl) ProviderGetAll(c *gin.Context) {
+	var req types.OfferProviderGetAllReq
+	if err := h.authMw.BindWithRequest(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	res, err := h.offerSvc.ProviderGetAll(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
+		Data:       res,
+	})
+}
+
+func (h *offerImpl) ProviderGetByID(c *gin.Context) {
+	var req types.OfferProviderGetByIDReq
+	if err := req.ID.UnmarshalText([]byte(c.Param("id"))); err != nil {
+		c.Error(types.AppErr{Code: http.StatusBadRequest, Message: "invalid id param"})
+		return
+	}
+
+	if err := h.authMw.BindWithRequest(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	res, err := h.offerSvc.ProviderGetByID(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
+		Data:       res,
 	})
 }
