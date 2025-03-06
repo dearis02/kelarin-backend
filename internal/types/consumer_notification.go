@@ -26,4 +26,9 @@ const (
 	ConsumerNotificationTypeOfferRejected
 )
 
+const (
+	ConsumerNotificationTypePaymentSuccess ConsumerNotificationType = iota + 101
+	ConsumerNotificationTypePaymentExpired
+)
+
 // endregion repo types

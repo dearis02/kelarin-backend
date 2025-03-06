@@ -27,4 +27,8 @@ const (
 	ServiceProviderNotificationTypeOfferNegotiationCanceled
 )
 
+const (
+	ServiceProviderNotificationTypeConsumerSettledPayment ServiceProviderNotificationType = iota + 101
+)
+
 // endregion repo types

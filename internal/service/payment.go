@@ -29,26 +29,30 @@ type Payment interface {
 }
 
 type paymentImpl struct {
-	cfg               *config.MidtransConfig
-	db                *sqlx.DB
-	paymentRepo       repository.Payment
-	paymentMethodRepo repository.PaymentMethod
-	orderRepo         repository.Order
-	midtransSvc       Midtrans
-	notificationSvc   Notification
-	fcmTokenRepo      repository.FCMToken
+	cfg                             *config.MidtransConfig
+	db                              *sqlx.DB
+	paymentRepo                     repository.Payment
+	paymentMethodRepo               repository.PaymentMethod
+	orderRepo                       repository.Order
+	midtransSvc                     Midtrans
+	notificationSvc                 Notification
+	fcmTokenRepo                    repository.FCMToken
+	consumerNotificationRepo        repository.ConsumerNotification
+	serviceProviderNotificationRepo repository.ServiceProviderNotification
 }
 
-func NewPayment(cfg *config.Config, db *sqlx.DB, paymentRepo repository.Payment, paymentMethodRepo repository.PaymentMethod, orderRepo repository.Order, midtransSvc Midtrans, notificationSvc Notification, fcmTokenRepo repository.FCMToken) Payment {
+func NewPayment(cfg *config.Config, db *sqlx.DB, paymentRepo repository.Payment, paymentMethodRepo repository.PaymentMethod, orderRepo repository.Order, midtransSvc Midtrans, notificationSvc Notification, fcmTokenRepo repository.FCMToken, consumerNotificationRepo repository.ConsumerNotification, serviceProviderNotificationRepo repository.ServiceProviderNotification) Payment {
 	return &paymentImpl{
-		cfg:               &cfg.Midtrans,
-		db:                db,
-		paymentRepo:       paymentRepo,
-		paymentMethodRepo: paymentMethodRepo,
-		orderRepo:         orderRepo,
-		midtransSvc:       midtransSvc,
-		notificationSvc:   notificationSvc,
-		fcmTokenRepo:      fcmTokenRepo,
+		cfg:                             &cfg.Midtrans,
+		db:                              db,
+		paymentRepo:                     paymentRepo,
+		paymentMethodRepo:               paymentMethodRepo,
+		orderRepo:                       orderRepo,
+		midtransSvc:                     midtransSvc,
+		notificationSvc:                 notificationSvc,
+		fcmTokenRepo:                    fcmTokenRepo,
+		consumerNotificationRepo:        consumerNotificationRepo,
+		serviceProviderNotificationRepo: serviceProviderNotificationRepo,
 	}
 }
 
@@ -197,20 +201,21 @@ func (s *paymentImpl) MidtransNotification(ctx context.Context, req types.Paymen
 	}
 
 	switch req.TransactionStatus {
-	case "pending":
+	case types.MidtransTransactionStatusPending:
 		payment.Status = types.PaymentStatusPending
-	case "settlement":
+	case types.MidtransTransactionStatusSettlement:
 		payment.Status = types.PaymentStatusPaid
 		order.PaymentFulfilled = true
 		order.UpdatedAt = null.TimeFrom(time.Now())
-	case "expire":
+	case types.MidtransTransactionStatusExpire:
 		payment.Status = types.PaymentStatusExpired
-	case "cancel":
+	case types.MidtransTransactionStatusCancel:
 		payment.Status = types.PaymentStatusCanceled
-	case "failure", "deny":
+	case types.MidtransTransactionStatusFailure, types.MidtransTransactionStatusDeny:
 		payment.Status = types.PaymentStatusFailed
 	}
 
+	timeNow := time.Now()
 	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
 	if err != nil {
 		return errors.New(err)
@@ -224,6 +229,23 @@ func (s *paymentImpl) MidtransNotification(ctx context.Context, req types.Paymen
 
 	if payment.Status == types.PaymentStatusPaid {
 		if err = s.orderRepo.UpdateAsPaymentFulfilledTx(ctx, tx, order.Order); err != nil {
+			return err
+		}
+
+		id, err = uuid.NewV7()
+		if err != nil {
+			return errors.New(err)
+		}
+		consumerNotif := types.ConsumerNotification{
+			ID:        id,
+			UserID:    order.UserID,
+			OrderID:   uuid.NullUUID{UUID: order.ID, Valid: true},
+			PaymentID: uuid.NullUUID{UUID: payment.ID, Valid: true},
+			Type:      types.ConsumerNotificationTypePaymentSuccess,
+			CreatedAt: timeNow,
+		}
+
+		if err = s.consumerNotificationRepo.CreateTx(ctx, tx, consumerNotif); err != nil {
 			return err
 		}
 
@@ -241,6 +263,22 @@ func (s *paymentImpl) MidtransNotification(ctx context.Context, req types.Paymen
 			if err != nil {
 				return err
 			}
+		}
+
+		id, err = uuid.NewV7()
+		if err != nil {
+			return errors.New(err)
+		}
+		providerNotif := types.ServiceProviderNotification{
+			ID:                id,
+			ServiceProviderID: order.ServiceProviderID,
+			OrderID:           uuid.NullUUID{UUID: order.ID, Valid: true},
+			Type:              types.ServiceProviderNotificationTypeConsumerSettledPayment,
+			CreatedAt:         timeNow,
+		}
+
+		if err = s.serviceProviderNotificationRepo.CreateTx(ctx, tx, providerNotif); err != nil {
+			return err
 		}
 
 		providerFCMToken, err := s.fcmTokenRepo.Find(ctx, types.FCMTokenKey(order.ServiceProviderUserID))
