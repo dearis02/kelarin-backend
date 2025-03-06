@@ -59,14 +59,25 @@ type PaymentCreateRes struct {
 }
 
 type PaymentMidtransNotificationReq struct {
-	FraudStatus       string `json:"fraud_status"`
-	GrossAmount       string `json:"gross_amount"`
-	OrderID           string `json:"order_id"`
-	PaymentType       string `json:"payment_type"`
-	SignatureKey      string `json:"signature_key"`
-	StatusCode        string `json:"status_code"`
-	TransactionID     string `json:"transaction_id"`
-	TransactionStatus string `json:"transaction_status"`
+	FraudStatus       string                    `json:"fraud_status"`
+	GrossAmount       string                    `json:"gross_amount"`
+	OrderID           string                    `json:"order_id"`
+	PaymentType       string                    `json:"payment_type"`
+	SignatureKey      string                    `json:"signature_key"`
+	StatusCode        string                    `json:"status_code"`
+	TransactionID     string                    `json:"transaction_id"`
+	TransactionStatus MidtransTransactionStatus `json:"transaction_status"`
 }
+
+type MidtransTransactionStatus string
+
+const (
+	MidtransTransactionStatusPending    MidtransTransactionStatus = "pending"
+	MidtransTransactionStatusSettlement MidtransTransactionStatus = "settlement"
+	MidtransTransactionStatusCancel     MidtransTransactionStatus = "cancel"
+	MidtransTransactionStatusExpire     MidtransTransactionStatus = "expire"
+	MidtransTransactionStatusFailure    MidtransTransactionStatus = "failure"
+	MidtransTransactionStatusDeny       MidtransTransactionStatus = "deny"
+)
 
 // endregion service types
