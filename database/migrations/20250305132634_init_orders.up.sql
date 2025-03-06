@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS orders (
     user_id UUID NOT NULL,
     service_provider_id UUID NOT NULL,
     offer_id UUID NOT NULL,
+    payment_id UUID,
     payment_fulfilled BOOLEAN DEFAULT FALSE,
     service_fee DECIMAL(15, 2) NOT NULL,
     service_date DATE NOT NULL,
@@ -22,5 +23,6 @@ CREATE TABLE IF NOT EXISTS orders (
     updated_at TIMESTAMPTZ,
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (service_provider_id) REFERENCES service_providers(id),
-    FOREIGN KEY (offer_id) REFERENCES offers(id)
+    FOREIGN KEY (offer_id) REFERENCES offers(id),
+    FOREIGN KEY (payment_id) REFERENCES payments(id)
 );

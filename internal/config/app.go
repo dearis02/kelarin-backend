@@ -4,11 +4,13 @@ import (
 	"fmt"
 	pkg "kelarin/pkg/validator"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/docker/go-units"
 	"github.com/gin-gonic/gin"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"github.com/midtrans/midtrans-go"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
 )
@@ -129,6 +131,34 @@ func (e ElasticsearchConfig) Validate() error {
 	)
 }
 
+type MidtransConfig struct {
+	ServerKey       string `yaml:"server_key"`
+	NotificationURL string `yaml:"notification_url"`
+	RedirectURL     string `yaml:"redirect_url"`
+}
+
+func (m MidtransConfig) Validate() error {
+	return validation.ValidateStruct(&m,
+		validation.Field(&m.ServerKey, validation.Required),
+		validation.Field(&m.NotificationURL, validation.Required),
+		validation.Field(&m.RedirectURL, validation.Required),
+	)
+}
+
+func (m MidtransConfig) Env() midtrans.EnvironmentType {
+	key := strings.Index(m.ServerKey, "SB")
+
+	if key != -1 {
+		return midtrans.Sandbox
+	}
+
+	return midtrans.Production
+}
+
+func (m MidtransConfig) DebugMode() bool {
+	return m.Env() == midtrans.Sandbox
+}
+
 type Config struct {
 	Environment            string              `yaml:"environment"`
 	Server                 Server              `yaml:"server"`
@@ -141,6 +171,7 @@ type Config struct {
 	OpenCageApiKey         string              `yaml:"opencage_api_key"`
 	Elasticsearch          ElasticsearchConfig `yaml:"elasticsearch"`
 	FirebaseCredentialFile string              `yaml:"firebase_credential_file"`
+	Midtrans               MidtransConfig      `yaml:"midtrans"`
 }
 
 func (c Config) Validate() error {
@@ -153,6 +184,7 @@ func (c Config) Validate() error {
 		validation.Field(&c.OpenCageApiKey, validation.Required),
 		validation.Field(&c.Elasticsearch, validation.Required),
 		validation.Field(&c.FirebaseCredentialFile, validation.Required),
+		validation.Field(&c.Midtrans, validation.Required),
 	)
 }
 

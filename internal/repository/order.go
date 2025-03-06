@@ -2,14 +2,20 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"kelarin/internal/types"
 
 	"github.com/go-errors/errors"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
 type Order interface {
 	CreateTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error
+	FindByIDAndUserID(ctx context.Context, ID, userID uuid.UUID) (types.OrderWithRelations, error)
+	UpdateAsPaymentTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error
+	UpdateAsPaymentFulfilledTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error
+	FindByPaymentID(ctx context.Context, paymentID uuid.UUID) (types.OrderWithUserAndServiceProvider, error)
 }
 
 type orderImpl struct {
@@ -51,4 +57,115 @@ func (r *orderImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, req types.Order) 
 	}
 
 	return nil
+}
+
+func (r *orderImpl) FindByIDAndUserID(ctx context.Context, ID, userID uuid.UUID) (types.OrderWithRelations, error) {
+	res := types.OrderWithRelations{}
+
+	query := `
+		SELECT
+			orders.id,
+			orders.user_id,
+			orders.service_provider_id,
+			orders.offer_id,
+			orders.payment_id,
+			orders.payment_fulfilled,
+			orders.service_fee,
+			orders.service_date,
+			orders.service_time,
+			orders.created_at,
+			orders.updated_at,
+			services.id AS service_id,
+			services.name AS service_name,
+			offers.status AS offer_status,
+			users.name AS user_name,
+			users.email AS user_email
+		FROM orders
+		INNER JOIN users
+			ON users.id = orders.user_id
+		INNER JOIN offers
+			ON offers.id = orders.offer_id
+		INNER JOIN services
+			ON services.id = offers.service_id
+		WHERE orders.id = $1
+			AND orders.user_id = $2
+	`
+
+	err := r.db.GetContext(ctx, &res, query, ID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, errors.New(types.ErrNoData)
+	} else if err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *orderImpl) UpdateAsPaymentTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error {
+	query := `
+		UPDATE orders
+		SET
+			payment_id = :payment_id,
+			updated_at = :updated_at
+		WHERE id = :id
+	`
+
+	if _, err := tx.NamedExecContext(ctx, query, req); err != nil {
+		return errors.New(err)
+	}
+
+	return nil
+}
+
+func (r *orderImpl) UpdateAsPaymentFulfilledTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error {
+	query := `
+		UPDATE orders
+		SET
+			payment_fulfilled = :payment_fulfilled,
+			updated_at = :updated_at
+		WHERE id = :id
+	`
+
+	if _, err := tx.NamedExecContext(ctx, query, req); err != nil {
+		return errors.New(err)
+	}
+
+	return nil
+}
+
+func (r *orderImpl) FindByPaymentID(ctx context.Context, paymentID uuid.UUID) (types.OrderWithUserAndServiceProvider, error) {
+	res := types.OrderWithUserAndServiceProvider{}
+
+	query := `
+		SELECT
+			orders.id,
+			orders.user_id,
+			orders.service_provider_id,
+			orders.offer_id,
+			orders.payment_id,
+			orders.payment_fulfilled,
+			orders.service_fee,
+			orders.service_date,
+			orders.service_time,
+			orders.created_at,
+			orders.updated_at,
+			users.name AS user_name,
+			service_providers.user_id AS service_provider_user_id,
+			service_providers.name AS service_provider_name
+		FROM orders
+		INNER JOIN users
+			ON users.id = orders.user_id
+		INNER JOIN service_providers
+			ON service_providers.id = orders.service_provider_id
+		WHERE orders.payment_id = $1
+	`
+
+	err := r.db.GetContext(ctx, &res, query, paymentID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, errors.New(types.ErrNoData)
+	} else if err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
 }

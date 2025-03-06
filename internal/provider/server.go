@@ -17,9 +17,10 @@ type Server struct {
 	OfferHandler            handler.Offer
 	OfferNegotiationHandler handler.OfferNegotiation
 	NotificationHandler     handler.Notification
+	PaymentHandler          handler.Payment
 }
 
-func NewServer(userHandler handler.User, authHandler *handler.Auth, fileHandler handler.File, serviceProviderHandler handler.ServiceProvider, serviceHandler handler.Service, provinceHandler handler.Province, cityHandler handler.City, serviceCategoryHandler handler.ServiceCategory, userAddressHandler handler.UserAddress, offerHandler handler.Offer, offerNegotiationHandler handler.OfferNegotiation, notificationHandler handler.Notification) *Server {
+func NewServer(userHandler handler.User, authHandler *handler.Auth, fileHandler handler.File, serviceProviderHandler handler.ServiceProvider, serviceHandler handler.Service, provinceHandler handler.Province, cityHandler handler.City, serviceCategoryHandler handler.ServiceCategory, userAddressHandler handler.UserAddress, offerHandler handler.Offer, offerNegotiationHandler handler.OfferNegotiation, notificationHandler handler.Notification, paymentHandler handler.Payment) *Server {
 	return &Server{
 		userHandler,
 		authHandler,
@@ -33,5 +34,6 @@ func NewServer(userHandler handler.User, authHandler *handler.Auth, fileHandler 
 		offerHandler,
 		offerNegotiationHandler,
 		notificationHandler,
+		paymentHandler,
 	}
 }
