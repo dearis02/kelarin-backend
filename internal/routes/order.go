@@ -1,0 +1,24 @@
+package routes
+
+import (
+	"kelarin/internal/handler"
+	"kelarin/internal/middleware"
+
+	"github.com/gin-gonic/gin"
+)
+
+type Order struct {
+	g            *gin.Engine
+	orderHandler handler.Order
+}
+
+func NewOrder(g *gin.Engine, orderHandler handler.Order) *Order {
+	return &Order{
+		g:            g,
+		orderHandler: orderHandler,
+	}
+}
+
+func (r *Order) Register(authMw middleware.Auth) {
+	r.g.GET("/consumer/v1/orders", authMw.Consumer, r.orderHandler.ConsumerGetAll)
+}

@@ -131,6 +131,7 @@ func main() {
 	offerNegotiationRoutes := routes.NewOfferNegotiation(g, server.OfferNegotiationHandler)
 	notificationRoutes := routes.NewNotification(g, server.NotificationHandler)
 	paymentRoutes := routes.NewPayment(g, server.PaymentHandler)
+	orderRoutes := routes.NewOrder(g, server.OrderHandler)
 
 	// End init routes region
 
@@ -149,6 +150,7 @@ func main() {
 	offerNegotiationRoutes.Register(authMiddleware)
 	notificationRoutes.Register(authMiddleware)
 	paymentRoutes.Register(authMiddleware)
+	orderRoutes.Register(authMiddleware)
 
 	// register websocket
 	wsClient := &WSClient{
