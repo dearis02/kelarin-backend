@@ -16,6 +16,7 @@ type Order interface {
 	UpdateAsPaymentTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error
 	UpdateAsPaymentFulfilledTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error
 	FindByPaymentID(ctx context.Context, paymentID uuid.UUID) (types.OrderWithUserAndServiceProvider, error)
+	FindAllByUserID(ctx context.Context, userID uuid.UUID) ([]types.OrderWithServiceAndServiceProvider, error)
 }
 
 type orderImpl struct {
@@ -73,6 +74,7 @@ func (r *orderImpl) FindByIDAndUserID(ctx context.Context, ID, userID uuid.UUID)
 			orders.service_fee,
 			orders.service_date,
 			orders.service_time,
+			orders.status,
 			orders.created_at,
 			orders.updated_at,
 			services.id AS service_id,
@@ -147,6 +149,7 @@ func (r *orderImpl) FindByPaymentID(ctx context.Context, paymentID uuid.UUID) (t
 			orders.service_fee,
 			orders.service_date,
 			orders.service_time,
+			orders.status,
 			orders.created_at,
 			orders.updated_at,
 			users.name AS user_name,
@@ -164,6 +167,45 @@ func (r *orderImpl) FindByPaymentID(ctx context.Context, paymentID uuid.UUID) (t
 	if errors.Is(err, sql.ErrNoRows) {
 		return res, errors.New(types.ErrNoData)
 	} else if err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *orderImpl) FindAllByUserID(ctx context.Context, userID uuid.UUID) ([]types.OrderWithServiceAndServiceProvider, error) {
+	res := []types.OrderWithServiceAndServiceProvider{}
+
+	query := `
+		SELECT
+			orders.id,
+			orders.user_id,
+			orders.service_provider_id,
+			orders.offer_id,
+			orders.payment_id,
+			orders.payment_fulfilled,
+			orders.service_fee,
+			orders.service_date,
+			orders.service_time,
+			orders.status,
+			orders.created_at,
+			orders.updated_at,
+			services.id AS service_id,
+			services.name AS service_name,
+			service_providers.name AS service_provider_name,
+			service_providers.logo_image AS service_provider_logo_image
+		FROM orders
+		INNER JOIN offers
+			ON offers.id = orders.offer_id
+		INNER JOIN services
+			ON services.id = offers.service_id
+		INNER JOIN service_providers
+			ON service_providers.id = services.service_provider_id
+		WHERE orders.user_id = $1
+		ORDER BY orders.id DESC
+	`
+
+	if err := r.db.SelectContext(ctx, &res, query, userID); err != nil {
 		return res, errors.New(err)
 	}
 

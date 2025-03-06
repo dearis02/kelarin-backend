@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS orders (
     service_fee DECIMAL(15, 2) NOT NULL,
     service_date DATE NOT NULL,
     service_time TIMETZ NOT NULL,
+    status order_status NOT NULL DEFAULT 'pending',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ,
     FOREIGN KEY (user_id) REFERENCES users(id),

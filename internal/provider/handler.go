@@ -20,4 +20,5 @@ var HandlerSet = wire.NewSet(
 	handler.NewOfferNegotiation,
 	handler.NewNotification,
 	handler.NewPayment,
+	handler.NewOrder,
 )
