@@ -14,6 +14,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/hibiken/asynq"
 	"github.com/jmoiron/sqlx"
+	"github.com/midtrans/midtrans-go/snap"
 	"github.com/redis/go-redis/v9"
 	"kelarin/internal/config"
 	"kelarin/internal/handler"
@@ -26,7 +27,7 @@ import (
 
 // Injectors from wire.go:
 
-func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config2 *config.Config, redis2 *redis.Client, s3UploadManager *manager.Uploader, queueClient *asynq.Client, s3Client *s3.Client, s3PresignClient *s3.PresignClient, opencageClient *opencage.Client, authMiddleware middleware.Auth, firebaseMessagingClient *messaging.Client) (*provider.Server, error) {
+func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config2 *config.Config, redis2 *redis.Client, s3UploadManager *manager.Uploader, queueClient *asynq.Client, s3Client *s3.Client, s3PresignClient *s3.PresignClient, opencageClient *opencage.Client, authMiddleware middleware.Auth, firebaseMessagingClient *messaging.Client, midtransSnapClient *snap.Client) (*provider.Server, error) {
 	user := repository.NewUser(db)
 	serviceUser := service.NewUser(user)
 	handlerUser := handler.NewUser(serviceUser)
@@ -77,6 +78,11 @@ func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config2 *config.Con
 	serviceOfferNegotiation := service.NewOfferNegotiation(serviceProvider, offerNegotiation, offer, repositoryService, db, notification, fcmToken, serviceFile, consumerNotification)
 	handlerOfferNegotiation := handler.NewOfferNegotiation(authMiddleware, serviceOfferNegotiation)
 	handlerNotification := handler.NewNotification(notification, authMiddleware)
-	server := provider.NewServer(handlerUser, handlerAuth, handlerFile, handlerServiceProvider, handlerService, handlerProvince, handlerCity, handlerServiceCategory, handlerUserAddress, handlerOffer, handlerOfferNegotiation, handlerNotification)
+	payment := repository.NewPayment(db)
+	paymentMethod := repository.NewPaymentMethod(db)
+	midtrans := service.NewMidtrans(midtransSnapClient)
+	servicePayment := service.NewPayment(config2, db, payment, paymentMethod, order, midtrans, notification, fcmToken)
+	handlerPayment := handler.NewPayment(servicePayment, authMiddleware)
+	server := provider.NewServer(handlerUser, handlerAuth, handlerFile, handlerServiceProvider, handlerService, handlerProvince, handlerCity, handlerServiceCategory, handlerUserAddress, handlerOffer, handlerOfferNegotiation, handlerNotification, handlerPayment)
 	return server, nil
 }

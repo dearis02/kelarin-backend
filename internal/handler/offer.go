@@ -109,8 +109,8 @@ func (h *offerImpl) ProviderAction(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, types.ApiResponse{
-		StatusCode: http.StatusOK,
+	c.JSON(http.StatusCreated, types.ApiResponse{
+		StatusCode: http.StatusCreated,
 	})
 }
 

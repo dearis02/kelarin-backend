@@ -146,6 +146,7 @@ type OfferConsumerGetAllRes struct {
 	ServiceStartTime      string                                `json:"service_start_time"`
 	ServiceEndTime        string                                `json:"service_end_time"`
 	ServiceTimeTimeZone   string                                `json:"service_time_time_zone"`
+	Status                OfferStatus                           `json:"status"`
 	HasPendingNegotiation bool                                  `json:"has_pending_negotiation"`
 	CreatedAt             time.Time                             `json:"created_at"`
 	Service               OfferConsumerGetAllResService         `json:"service"`
@@ -191,6 +192,7 @@ type OfferConsumerGetByIDRes struct {
 	ServiceStartTime      string                                 `json:"service_start_time"`
 	ServiceEndTime        string                                 `json:"service_end_time"`
 	ServiceTimeTimeZone   string                                 `json:"service_time_time_zone"`
+	Status                OfferStatus                            `json:"status"`
 	HasPendingNegotiation bool                                   `json:"has_pending_negotiation"`
 	CreatedAt             time.Time                              `json:"created_at"`
 	Service               OfferConsumerGetByIDResService         `json:"service"`

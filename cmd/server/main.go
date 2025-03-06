@@ -9,6 +9,7 @@ import (
 	"kelarin/internal/queue"
 	"kelarin/internal/routes"
 	"kelarin/internal/types"
+	"kelarin/internal/utils"
 	awsUtil "kelarin/internal/utils/aws"
 	dbUtil "kelarin/internal/utils/dbutil"
 	fileSystemUtil "kelarin/internal/utils/file_system"
@@ -90,7 +91,9 @@ func main() {
 	firebaseApp := firebaseUtil.NewApp(cfg)
 	firebaseMessagingClient := firebaseUtil.NewMessagingClient(firebaseApp)
 
-	server, err := newServer(db, es, cfg, redis, s3Uploader, queueClient, s3Client, s3PresignClient, openCageClient, authMiddleware, firebaseMessagingClient)
+	midtransSnapClient := utils.NewMidtransSnapClient(cfg.Midtrans.ServerKey, cfg.Midtrans.Env(), cfg.Midtrans.NotificationURL)
+
+	server, err := newServer(db, es, cfg, redis, s3Uploader, queueClient, s3Client, s3PresignClient, openCageClient, authMiddleware, firebaseMessagingClient, midtransSnapClient)
 	if err != nil {
 		log.Fatal().Stack().Err(err).Send()
 	}
@@ -127,6 +130,7 @@ func main() {
 	offerRoutes := routes.NewOffer(g, server.OfferHandler)
 	offerNegotiationRoutes := routes.NewOfferNegotiation(g, server.OfferNegotiationHandler)
 	notificationRoutes := routes.NewNotification(g, server.NotificationHandler)
+	paymentRoutes := routes.NewPayment(g, server.PaymentHandler)
 
 	// End init routes region
 
@@ -144,6 +148,7 @@ func main() {
 	offerRoutes.Register(authMiddleware)
 	offerNegotiationRoutes.Register(authMiddleware)
 	notificationRoutes.Register(authMiddleware)
+	paymentRoutes.Register(authMiddleware)
 
 	// register websocket
 	wsClient := &WSClient{

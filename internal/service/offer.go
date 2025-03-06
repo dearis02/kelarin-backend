@@ -121,12 +121,14 @@ func (s *offerImpl) ConsumerCreate(ctx context.Context, req types.OfferConsumerC
 		return errors.New(err)
 	}
 
-	startTime, err := time.Parse(time.TimeOnly, req.ServiceStartTime)
+	localTz := time.FixedZone("GMT+8", 8*60*60)
+
+	startTime, err := time.ParseInLocation(time.TimeOnly, req.ServiceStartTime, localTz)
 	if err != nil {
 		return err
 	}
 
-	endTime, err := time.Parse(time.TimeOnly, req.ServiceEndTime)
+	endTime, err := time.ParseInLocation(time.TimeOnly, req.ServiceEndTime, localTz)
 	if err != nil {
 		return err
 	}
@@ -251,6 +253,7 @@ func (s *offerImpl) ConsumerGetAll(ctx context.Context, req types.OfferConsumerG
 			ServiceStartTime:      o.ServiceStartTime.In(reqTimeZone).Format(time.TimeOnly),
 			ServiceEndTime:        o.ServiceEndTime.In(reqTimeZone).Format(time.TimeOnly),
 			ServiceTimeTimeZone:   reqTimeZone.String(),
+			Status:                o.Status,
 			HasPendingNegotiation: slices.ContainsFunc(negotiations, func(n types.OfferNegotiation) bool { return n.OfferID == o.ID }),
 			CreatedAt:             o.CreatedAt,
 			Service: types.OfferConsumerGetAllResService{
@@ -358,6 +361,7 @@ func (s *offerImpl) ConsumerGetByID(ctx context.Context, req types.OfferConsumer
 		ServiceStartTime:      offer.ServiceStartTime.In(timeZone).Format(time.TimeOnly),
 		ServiceEndTime:        offer.ServiceEndTime.In(timeZone).Format(time.TimeOnly),
 		ServiceTimeTimeZone:   timeZone.String(),
+		Status:                offer.Status,
 		HasPendingNegotiation: slices.ContainsFunc(negotiations, func(n types.OfferNegotiation) bool { return n.Status == types.OfferNegotiationStatusPending }),
 		CreatedAt:             offer.CreatedAt,
 		Service: types.OfferConsumerGetByIDResService{
@@ -438,7 +442,13 @@ func (s *offerImpl) ProviderAction(ctx context.Context, req types.OfferProviderA
 			return errors.New(err)
 		}
 
-		serviceTime, err := time.Parse(time.TimeOnly, req.Time)
+		reqTimeZone, err := time.LoadLocation(req.TimeZone)
+		if err != nil {
+			return errors.New(types.AppErr{Code: http.StatusBadRequest, Message: "invalid timezone header"})
+		}
+
+		timeFormat := "2006 15:04:00"
+		serviceTime, err := time.ParseInLocation(timeFormat, fmt.Sprintf("%s %s", "2025", req.Time), reqTimeZone)
 		if err != nil {
 			return errors.New(err)
 		}
