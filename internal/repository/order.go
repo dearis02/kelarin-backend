@@ -193,7 +193,13 @@ func (r *orderImpl) FindAllByUserID(ctx context.Context, userID uuid.UUID) ([]ty
 			services.id AS service_id,
 			services.name AS service_name,
 			service_providers.name AS service_provider_name,
-			service_providers.logo_image AS service_provider_logo_image
+			service_providers.logo_image AS service_provider_logo_image,
+			payment_methods.name AS payment_method_name,
+			payments.amount AS payment_amount,
+			payments.admin_fee AS payment_admin_fee,
+			payments.platform_fee AS payment_platform_fee,
+			payments.payment_link AS payment_payment_link,
+			payments.status  AS payment_status
 		FROM orders
 		INNER JOIN offers
 			ON offers.id = orders.offer_id
@@ -201,6 +207,10 @@ func (r *orderImpl) FindAllByUserID(ctx context.Context, userID uuid.UUID) ([]ty
 			ON services.id = offers.service_id
 		INNER JOIN service_providers
 			ON service_providers.id = services.service_provider_id
+		LEFT JOIN payments
+			ON payments.id = orders.payment_id
+		LEFT JOIN payment_methods
+			ON payment_methods.id = payments.payment_method_id
 		WHERE orders.user_id = $1
 		ORDER BY orders.id DESC
 	`
