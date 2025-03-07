@@ -10,6 +10,11 @@ import (
 
 type Util interface {
 	ParseUserTimeZone(tz string) (*time.Location, error)
+
+	// to get correct timezone offset on parsing time only, we must include the year
+	//
+	// issue: https://github.com/golang/go/issues/34101#issuecomment-528260666
+	NormalizeTimeOnlyTz(timeOnly time.Time) time.Time
 }
 
 type utilImpl struct{}
@@ -29,4 +34,8 @@ func (u *utilImpl) ParseUserTimeZone(tz string) (*time.Location, error) {
 	}
 
 	return t, nil
+}
+
+func (u *utilImpl) NormalizeTimeOnlyTz(timeOnly time.Time) time.Time {
+	return time.Date(time.Now().Year(), 0, 0, timeOnly.Hour(), timeOnly.Minute(), timeOnly.Second(), 0, timeOnly.Location())
 }
