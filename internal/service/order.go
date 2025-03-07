@@ -51,6 +51,7 @@ func (s *orderImpl) ConsumerGetAll(ctx context.Context, req types.OrderConsumerG
 		_time := time.Date(time.Now().Year(), 0, 0, order.ServiceTime.Hour(), order.ServiceTime.Minute(), order.ServiceTime.Second(), 0, order.ServiceTime.Location())
 		res = append(res, types.OrderConsumerGetAllRes{
 			ID:               order.ID,
+			OfferID:          order.OfferID,
 			PaymentFulfilled: order.PaymentFulfilled,
 			ServiceFee:       order.ServiceFee,
 			ServiceDate:      order.ServiceDate.Format(time.DateOnly),

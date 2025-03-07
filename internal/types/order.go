@@ -77,6 +77,7 @@ func (r OrderConsumerGetAllReq) Validate() error {
 
 type OrderConsumerGetAllRes struct {
 	ID               uuid.UUID                             `json:"id"`
+	OfferID          uuid.UUID                             `json:"offer_id"`
 	ServiceFee       decimal.Decimal                       `json:"service_fee"`
 	ServiceDate      string                                `json:"service_date"`
 	ServiceTime      string                                `json:"service_time"`
