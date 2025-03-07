@@ -48,6 +48,19 @@ func (s *orderImpl) ConsumerGetAll(ctx context.Context, req types.OrderConsumerG
 			return res, err
 		}
 
+		var paymentRes *types.OrderConsumerGetAllResPayment
+		if order.PaymentID.Valid {
+			paymentRes = &types.OrderConsumerGetAllResPayment{
+				ID:                order.PaymentID.UUID,
+				PaymentMethodName: order.PaymentMethodName.String,
+				Amount:            order.PaymentAmount.Decimal,
+				AdminFee:          order.PaymentAdminFee.Int32,
+				PlatformFee:       order.PaymentPlatformFee.Int32,
+				Status:            types.PaymentStatus(order.PaymentStatus.String),
+				PaymentLink:       order.PaymentPaymentLink.String,
+			}
+		}
+
 		res = append(res, types.OrderConsumerGetAllRes{
 			ID:               order.ID,
 			OfferID:          order.OfferID,
@@ -66,6 +79,7 @@ func (s *orderImpl) ConsumerGetAll(ctx context.Context, req types.OrderConsumerG
 				Name:    order.ServiceProviderName,
 				LogoURL: providerLogoURL,
 			},
+			Payment: paymentRes,
 		})
 	}
 

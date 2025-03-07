@@ -52,10 +52,16 @@ type OrderWithUserAndServiceProvider struct {
 
 type OrderWithServiceAndServiceProvider struct {
 	Order
-	ServiceID                uuid.UUID `db:"service_id"`
-	ServiceName              string    `db:"service_name"`
-	ServiceProviderName      string    `db:"service_provider_name"`
-	ServiceProviderLogoImage string    `db:"service_provider_logo_image"`
+	ServiceID                uuid.UUID           `db:"service_id"`
+	ServiceName              string              `db:"service_name"`
+	ServiceProviderName      string              `db:"service_provider_name"`
+	ServiceProviderLogoImage string              `db:"service_provider_logo_image"`
+	PaymentMethodName        null.String         `db:"payment_method_name"`
+	PaymentStatus            null.String         `db:"payment_status"`
+	PaymentAmount            decimal.NullDecimal `db:"payment_amount"`
+	PaymentAdminFee          null.Int32          `db:"payment_admin_fee"`
+	PaymentPlatformFee       null.Int32          `db:"payment_platform_fee"`
+	PaymentPaymentLink       null.String         `db:"payment_payment_link"`
 }
 
 // endregion repo types
@@ -86,6 +92,7 @@ type OrderConsumerGetAllRes struct {
 	CreatedAt        time.Time                             `json:"created_at"`
 	Service          OrderConsumerGetAllResService         `json:"service"`
 	ServiceProvider  OrderConsumerGetAllResServiceProvider `json:"service_provider"`
+	Payment          *OrderConsumerGetAllResPayment        `json:"payment"`
 }
 
 type OrderConsumerGetAllResService struct {
@@ -97,6 +104,16 @@ type OrderConsumerGetAllResServiceProvider struct {
 	ID      uuid.UUID `json:"id"`
 	Name    string    `json:"name"`
 	LogoURL string    `json:"logo_url"`
+}
+
+type OrderConsumerGetAllResPayment struct {
+	ID                uuid.UUID       `json:"id"`
+	PaymentMethodName string          `json:"payment_method_name"`
+	Amount            decimal.Decimal `json:"amount"`
+	AdminFee          int32           `json:"admin_fee"`
+	PlatformFee       int32           `json:"platform_fee"`
+	Status            PaymentStatus   `json:"status"`
+	PaymentLink       string          `json:"payment_link"`
 }
 
 // endregion repo types
