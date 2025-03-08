@@ -26,4 +26,5 @@ var ServiceSet = wire.NewSet(
 	service.NewPayment,
 	service.NewOrder,
 	service.NewUtil,
+	service.NewPaymentMethod,
 )

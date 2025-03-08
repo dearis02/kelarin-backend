@@ -1,0 +1,9 @@
+services:
+  elasticsearch:
+      image: docker.elastic.co/elasticsearch/elasticsearch:8.17.0
+      container_name: elasticsearch
+      ports:
+          - "9200:9200"
+      environment:
+          - discovery.type=single-node
+          - "ES_JAVA_OPTS=-Xms200m -Xmx250m"

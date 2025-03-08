@@ -132,6 +132,7 @@ func main() {
 	notificationRoutes := routes.NewNotification(g, server.NotificationHandler)
 	paymentRoutes := routes.NewPayment(g, server.PaymentHandler)
 	orderRoutes := routes.NewOrder(g, server.OrderHandler)
+	paymentMethodRoutes := routes.NewPaymentMethod(g, server.PaymentMethodHandler)
 
 	// End init routes region
 
@@ -151,6 +152,7 @@ func main() {
 	notificationRoutes.Register(authMiddleware)
 	paymentRoutes.Register(authMiddleware)
 	orderRoutes.Register(authMiddleware)
+	paymentMethodRoutes.Register()
 
 	// register websocket
 	wsClient := &WSClient{

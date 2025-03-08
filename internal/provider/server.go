@@ -19,6 +19,7 @@ type Server struct {
 	NotificationHandler     handler.Notification
 	PaymentHandler          handler.Payment
 	OrderHandler            handler.Order
+	PaymentMethodHandler    handler.PaymentMethod
 }
 
 func NewServer(
@@ -36,6 +37,7 @@ func NewServer(
 	notificationHandler handler.Notification,
 	paymentHandler handler.Payment,
 	orderHandler handler.Order,
+	paymentMethodHandler handler.PaymentMethod,
 ) *Server {
 	return &Server{
 		userHandler,
@@ -52,5 +54,6 @@ func NewServer(
 		notificationHandler,
 		paymentHandler,
 		orderHandler,
+		paymentMethodHandler,
 	}
 }

@@ -2,7 +2,7 @@ DO $$
 BEGIN
     CREATE TYPE payment_method_type AS ENUM (
         'va',
-        'qris'
+        'qr'
     );
     EXCEPTION WHEN duplicate_object THEN 
         RAISE NOTICE 'payment_method_type type already exists';

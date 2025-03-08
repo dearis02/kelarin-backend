@@ -305,12 +305,12 @@ func (s *paymentImpl) MidtransNotification(ctx context.Context, req types.Paymen
 	return nil
 }
 
-func (s *paymentImpl) CalculateAdminFee(amount decimal.Decimal, adminFee int32, adminFeeUnit types.PaymentMethodAdminFeeUnit) decimal.Decimal {
+func (s *paymentImpl) CalculateAdminFee(amount decimal.Decimal, adminFee float32, adminFeeUnit types.PaymentMethodAdminFeeUnit) decimal.Decimal {
 	if adminFeeUnit == types.PaymentMethodAdminFeeUnitPercentage {
-		return amount.Mul(decimal.NewFromInt32(adminFee)).Div(decimal.NewFromInt(100)).RoundCeil(0)
+		return amount.Mul(decimal.NewFromFloat32(adminFee)).Div(decimal.NewFromInt(100)).RoundCeil(0)
 	}
 
-	return decimal.NewFromInt32(adminFee)
+	return decimal.NewFromFloat32(adminFee)
 }
 
 func (s *paymentImpl) VerifyMidtransSignatureKey(serverKey string, req types.PaymentMidtransNotificationReq) bool {
