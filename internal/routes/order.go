@@ -23,4 +23,7 @@ func (r *Order) Register(authMw middleware.Auth) {
 	r.g.GET("/consumer/v1/orders", authMw.Consumer, r.orderHandler.ConsumerGetAll)
 	r.g.GET("/consumer/v1/orders/:id", authMw.Consumer, r.orderHandler.ConsumerGetByID)
 	r.g.POST("/consumer/v1/orders/:id", authMw.Consumer, r.orderHandler.ConsumerGenerateQRCode)
+
+	r.g.GET("/provider/v1/orders", authMw.ServiceProvider, r.orderHandler.ProviderGetAll)
+	r.g.GET("/provider/v1/orders/:id", authMw.ServiceProvider, r.orderHandler.ProviderGetByID)
 }

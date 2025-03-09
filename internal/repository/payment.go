@@ -8,12 +8,14 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 type Payment interface {
 	FindByID(ctx context.Context, ID uuid.UUID) (types.Payment, error)
 	CreateTx(ctx context.Context, tx *sqlx.Tx, req types.Payment) error
 	UpdateStatusTx(ctx context.Context, tx *sqlx.Tx, req types.Payment) error
+	FindByIDs(ctx context.Context, IDs uuid.UUIDs) ([]types.PaymentWithPaymentMethod, error)
 }
 
 type paymentImpl struct {
@@ -98,4 +100,34 @@ func (r *paymentImpl) UpdateStatusTx(ctx context.Context, tx *sqlx.Tx, req types
 	}
 
 	return nil
+}
+
+func (r *paymentImpl) FindByIDs(ctx context.Context, IDs uuid.UUIDs) ([]types.PaymentWithPaymentMethod, error) {
+	res := []types.PaymentWithPaymentMethod{}
+
+	query := `
+		SELECT 
+			payments.id,
+			payments.payment_method_id,
+			payments.user_id,
+			payments.amount,
+			payments.admin_fee,
+			payments.platform_fee,
+			payments.status,
+			payments.payment_link,
+			payments.created_at,
+			payment_methods.name AS payment_method_name,
+			payment_methods.logo AS payment_method_logo,
+			payment_methods.type AS payment_method_type
+		FROM payments
+		INNER JOIN payment_methods
+			ON payment_methods.id = payments.payment_method_id
+		WHERE payments.id = ANY($1)
+	`
+
+	if err := r.db.SelectContext(ctx, &res, query, pq.Array(IDs)); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
 }

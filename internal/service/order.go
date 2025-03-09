@@ -10,12 +10,16 @@ import (
 
 	"github.com/go-errors/errors"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 type Order interface {
 	ConsumerGetAll(ctx context.Context, req types.OrderConsumerGetAllReq) ([]types.OrderConsumerGetAllRes, error)
 	ConsumerGetByID(ctx context.Context, req types.OrderConsumerGetByIDReq) (types.OrderConsumerGetByIDRes, error)
 	ConsumerGenerateQRCode(ctx context.Context, req types.OrderConsumerGenerateQRCodeReq) (types.OrderConsumerGenerateQRCodeRes, error)
+
+	ProviderGetAll(ctx context.Context, req types.OrderProviderGetAllReq) ([]types.OrderProviderGetAllRes, error)
+	ProviderGetByID(ctx context.Context, req types.OrderProviderGetByIDReq) (types.OrderProviderGetByIDRes, error)
 }
 
 type orderImpl struct {
@@ -26,9 +30,10 @@ type orderImpl struct {
 	paymentRepo           repository.Payment
 	paymentMethodRepo     repository.PaymentMethod
 	orderQRCodeSigningKey string
+	serviceProviderRepo   repository.ServiceProvider
 }
 
-func NewOrder(orderRepo repository.Order, fileSvc File, utilSvc Util, offerSvc Offer, paymentRepo repository.Payment, paymentMethodRepo repository.PaymentMethod, cfg *config.Config) Order {
+func NewOrder(orderRepo repository.Order, fileSvc File, utilSvc Util, offerSvc Offer, paymentRepo repository.Payment, paymentMethodRepo repository.PaymentMethod, cfg *config.Config, serviceProviderRepo repository.ServiceProvider) Order {
 	return &orderImpl{
 		orderRepo:             orderRepo,
 		fileSvc:               fileSvc,
@@ -37,6 +42,7 @@ func NewOrder(orderRepo repository.Order, fileSvc File, utilSvc Util, offerSvc O
 		paymentRepo:           paymentRepo,
 		paymentMethodRepo:     paymentMethodRepo,
 		orderQRCodeSigningKey: cfg.OrderQRCodeSigningKey,
+		serviceProviderRepo:   serviceProviderRepo,
 	}
 }
 
@@ -233,4 +239,151 @@ func (s *orderImpl) GenerateQRCodeContent(payload types.OrderConsumerGenerateQRC
 	}
 
 	return token, nil
+}
+
+func (s *orderImpl) ProviderGetAll(ctx context.Context, req types.OrderProviderGetAllReq) ([]types.OrderProviderGetAllRes, error) {
+	res := []types.OrderProviderGetAllRes{}
+
+	if err := req.Validate(); err != nil {
+		return res, err
+	}
+
+	provider, err := s.serviceProviderRepo.FindByUserID(ctx, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("service provider not found: user_id %s", req.AuthUser.ID)
+	} else if err != nil {
+		return res, err
+	}
+
+	orders, err := s.orderRepo.FindAllByServiceProviderID(ctx, provider.ID)
+	if err != nil {
+		return res, err
+	}
+
+	paymentIDs := uuid.UUIDs{}
+	for _, order := range orders {
+		if order.PaymentID.Valid {
+			paymentIDs = append(paymentIDs, order.PaymentID.UUID)
+		}
+	}
+
+	payments, err := s.paymentRepo.FindByIDs(ctx, paymentIDs)
+	if err != nil {
+		return res, err
+	}
+
+	reqTz, err := s.utilSvc.ParseUserTimeZone(req.TimeZone)
+	if err != nil {
+		return res, err
+	}
+
+	for _, order := range orders {
+		var paymentRes *types.OrderProviderGetAllResPayment
+
+		for _, payment := range payments {
+			if order.PaymentID.Valid && order.PaymentID.UUID == payment.ID {
+				paymentRes = &types.OrderProviderGetAllResPayment{
+					ID:                payment.ID,
+					PaymentMethodName: payment.PaymentMethodName,
+					Amount:            payment.Amount,
+					AdminFee:          payment.AdminFee,
+					PlatformFee:       payment.PlatformFee,
+					Status:            payment.Status,
+				}
+			}
+		}
+
+		res = append(res, types.OrderProviderGetAllRes{
+			ID:               order.ID,
+			OfferID:          order.OfferID,
+			PaymentFulfilled: order.PaymentFulfilled,
+			ServiceFee:       order.ServiceFee,
+			ServiceDate:      order.ServiceDate.Format(time.DateOnly),
+			ServiceTime:      s.utilSvc.NormalizeTimeOnlyTz(order.ServiceTime).In(reqTz).Format(time.TimeOnly),
+			Status:           order.Status,
+			CreatedAt:        order.CreatedAt,
+			Payment:          paymentRes,
+		})
+	}
+
+	return res, nil
+}
+
+func (s *orderImpl) ProviderGetByID(ctx context.Context, req types.OrderProviderGetByIDReq) (types.OrderProviderGetByIDRes, error) {
+	res := types.OrderProviderGetByIDRes{}
+
+	if err := req.Validate(); err != nil {
+		return res, err
+	}
+
+	provider, err := s.serviceProviderRepo.FindByUserID(ctx, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("service provider not found: user_id %s", req.AuthUser.ID)
+	} else if err != nil {
+		return res, err
+	}
+
+	order, err := s.orderRepo.FindByIDAndServiceProviderID(ctx, req.ID, provider.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.New(types.AppErr{Code: http.StatusNotFound, Message: "order not found"})
+	} else if err != nil {
+		return res, err
+	}
+
+	offer, err := s.offerSvc.ProviderGetByID(ctx, types.OfferProviderGetByIDReq{ID: order.OfferID, AuthUser: req.AuthUser})
+	if err != nil {
+		return res, err
+	}
+
+	res = types.OrderProviderGetByIDRes{
+		ID:               order.ID,
+		OfferID:          order.OfferID,
+		PaymentFulfilled: order.PaymentFulfilled,
+		ServiceFee:       order.ServiceFee,
+		ServiceDate:      order.ServiceDate.Format(time.DateOnly),
+		ServiceTime:      s.utilSvc.NormalizeTimeOnlyTz(order.ServiceTime).Format(time.TimeOnly),
+		Status:           order.Status,
+		CreatedAt:        order.CreatedAt,
+		User: types.OrderProviderGetByIDResUser{
+			ID:   offer.User.ID,
+			Name: offer.User.Name,
+		},
+		Offer: types.OrderProviderGetByIDResOffer{
+			ID:     offer.ID,
+			Detail: offer.Detail,
+		},
+		Address: types.OrderProviderGetByIDResAddress{
+			ID:       offer.User.Address.ID,
+			Province: offer.User.Address.Province,
+			City:     offer.User.Address.City,
+			Lat:      offer.User.Address.Lat,
+			Lng:      offer.User.Address.Lng,
+			Address:  offer.User.Address.Address,
+		},
+	}
+
+	if order.PaymentID.Valid {
+		payment, err := s.paymentRepo.FindByID(ctx, order.PaymentID.UUID)
+		if errors.Is(err, types.ErrNoData) {
+			return res, errors.Errorf("payment not found: id %s", order.PaymentID.UUID)
+		}
+
+		paymentMethod, err := s.paymentMethodRepo.FindByID(ctx, payment.PaymentMethodID)
+		if errors.Is(err, types.ErrNoData) {
+			return res, errors.Errorf("payment method not found: id %s", payment.PaymentMethodID)
+		} else if err != nil {
+			return res, err
+		}
+
+		res.Payment = &types.OrderProviderGetAllResPayment{
+			ID:                payment.ID,
+			PaymentMethodName: paymentMethod.Name,
+			Amount:            payment.Amount,
+			AdminFee:          payment.AdminFee,
+			PlatformFee:       payment.PlatformFee,
+			Status:            payment.Status,
+		}
+	}
+
+	return res, nil
 }

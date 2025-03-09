@@ -33,6 +33,21 @@ const (
 	PaymentStatusFailed   PaymentStatus = "failed"
 )
 
+type PaymentWithPaymentMethod struct {
+	ID                uuid.UUID         `db:"id"`
+	PaymentMethodID   uuid.UUID         `db:"payment_method_id"`
+	UserID            uuid.UUID         `db:"user_id"`
+	Amount            decimal.Decimal   `db:"amount"`
+	AdminFee          int32             `db:"admin_fee"`
+	PlatformFee       int32             `db:"platform_fee"`
+	PaymentLink       string            `db:"payment_link"`
+	Status            PaymentStatus     `db:"status"`
+	CreatedAt         time.Time         `db:"created_at"`
+	PaymentMethodName string            `db:"payment_method_name"`
+	PaymentMethodLogo string            `db:"payment_method_logo"`
+	PaymentMethodType PaymentMethodType `db:"payment_method_type"`
+}
+
 // endregion repo types
 
 // region service types
