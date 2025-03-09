@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"github.com/volatiletech/null/v9"
@@ -155,6 +156,36 @@ type OrderConsumerGetByIDResPayment struct {
 	PlatformFee       int32           `json:"platform_fee"`
 	Status            PaymentStatus   `json:"status"`
 	PaymentLink       string          `json:"payment_link"`
+}
+
+type OrderConsumerGenerateQRCodeReq struct {
+	AuthUser AuthUser  `middleware:"user"`
+	ID       uuid.UUID `param:"id"`
+}
+
+func (r OrderConsumerGenerateQRCodeReq) Validate() error {
+	if r.AuthUser.IsZero() {
+		return errors.New("AuthUser is required")
+	}
+
+	if r.ID == uuid.Nil {
+		return errors.New(ErrIDRouteParamRequired)
+	}
+
+	return nil
+}
+
+type OrderConsumerGenerateQRCodeRes struct {
+	QRCodeContent         string  `json:"qr_code_content"`
+	ValidDurationInSecond float64 `json:"valid_duration_in_second"`
+}
+
+type OrderConsumerGenerateQRCodePayload struct {
+	jwt.RegisteredClaims
+	OrderID     uuid.UUID       `json:"order_id"`
+	Amount      decimal.Decimal `json:"amount"`
+	AdminFee    int32           `json:"admin_fee"`
+	PlatformFee int32           `json:"platform_fee"`
 }
 
 // endregion service types

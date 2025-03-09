@@ -172,6 +172,7 @@ type Config struct {
 	Elasticsearch          ElasticsearchConfig `yaml:"elasticsearch"`
 	FirebaseCredentialFile string              `yaml:"firebase_credential_file"`
 	Midtrans               MidtransConfig      `yaml:"midtrans"`
+	OrderQRCodeSigningKey  string              `yaml:"order_qr_code_signing_key"`
 }
 
 func (c Config) Validate() error {
@@ -185,6 +186,7 @@ func (c Config) Validate() error {
 		validation.Field(&c.Elasticsearch, validation.Required),
 		validation.Field(&c.FirebaseCredentialFile, validation.Required),
 		validation.Field(&c.Midtrans, validation.Required),
+		validation.Field(&c.OrderQRCodeSigningKey, validation.Required),
 	)
 }
 

@@ -6,7 +6,7 @@ server:
   port: 3000
   cors:
     allowed_origins:
-      - "http://localhost:5173"
+    - "http://localhost:5173"
 
 database:
   connection_string: "postgres://postgres:root@localhost:5432/kelarin?sslmode=disable"
@@ -26,3 +26,32 @@ jwt:
 oauth:
   google:
     client_id: "client_id"
+
+file:
+  aws_s3_bucket: "bucket_name"
+  max_uploaded_image_file_size: 10mb
+  temp_file_expiration: 5m
+  allowed_image_types:
+  - "image/jpeg"
+  - "image/jpg"
+  - "image/png"
+  presigned_url_expiration: 15m
+
+opencage_api_key: 'api_key'
+
+elasticsearch:
+  addresses:
+  - "https://127.0.0.1:9200"
+  api_key: "elastic_api_key"
+  certificate_path: "elastic_cert_path"
+  max_idle_cons: 50
+  max_idle_cons_per_host: 10
+
+firebase_credential_file: "file_path_firebase_credential.json"
+
+midtrans:
+  server_key: "server_key"
+  notification_url: "https://backend/v1/midtrans/notifications"
+  redirect_url: "http://localhost:5173"
+
+order_qr_code_signing_key: "random_string"
