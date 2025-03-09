@@ -188,4 +188,89 @@ type OrderConsumerGenerateQRCodePayload struct {
 	PlatformFee int32           `json:"platform_fee"`
 }
 
+type OrderProviderGetAllReq struct {
+	AuthUser AuthUser `middleware:"user"`
+	TimeZone string   `header:"Time-Zone"`
+}
+
+func (r OrderProviderGetAllReq) Validate() error {
+	if r.AuthUser.IsZero() {
+		return errors.New("AuthUser is required")
+	}
+
+	return nil
+}
+
+type OrderProviderGetAllRes struct {
+	ID               uuid.UUID                      `json:"id"`
+	OfferID          uuid.UUID                      `json:"offer_id"`
+	ServiceFee       decimal.Decimal                `json:"service_fee"`
+	ServiceDate      string                         `json:"service_date"`
+	ServiceTime      string                         `json:"service_time"`
+	PaymentFulfilled bool                           `json:"payment_fulfilled"`
+	Status           OrderStatus                    `json:"status"`
+	CreatedAt        time.Time                      `json:"created_at"`
+	Payment          *OrderProviderGetAllResPayment `json:"payment"`
+}
+
+type OrderProviderGetAllResPayment struct {
+	ID                uuid.UUID       `json:"id"`
+	PaymentMethodName string          `json:"payment_method_name"`
+	Amount            decimal.Decimal `json:"amount"`
+	AdminFee          int32           `json:"admin_fee"`
+	PlatformFee       int32           `json:"platform_fee"`
+	Status            PaymentStatus   `json:"status"`
+}
+
+type OrderProviderGetByIDReq struct {
+	AuthUser AuthUser  `middleware:"user"`
+	ID       uuid.UUID `param:"id"`
+}
+
+func (r OrderProviderGetByIDReq) Validate() error {
+	if r.AuthUser.IsZero() {
+		return errors.New("AuthUser is required")
+	}
+
+	if r.ID == uuid.Nil {
+		return errors.New(ErrIDRouteParamRequired)
+	}
+
+	return nil
+}
+
+type OrderProviderGetByIDRes struct {
+	ID               uuid.UUID                      `json:"id"`
+	OfferID          uuid.UUID                      `json:"offer_id"`
+	ServiceFee       decimal.Decimal                `json:"service_fee"`
+	ServiceDate      string                         `json:"service_date"`
+	ServiceTime      string                         `json:"service_time"`
+	PaymentFulfilled bool                           `json:"payment_fulfilled"`
+	Status           OrderStatus                    `json:"status"`
+	CreatedAt        time.Time                      `json:"created_at"`
+	User             OrderProviderGetByIDResUser    `json:"user"`
+	Offer            OrderProviderGetByIDResOffer   `json:"offer"`
+	Address          OrderProviderGetByIDResAddress `json:"address"`
+	Payment          *OrderProviderGetAllResPayment `json:"payment"`
+}
+
+type OrderProviderGetByIDResOffer struct {
+	ID     uuid.UUID `json:"id"`
+	Detail string    `json:"detail"`
+}
+
+type OrderProviderGetByIDResUser struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+type OrderProviderGetByIDResAddress struct {
+	ID       uuid.UUID    `json:"id"`
+	Province string       `json:"province"`
+	City     string       `json:"city"`
+	Lat      null.Float64 `json:"latitude"`
+	Lng      null.Float64 `json:"longitude"`
+	Address  string       `json:"address"`
+}
+
 // endregion service types

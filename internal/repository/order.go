@@ -17,6 +17,8 @@ type Order interface {
 	UpdateAsPaymentFulfilledTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error
 	FindByPaymentID(ctx context.Context, paymentID uuid.UUID) (types.OrderWithUserAndServiceProvider, error)
 	FindAllByUserID(ctx context.Context, userID uuid.UUID) ([]types.OrderWithServiceAndServiceProvider, error)
+	FindAllByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.Order, error)
+	FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Order, error)
 }
 
 type orderImpl struct {
@@ -216,6 +218,67 @@ func (r *orderImpl) FindAllByUserID(ctx context.Context, userID uuid.UUID) ([]ty
 	`
 
 	if err := r.db.SelectContext(ctx, &res, query, userID); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *orderImpl) FindAllByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.Order, error) {
+	res := []types.Order{}
+
+	query := `
+		SELECT
+			id,
+			user_id,
+			service_provider_id,
+			offer_id,
+			payment_id,
+			payment_fulfilled,
+			service_fee,
+			service_date,
+			service_time,
+			status,
+			created_at,
+			updated_at
+		FROM orders
+		WHERE service_provider_id = $1
+		ORDER BY id DESC
+	`
+
+	if err := r.db.SelectContext(ctx, &res, query, serviceProviderID); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *orderImpl) FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Order, error) {
+	res := types.Order{}
+
+	query := `
+		SELECT
+			id,
+			user_id,
+			service_provider_id,
+			offer_id,
+			payment_id,
+			payment_fulfilled,
+			service_fee,
+			service_date,
+			service_time,
+			status,
+			created_at,
+			updated_at
+		FROM orders
+		WHERE id = $1 
+			AND service_provider_id = $2
+	`
+
+	err := r.db.GetContext(ctx, &res, query, ID, serviceProviderID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, errors.New(types.ErrNoData)
+	} else if err != nil {
 		return res, errors.New(err)
 	}
 
