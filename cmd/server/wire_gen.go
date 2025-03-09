@@ -84,7 +84,7 @@ func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config2 *config.Con
 	servicePayment := service.NewPayment(config2, db, payment, paymentMethod, order, midtrans, notification, fcmToken, consumerNotification, serviceProviderNotification)
 	handlerPayment := handler.NewPayment(servicePayment, authMiddleware)
 	util := service.NewUtil()
-	serviceOrder := service.NewOrder(order, serviceFile, util)
+	serviceOrder := service.NewOrder(order, serviceFile, util, serviceOffer, payment, paymentMethod)
 	handlerOrder := handler.NewOrder(serviceOrder, authMiddleware)
 	servicePaymentMethod := service.NewPaymentMethod(paymentMethod)
 	handlerPaymentMethod := handler.NewPaymentMethod(servicePaymentMethod)

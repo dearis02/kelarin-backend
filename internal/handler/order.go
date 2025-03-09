@@ -11,6 +11,7 @@ import (
 
 type Order interface {
 	ConsumerGetAll(c *gin.Context)
+	ConsumerGetByID(c *gin.Context)
 }
 
 type orderImpl struct {
@@ -33,6 +34,30 @@ func (h *orderImpl) ConsumerGetAll(c *gin.Context) {
 	}
 
 	res, err := h.orderSvc.ConsumerGetAll(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
+		Data:       res,
+	})
+}
+
+func (h *orderImpl) ConsumerGetByID(c *gin.Context) {
+	var req types.OrderConsumerGetByIDReq
+	if err := req.ID.UnmarshalText([]byte(c.Param("id"))); err != nil {
+		c.Error(err)
+		return
+	}
+
+	if err := h.authMw.BindWithRequest(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	res, err := h.orderSvc.ConsumerGetByID(c.Request.Context(), req)
 	if err != nil {
 		c.Error(err)
 		return

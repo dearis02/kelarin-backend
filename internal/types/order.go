@@ -116,4 +116,45 @@ type OrderConsumerGetAllResPayment struct {
 	PaymentLink       string          `json:"payment_link"`
 }
 
-// endregion repo types
+type OrderConsumerGetByIDReq struct {
+	AuthUser AuthUser  `middleware:"user"`
+	ID       uuid.UUID `param:"id"`
+	TimeZone string    `header:"Time-Zone" `
+}
+
+type OrderConsumerGetByIDRes struct {
+	ID               uuid.UUID                       `json:"id"`
+	OfferID          uuid.UUID                       `json:"offer_id"`
+	ServiceFee       decimal.Decimal                 `json:"service_fee"`
+	ServiceDate      string                          `json:"service_date"`
+	ServiceTime      string                          `json:"service_time"`
+	PaymentFulfilled bool                            `json:"payment_fulfilled"`
+	Status           OrderStatus                     `json:"status"`
+	CreatedAt        time.Time                       `json:"created_at"`
+	Offer            OfferConsumerGetByIDRes         `json:"offer"`
+	Payment          *OrderConsumerGetByIDResPayment `json:"payment"`
+}
+
+func (r OrderConsumerGetByIDReq) Validate() error {
+	if r.AuthUser.IsZero() {
+		return errors.New("AuthUser is required")
+	}
+
+	if r.ID == uuid.Nil {
+		return errors.New(ErrIDRouteParamRequired)
+	}
+
+	return nil
+}
+
+type OrderConsumerGetByIDResPayment struct {
+	ID                uuid.UUID       `json:"id"`
+	PaymentMethodName string          `json:"payment_method_name"`
+	Amount            decimal.Decimal `json:"amount"`
+	AdminFee          int32           `json:"admin_fee"`
+	PlatformFee       int32           `json:"platform_fee"`
+	Status            PaymentStatus   `json:"status"`
+	PaymentLink       string          `json:"payment_link"`
+}
+
+// endregion service types
