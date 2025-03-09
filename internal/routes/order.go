@@ -21,4 +21,6 @@ func NewOrder(g *gin.Engine, orderHandler handler.Order) *Order {
 
 func (r *Order) Register(authMw middleware.Auth) {
 	r.g.GET("/consumer/v1/orders", authMw.Consumer, r.orderHandler.ConsumerGetAll)
+	r.g.GET("/consumer/v1/orders/:id", authMw.Consumer, r.orderHandler.ConsumerGetByID)
+	r.g.POST("/consumer/v1/orders/:id", authMw.Consumer, r.orderHandler.ConsumerGenerateQRCode)
 }
