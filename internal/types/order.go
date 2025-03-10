@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/go-errors/errors"
+	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
@@ -271,6 +272,21 @@ type OrderProviderGetByIDResAddress struct {
 	Lat      null.Float64 `json:"latitude"`
 	Lng      null.Float64 `json:"longitude"`
 	Address  string       `json:"address"`
+}
+
+type OrderProviderValidateQRCodeReq struct {
+	AuthUser      AuthUser `middleware:"user"`
+	QRCodeContent string   `json:"qr_code_content"`
+}
+
+func (r OrderProviderValidateQRCodeReq) Validate() error {
+	if r.AuthUser.IsZero() {
+		return errors.New("AuthUser is required")
+	}
+
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.QRCodeContent, validation.Required),
+	)
 }
 
 // endregion service types

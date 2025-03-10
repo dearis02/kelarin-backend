@@ -31,4 +31,8 @@ const (
 	ConsumerNotificationTypePaymentExpired
 )
 
+const (
+	ConsumerNotificationTypeOrderFinished ConsumerNotificationType = iota + 201
+)
+
 // endregion repo types

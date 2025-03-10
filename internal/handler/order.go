@@ -16,6 +16,7 @@ type Order interface {
 
 	ProviderGetAll(c *gin.Context)
 	ProviderGetByID(c *gin.Context)
+	ProviderFinish(c *gin.Context)
 }
 
 type orderImpl struct {
@@ -137,5 +138,22 @@ func (h *orderImpl) ProviderGetByID(c *gin.Context) {
 	c.JSON(http.StatusOK, types.ApiResponse{
 		StatusCode: http.StatusOK,
 		Data:       res,
+	})
+}
+
+func (h *orderImpl) ProviderFinish(c *gin.Context) {
+	var req types.OrderProviderValidateQRCodeReq
+	if err := h.authMw.BindWithRequest(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	if err := h.orderSvc.ProviderFinish(c.Request.Context(), req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
 	})
 }

@@ -19,6 +19,7 @@ type Order interface {
 	FindAllByUserID(ctx context.Context, userID uuid.UUID) ([]types.OrderWithServiceAndServiceProvider, error)
 	FindAllByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.Order, error)
 	FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Order, error)
+	UpdateStatusTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error
 }
 
 type orderImpl struct {
@@ -283,4 +284,21 @@ func (r *orderImpl) FindByIDAndServiceProviderID(ctx context.Context, ID, servic
 	}
 
 	return res, nil
+}
+
+func (r *orderImpl) UpdateStatusTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error {
+	query := `
+		UPDATE orders
+		SET
+			status = :status,
+			updated_at = :updated_at
+		WHERE id = :id
+	`
+
+	_, err := tx.NamedExecContext(ctx, query, req)
+	if err != nil {
+		return errors.New(err)
+	}
+
+	return nil
 }
