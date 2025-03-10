@@ -26,4 +26,5 @@ func (r *Order) Register(authMw middleware.Auth) {
 
 	r.g.GET("/provider/v1/orders", authMw.ServiceProvider, r.orderHandler.ProviderGetAll)
 	r.g.GET("/provider/v1/orders/:id", authMw.ServiceProvider, r.orderHandler.ProviderGetByID)
+	r.g.POST("/provider/v1/orders/_finish", authMw.ServiceProvider, r.orderHandler.ProviderFinish)
 }

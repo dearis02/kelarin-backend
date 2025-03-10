@@ -31,4 +31,8 @@ const (
 	ServiceProviderNotificationTypeConsumerSettledPayment ServiceProviderNotificationType = iota + 101
 )
 
+const (
+	ServiceProviderNotificationTypeOrderFinished ServiceProviderNotificationType = iota + 201
+)
+
 // endregion repo types

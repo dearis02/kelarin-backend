@@ -16,6 +16,7 @@ type ServiceProvider interface {
 	FindByUserID(ctx context.Context, userID uuid.UUID) (types.ServiceProvider, error)
 	FindByIDs(ctx context.Context, IDs []uuid.UUID) ([]types.ServiceProvider, error)
 	FindByID(ctx context.Context, ID uuid.UUID) (types.ServiceProvider, error)
+	UpdateCreditTx(ctx context.Context, req types.ServiceProvider) error
 }
 
 type serviceProviderImpl struct {
@@ -27,7 +28,7 @@ func NewServiceProvider(db *sqlx.DB) ServiceProvider {
 }
 
 func (r *serviceProviderImpl) Create(ctx context.Context, tx *sqlx.Tx, req types.ServiceProvider) error {
-	statement := `
+	query := `
 		INSERT INTO service_providers (
 			id,
 			user_id,
@@ -54,7 +55,7 @@ func (r *serviceProviderImpl) Create(ctx context.Context, tx *sqlx.Tx, req types
 		)
 
 	`
-	_, err := tx.NamedExecContext(ctx, statement, req)
+	_, err := tx.NamedExecContext(ctx, query, req)
 	if err != nil {
 		return errors.New(err)
 	}
@@ -65,7 +66,7 @@ func (r *serviceProviderImpl) Create(ctx context.Context, tx *sqlx.Tx, req types
 func (r *serviceProviderImpl) FindByUserID(ctx context.Context, userID uuid.UUID) (types.ServiceProvider, error) {
 	res := types.ServiceProvider{}
 
-	statement := `
+	query := `
 		SELECT
 			id,
 			user_id,
@@ -86,7 +87,7 @@ func (r *serviceProviderImpl) FindByUserID(ctx context.Context, userID uuid.UUID
 		WHERE user_id = $1
 	`
 
-	err := r.db.GetContext(ctx, &res, statement, userID)
+	err := r.db.GetContext(ctx, &res, query, userID)
 	if err != nil {
 		return types.ServiceProvider{}, errors.New(err)
 	}
@@ -97,7 +98,7 @@ func (r *serviceProviderImpl) FindByUserID(ctx context.Context, userID uuid.UUID
 func (r *serviceProviderImpl) FindByIDs(ctx context.Context, IDs []uuid.UUID) ([]types.ServiceProvider, error) {
 	res := []types.ServiceProvider{}
 
-	statement := `
+	query := `
 		SELECT
 			id,
 			user_id,
@@ -119,7 +120,7 @@ func (r *serviceProviderImpl) FindByIDs(ctx context.Context, IDs []uuid.UUID) ([
 		ORDER BY id DESC
 	`
 
-	err := r.db.SelectContext(ctx, &res, statement, pq.Array(IDs))
+	err := r.db.SelectContext(ctx, &res, query, pq.Array(IDs))
 	if err != nil {
 		return res, errors.New(err)
 	}
@@ -130,7 +131,7 @@ func (r *serviceProviderImpl) FindByIDs(ctx context.Context, IDs []uuid.UUID) ([
 func (r *serviceProviderImpl) FindByID(ctx context.Context, ID uuid.UUID) (types.ServiceProvider, error) {
 	res := types.ServiceProvider{}
 
-	statement := `
+	query := `
 		SELECT
 			id,
 			user_id,
@@ -151,7 +152,7 @@ func (r *serviceProviderImpl) FindByID(ctx context.Context, ID uuid.UUID) (types
 		WHERE id = $1
 	`
 
-	err := r.db.GetContext(ctx, &res, statement, ID)
+	err := r.db.GetContext(ctx, &res, query, ID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return res, errors.New(types.ErrNoData)
 	} else if err != nil {
@@ -159,4 +160,18 @@ func (r *serviceProviderImpl) FindByID(ctx context.Context, ID uuid.UUID) (types
 	}
 
 	return res, nil
+}
+
+func (r *serviceProviderImpl) UpdateCreditTx(ctx context.Context, req types.ServiceProvider) error {
+	query := `
+		UPDATE service_providers
+		SET credit = $1
+		WHERE id = $2
+	`
+
+	if _, err := r.db.ExecContext(ctx, query, req.Credit, req.ID); err != nil {
+		return errors.New(err)
+	}
+
+	return nil
 }

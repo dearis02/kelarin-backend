@@ -2,15 +2,19 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"kelarin/internal/config"
 	"kelarin/internal/repository"
 	"kelarin/internal/types"
+	dbUtil "kelarin/internal/utils/dbutil"
 	"net/http"
 	"time"
 
 	"github.com/go-errors/errors"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
+	"github.com/volatiletech/null/v9"
 )
 
 type Order interface {
@@ -20,29 +24,41 @@ type Order interface {
 
 	ProviderGetAll(ctx context.Context, req types.OrderProviderGetAllReq) ([]types.OrderProviderGetAllRes, error)
 	ProviderGetByID(ctx context.Context, req types.OrderProviderGetByIDReq) (types.OrderProviderGetByIDRes, error)
+	ProviderFinish(ctx context.Context, req types.OrderProviderValidateQRCodeReq) error
 }
 
 type orderImpl struct {
-	orderRepo             repository.Order
-	fileSvc               File
-	utilSvc               Util
-	offerSvc              Offer
-	paymentRepo           repository.Payment
-	paymentMethodRepo     repository.PaymentMethod
-	orderQRCodeSigningKey string
-	serviceProviderRepo   repository.ServiceProvider
+	orderRepo                       repository.Order
+	fileSvc                         File
+	utilSvc                         Util
+	offerSvc                        Offer
+	paymentRepo                     repository.Payment
+	paymentMethodRepo               repository.PaymentMethod
+	orderQRCodeSigningKey           string
+	serviceProviderRepo             repository.ServiceProvider
+	consumerNotificationRepo        repository.ConsumerNotification
+	serviceProviderNotificationRepo repository.ServiceProviderNotification
+	fcmRepo                         repository.FCMToken
+	notificationSvc                 Notification
+	db                              *sqlx.DB
 }
 
-func NewOrder(orderRepo repository.Order, fileSvc File, utilSvc Util, offerSvc Offer, paymentRepo repository.Payment, paymentMethodRepo repository.PaymentMethod, cfg *config.Config, serviceProviderRepo repository.ServiceProvider) Order {
+func NewOrder(orderRepo repository.Order, fileSvc File, utilSvc Util, offerSvc Offer, paymentRepo repository.Payment, paymentMethodRepo repository.PaymentMethod, cfg *config.Config, serviceProviderRepo repository.ServiceProvider, consumerNotificationRepo repository.ConsumerNotification,
+	serviceProviderNotificationRepo repository.ServiceProviderNotification, fcmRepo repository.FCMToken, notificationSvc Notification, db *sqlx.DB) Order {
 	return &orderImpl{
-		orderRepo:             orderRepo,
-		fileSvc:               fileSvc,
-		utilSvc:               utilSvc,
-		offerSvc:              offerSvc,
-		paymentRepo:           paymentRepo,
-		paymentMethodRepo:     paymentMethodRepo,
-		orderQRCodeSigningKey: cfg.OrderQRCodeSigningKey,
-		serviceProviderRepo:   serviceProviderRepo,
+		orderRepo:                       orderRepo,
+		fileSvc:                         fileSvc,
+		utilSvc:                         utilSvc,
+		offerSvc:                        offerSvc,
+		paymentRepo:                     paymentRepo,
+		paymentMethodRepo:               paymentMethodRepo,
+		orderQRCodeSigningKey:           cfg.OrderQRCodeSigningKey,
+		serviceProviderRepo:             serviceProviderRepo,
+		consumerNotificationRepo:        consumerNotificationRepo,
+		serviceProviderNotificationRepo: serviceProviderNotificationRepo,
+		fcmRepo:                         fcmRepo,
+		notificationSvc:                 notificationSvc,
+		db:                              db,
 	}
 }
 
@@ -386,4 +402,152 @@ func (s *orderImpl) ProviderGetByID(ctx context.Context, req types.OrderProvider
 	}
 
 	return res, nil
+}
+
+func (s *orderImpl) ProviderFinish(ctx context.Context, req types.OrderProviderValidateQRCodeReq) error {
+	if err := req.Validate(); err != nil {
+		return err
+	}
+
+	claims := &types.OrderConsumerGenerateQRCodePayload{}
+	token, err := jwt.ParseWithClaims(req.QRCodeContent, claims, func(token *jwt.Token) (any, error) {
+		return []byte(s.orderQRCodeSigningKey), nil
+	})
+	if errors.Is(err, jwt.ErrTokenExpired) {
+		return errors.New(types.AppErr{Code: http.StatusForbidden, Message: "qr-code expired"})
+	} else if err != nil {
+		return errors.New(types.AppErr{Code: http.StatusForbidden, Message: "invalid qr-code"})
+	}
+
+	if !token.Valid {
+		return errors.New(types.AppErr{Code: http.StatusForbidden, Message: "invalid qr-code"})
+	}
+
+	claims, ok := token.Claims.(*types.OrderConsumerGenerateQRCodePayload)
+	if !ok {
+		return errors.New(types.AppErr{Code: http.StatusForbidden, Message: "invalid qr-code payload"})
+	}
+
+	provider, err := s.serviceProviderRepo.FindByUserID(ctx, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.Errorf("service provider not found: user_id %s", req.AuthUser.ID)
+	} else if err != nil {
+		return err
+	}
+
+	order, err := s.orderRepo.FindByIDAndServiceProviderID(ctx, claims.OrderID, provider.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(types.AppErr{Code: http.StatusNotFound, Message: "order not found"})
+	} else if err != nil {
+		return err
+	}
+
+	payment, err := s.paymentRepo.FindByID(ctx, order.PaymentID.UUID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.Errorf("payment not found: id %s", order.PaymentID.UUID)
+	} else if err != nil {
+		return err
+	}
+
+	if order.Status != types.OrderStatusOngoing {
+		return errors.New(types.AppErr{Code: http.StatusForbidden, Message: "invalid order"})
+	}
+
+	if !order.PaymentFulfilled {
+		return errors.New(types.AppErr{Code: http.StatusForbidden, Message: "payment not fulfilled"})
+	}
+
+	if claims.AdminFee != payment.AdminFee || !claims.Amount.Equal(payment.Amount) || claims.PlatformFee != payment.PlatformFee {
+		return errors.New(types.AppErr{Code: http.StatusForbidden, Message: "invalid qr-code"})
+	}
+
+	timeNow := time.Now()
+
+	id, err := uuid.NewV7()
+	if err != nil {
+		return errors.New(err)
+	}
+	consumerNotif := types.ConsumerNotification{
+		ID:        id,
+		UserID:    order.UserID,
+		OrderID:   uuid.NullUUID{UUID: order.ID, Valid: true},
+		Type:      types.ConsumerNotificationTypeOrderFinished,
+		CreatedAt: timeNow,
+	}
+
+	id, err = uuid.NewV7()
+	if err != nil {
+		return errors.New(err)
+	}
+	providerNotif := types.ServiceProviderNotification{
+		ID:                id,
+		ServiceProviderID: provider.ID,
+		OrderID:           uuid.NullUUID{UUID: order.ID, Valid: true},
+		Type:              types.ServiceProviderNotificationTypeOrderFinished,
+		CreatedAt:         timeNow,
+	}
+
+	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	if err != nil {
+		return errors.New(err)
+	}
+
+	defer tx.Rollback()
+
+	order.Status = types.OrderStatusFinished
+	order.UpdatedAt = null.TimeFrom(timeNow)
+	if err = s.orderRepo.UpdateStatusTx(ctx, tx, order); err != nil {
+		return err
+	}
+
+	provider.Credit = provider.Credit.Add(order.ServiceFee)
+	if err = s.serviceProviderRepo.UpdateCreditTx(ctx, provider); err != nil {
+		return err
+	}
+
+	if err = s.consumerNotificationRepo.CreateTx(ctx, tx, consumerNotif); err != nil {
+		return err
+	}
+
+	if err = s.serviceProviderNotificationRepo.CreateTx(ctx, tx, providerNotif); err != nil {
+		return err
+	}
+
+	consumerFCMToken, err := s.fcmRepo.Find(ctx, types.FCMTokenKey(order.UserID))
+	if !errors.Is(err, types.ErrNoData) && err != nil {
+		return err
+	}
+
+	providerFCMToken, err := s.fcmRepo.Find(ctx, types.FCMTokenKey(provider.UserID))
+	if !errors.Is(err, types.ErrNoData) && err != nil {
+		return err
+	}
+
+	if consumerFCMToken != "" {
+		err = s.notificationSvc.SendPush(ctx, types.NotificationSendReq{
+			Title:   fmt.Sprintf("%s order finished", provider.Name),
+			Message: "rate provider now",
+			Token:   consumerFCMToken,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	if providerFCMToken != "" {
+		err = s.notificationSvc.SendPush(ctx, types.NotificationSendReq{
+			Title:   "Order finished",
+			Message: "the service fee has been added to your credit",
+			Token:   providerFCMToken,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
 }
