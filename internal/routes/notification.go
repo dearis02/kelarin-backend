@@ -21,4 +21,8 @@ func NewNotification(g *gin.Engine, notificationHandler handler.Notification) *N
 
 func (r *Notification) Register(authMw middleware.Auth) {
 	r.g.POST("/v1/notifications/_token", authMw.Authenticated, r.notificationHandler.SaveToken)
+
+	r.g.GET("/consumer/v1/notifications", authMw.Consumer, r.notificationHandler.ConsumerGetAll)
+
+	r.g.GET("/provider/v1/notifications", authMw.ServiceProvider, r.notificationHandler.ProviderGetAll)
 }
