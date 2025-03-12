@@ -11,17 +11,25 @@ import (
 
 type Notification interface {
 	SaveToken(c *gin.Context)
+
+	ConsumerGetAll(c *gin.Context)
+
+	ProviderGetAll(c *gin.Context)
 }
 
 type notificationImpl struct {
-	notificationSvc service.Notification
-	authMw          middleware.Auth
+	authMw                  middleware.Auth
+	notificationSvc         service.Notification
+	consumerNotificationSvc service.ConsumerNotification
+	providerNotification    service.ServiceProviderNotification
 }
 
-func NewNotification(notificationSvc service.Notification, authMw middleware.Auth) Notification {
+func NewNotification(authMw middleware.Auth, notificationSvc service.Notification, consumerNotificationSvc service.ConsumerNotification, providerNotification service.ServiceProviderNotification) Notification {
 	return &notificationImpl{
-		notificationSvc: notificationSvc,
-		authMw:          authMw,
+		authMw:                  authMw,
+		notificationSvc:         notificationSvc,
+		consumerNotificationSvc: consumerNotificationSvc,
+		providerNotification:    providerNotification,
 	}
 }
 
@@ -39,5 +47,43 @@ func (h *notificationImpl) SaveToken(c *gin.Context) {
 
 	c.JSON(http.StatusOK, types.ApiResponse{
 		StatusCode: http.StatusOK,
+	})
+}
+
+func (h *notificationImpl) ConsumerGetAll(c *gin.Context) {
+	var req types.ConsumerNotificationGetAllReq
+	if err := h.authMw.BindWithRequest(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	res, err := h.consumerNotificationSvc.GetAll(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
+		Data:       res,
+	})
+}
+
+func (h *notificationImpl) ProviderGetAll(c *gin.Context) {
+	var req types.ServiceProviderNotificationGetAllReq
+	if err := h.authMw.BindWithRequest(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	res, err := h.providerNotification.GetAll(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
+		Data:       res,
 	})
 }

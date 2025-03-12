@@ -3,10 +3,12 @@ package utils
 import (
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-errors/errors"
 	"github.com/twpayne/go-geom/encoding/ewkb"
+	"golang.org/x/text/currency"
 )
 
 func ParseLatLngFromHexStr(hexStr string) (float64, float64, error) {
@@ -62,4 +64,12 @@ func IsTimeBetween(targetTime string, tTimeZone *time.Location, startTime, endTi
 	eTime := time.Date(2025, 0, 0, _eTime.Hour(), _eTime.Minute(), _eTime.Second(), 0, localTz)
 
 	return (tTime.Equal(sTime) || tTime.After(sTime)) && (tTime.Equal(eTime) || tTime.Before(eTime)), nil
+}
+
+func FormatRupiah(a currency.Amount) string {
+	formatted := fmt.Sprintf("%s", a)
+	formatted = strings.ReplaceAll(formatted, ",", ".")
+	formatted = strings.Replace(formatted, "IDR", "Rp", 1)
+
+	return formatted
 }
