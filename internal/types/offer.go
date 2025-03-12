@@ -54,6 +54,7 @@ type OfferWithServiceAndProvider struct {
 
 type OfferConsumerCreateReq struct {
 	AuthUser         AuthUser  `middleware:"user"`
+	TimeZone         string    `header:"Time-Zone"`
 	ServiceID        uuid.UUID `json:"service_id"`
 	AddressID        uuid.UUID `json:"address_id"`
 	Detail           string    `json:"detail"`
@@ -64,12 +65,12 @@ type OfferConsumerCreateReq struct {
 	ServiceEndTime   string    `json:"service_end_time"`
 }
 
-func (r OfferConsumerCreateReq) Validate(serviceFeeStart decimal.Decimal) error {
+func (r OfferConsumerCreateReq) Validate() error {
 	if r.AuthUser.IsZero() {
 		return errors.New("AuthUser is required")
 	}
 
-	err := validation.ValidateStruct(&r,
+	return validation.ValidateStruct(&r,
 		validation.Field(&r.ServiceID, validation.Required),
 		validation.Field(&r.AddressID, validation.Required),
 		validation.Field(&r.Detail, validation.Required),
@@ -79,11 +80,9 @@ func (r OfferConsumerCreateReq) Validate(serviceFeeStart decimal.Decimal) error 
 		validation.Field(&r.ServiceStartTime, validation.Required, validation.Date(time.TimeOnly)),
 		validation.Field(&r.ServiceEndTime, validation.Required, validation.Date(time.TimeOnly)),
 	)
+}
 
-	if err != nil {
-		return err
-	}
-
+func (r OfferConsumerCreateReq) ValidateDateTimeAndServiceFee(userTz *time.Location, serviceFeeStartAt decimal.Decimal) error {
 	ve := validation.Errors{}
 
 	now := time.Now()
@@ -102,20 +101,22 @@ func (r OfferConsumerCreateReq) Validate(serviceFeeStart decimal.Decimal) error 
 		ve["service_end_date"] = validation.NewError("service_end_date_min", "service_end_date must be equal or greater than service_start_date")
 	}
 
-	startTime, err := time.Parse(time.TimeOnly, r.ServiceStartTime)
+	_startTime, err := time.Parse(time.TimeOnly, r.ServiceStartTime)
 	if err != nil {
 		return errors.New(err)
 	}
 
+	startTime := time.Date(now.Year(), now.Month(), now.Day(), _startTime.Hour(), _startTime.Minute(), _startTime.Second(), now.Nanosecond(), userTz)
+
 	if startDate.Equal(now.Truncate(24 * time.Hour)) {
 		if startTime.Before(now.Truncate(1 * time.Hour)) {
-			ve["service_start_time"] = validation.NewError("service_start_time_min", "service_start_time min less than 1 hour from now")
+			ve["service_start_time"] = validation.NewError("service_start_time_min", "service_start_time should be 1 hour more from now")
 		}
 	}
 
 	serviceCost := decimal.NewFromFloat(r.ServiceCost)
-	if !serviceCost.GreaterThanOrEqual(serviceFeeStart) {
-		ve["service_cost"] = validation.NewError("service_cost_min", fmt.Sprintf("service_cost must be greater or equal than %s", serviceFeeStart))
+	if !serviceCost.GreaterThanOrEqual(serviceFeeStartAt) {
+		ve["service_cost"] = validation.NewError("service_cost_min", fmt.Sprintf("service_cost must be greater or equal than %s", serviceFeeStartAt))
 	}
 
 	if len(ve) > 0 {

@@ -43,9 +43,26 @@ type offerImpl struct {
 	consumerNotificationRepo        repository.ConsumerNotification
 	chatSvc                         Chat
 	orderRepo                       repository.Order
+	utilSvc                         Util
 }
 
-func NewOffer(offerRepo repository.Offer, userAddressRepo repository.UserAddress, serviceRepo repository.Service, fileSvc File, serviceProviderRepo repository.ServiceProvider, offerNegotiationRepo repository.OfferNegotiation, serviceProviderNotificationRepo repository.ServiceProviderNotification, fcmTokenRepo repository.FCMToken, notificationSvc Notification, userRepo repository.User, db *sqlx.DB, consumerNotificationRepo repository.ConsumerNotification, chatSvc Chat, orderRepo repository.Order) Offer {
+func NewOffer(
+	offerRepo repository.Offer,
+	userAddressRepo repository.UserAddress,
+	serviceRepo repository.Service,
+	fileSvc File,
+	serviceProviderRepo repository.ServiceProvider,
+	offerNegotiationRepo repository.OfferNegotiation,
+	serviceProviderNotificationRepo repository.ServiceProviderNotification,
+	fcmTokenRepo repository.FCMToken,
+	notificationSvc Notification,
+	userRepo repository.User,
+	db *sqlx.DB,
+	consumerNotificationRepo repository.ConsumerNotification,
+	chatSvc Chat,
+	orderRepo repository.Order,
+	utilSvc Util,
+) Offer {
 	return &offerImpl{
 		offerRepo:                       offerRepo,
 		userAddressRepo:                 userAddressRepo,
@@ -61,10 +78,15 @@ func NewOffer(offerRepo repository.Offer, userAddressRepo repository.UserAddress
 		consumerNotificationRepo:        consumerNotificationRepo,
 		chatSvc:                         chatSvc,
 		orderRepo:                       orderRepo,
+		utilSvc:                         utilSvc,
 	}
 }
 
 func (s *offerImpl) ConsumerCreate(ctx context.Context, req types.OfferConsumerCreateReq) error {
+	if err := req.Validate(); err != nil {
+		return err
+	}
+
 	service, err := s.serviceRepo.FindByID(ctx, req.ServiceID)
 	if errors.Is(err, types.ErrNoData) {
 		return errors.New(types.AppErr{Code: http.StatusNotFound, Message: "offer not found"})
@@ -72,7 +94,12 @@ func (s *offerImpl) ConsumerCreate(ctx context.Context, req types.OfferConsumerC
 		return err
 	}
 
-	if err := req.Validate(service.FeeStartAt); err != nil {
+	userTz, err := s.utilSvc.ParseUserTimeZone(req.TimeZone)
+	if err != nil {
+		return err
+	}
+
+	if err := req.ValidateDateTimeAndServiceFee(userTz, service.FeeStartAt); err != nil {
 		return err
 	}
 
