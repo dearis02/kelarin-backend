@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS payments (
     payment_link TEXT NOT NULL,
     status payment_status NOT NULL DEFAULT 'pending',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ,
     FOREIGN KEY (payment_method_id) REFERENCES payment_methods(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
 );

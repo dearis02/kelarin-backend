@@ -157,6 +157,7 @@ type OrderConsumerGetByIDResPayment struct {
 	PlatformFee       int32           `json:"platform_fee"`
 	Status            PaymentStatus   `json:"status"`
 	PaymentLink       string          `json:"payment_link"`
+	UpdatedAt         null.Time       `json:"updated_at"`
 }
 
 type OrderConsumerGenerateQRCodeReq struct {

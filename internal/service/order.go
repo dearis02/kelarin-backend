@@ -166,6 +166,7 @@ func (s *orderImpl) ConsumerGetByID(ctx context.Context, req types.OrderConsumer
 			PlatformFee:       payment.PlatformFee,
 			Status:            payment.Status,
 			PaymentLink:       payment.PaymentLink,
+			UpdatedAt:         payment.UpdatedAt,
 		}
 	}
 

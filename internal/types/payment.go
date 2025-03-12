@@ -7,6 +7,7 @@ import (
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
+	"github.com/volatiletech/null/v9"
 )
 
 // region repo types
@@ -21,6 +22,7 @@ type Payment struct {
 	PaymentLink     string          `db:"payment_link"`
 	Status          PaymentStatus   `db:"status"`
 	CreatedAt       time.Time       `db:"created_at"`
+	UpdatedAt       null.Time       `db:"updated_at"`
 }
 
 type PaymentStatus string

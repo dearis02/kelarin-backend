@@ -200,19 +200,24 @@ func (s *paymentImpl) MidtransNotification(ctx context.Context, req types.Paymen
 		return err
 	}
 
+	updatedAt := null.TimeFrom(time.Now())
 	switch req.TransactionStatus {
 	case types.MidtransTransactionStatusPending:
 		payment.Status = types.PaymentStatusPending
 	case types.MidtransTransactionStatusSettlement:
 		payment.Status = types.PaymentStatusPaid
 		order.PaymentFulfilled = true
-		order.UpdatedAt = null.TimeFrom(time.Now())
+		order.UpdatedAt = updatedAt
+		payment.UpdatedAt = updatedAt
 	case types.MidtransTransactionStatusExpire:
 		payment.Status = types.PaymentStatusExpired
+		payment.UpdatedAt = updatedAt
 	case types.MidtransTransactionStatusCancel:
 		payment.Status = types.PaymentStatusCanceled
+		payment.UpdatedAt = updatedAt
 	case types.MidtransTransactionStatusFailure, types.MidtransTransactionStatusDeny:
 		payment.Status = types.PaymentStatusFailed
+		payment.UpdatedAt = updatedAt
 	}
 
 	timeNow := time.Now()

@@ -39,7 +39,8 @@ func (r *paymentImpl) FindByID(ctx context.Context, ID uuid.UUID) (types.Payment
 			platform_fee,
 			status,
 			payment_link,
-			created_at
+			created_at,
+			updated_at
 		FROM payments
 		WHERE id = $1
 	`
@@ -91,7 +92,8 @@ func (r *paymentImpl) UpdateStatusTx(ctx context.Context, tx *sqlx.Tx, req types
 	query := `
 		UPDATE payments
 		SET
-			status = :status
+			status = :status,
+			updated_at = :updated_at
 		WHERE id = :id
 	`
 
@@ -116,6 +118,7 @@ func (r *paymentImpl) FindByIDs(ctx context.Context, IDs uuid.UUIDs) ([]types.Pa
 			payments.status,
 			payments.payment_link,
 			payments.created_at,
+			payments.updated_at,
 			payment_methods.name AS payment_method_name,
 			payment_methods.logo AS payment_method_logo,
 			payment_methods.type AS payment_method_type
