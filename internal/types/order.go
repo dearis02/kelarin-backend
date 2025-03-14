@@ -152,6 +152,7 @@ func (r OrderConsumerGetByIDReq) Validate() error {
 type OrderConsumerGetByIDResPayment struct {
 	ID                uuid.UUID       `json:"id"`
 	PaymentMethodName string          `json:"payment_method_name"`
+	PaymentMethodLogo string          `json:"payment_method_logo"`
 	Amount            decimal.Decimal `json:"amount"`
 	AdminFee          int32           `json:"admin_fee"`
 	PlatformFee       int32           `json:"platform_fee"`

@@ -161,6 +161,7 @@ func (s *orderImpl) ConsumerGetByID(ctx context.Context, req types.OrderConsumer
 		paymentRes = &types.OrderConsumerGetByIDResPayment{
 			ID:                payment.ID,
 			PaymentMethodName: paymentMethod.Name,
+			PaymentMethodLogo: paymentMethod.Logo,
 			Amount:            payment.Amount,
 			AdminFee:          payment.AdminFee,
 			PlatformFee:       payment.PlatformFee,
