@@ -249,7 +249,7 @@ const (
 	OfferProviderActionReqActionReject OfferProviderActionReqAction = "reject"
 )
 
-func (r OfferProviderActionReq) Validate(startDate, endDate, startTime, endTime time.Time) error {
+func (r OfferProviderActionReq) Validate() error {
 	if r.AuthUser.IsZero() {
 		return errors.New("AuthUser is required")
 	}
@@ -258,7 +258,7 @@ func (r OfferProviderActionReq) Validate(startDate, endDate, startTime, endTime 
 		return errors.New(AppErr{Code: http.StatusBadRequest, Message: ErrIDRouteParamRequired.Error()})
 	}
 
-	err := validation.ValidateStruct(&r,
+	return validation.ValidateStruct(&r,
 		validation.Field(&r.Action, validation.Required, validation.In(OfferProviderActionReqActionAccept, OfferProviderActionReqActionReject)),
 		validation.Field(&r.Date,
 			validation.Required.When(r.Action == OfferProviderActionReqActionAccept),
@@ -269,11 +269,9 @@ func (r OfferProviderActionReq) Validate(startDate, endDate, startTime, endTime 
 			validation.Date(time.TimeOnly),
 		),
 	)
+}
 
-	if err != nil {
-		return err
-	}
-
+func (r OfferProviderActionReq) ValidateDateAndTime(startDate, endDate, startTime, endTime time.Time) error {
 	ve := validation.Errors{}
 
 	if r.Action == OfferProviderActionReqActionAccept {

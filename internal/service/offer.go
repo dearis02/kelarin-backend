@@ -418,6 +418,10 @@ func (s *offerImpl) ConsumerGetByID(ctx context.Context, req types.OfferConsumer
 }
 
 func (s *offerImpl) ProviderAction(ctx context.Context, req types.OfferProviderActionReq) error {
+	if err := req.Validate(); err != nil {
+		return err
+	}
+
 	provider, err := s.serviceProviderRepo.FindByUserID(ctx, req.AuthUser.ID)
 	if errors.Is(err, types.ErrNoData) {
 		return errors.Errorf("service provider not found: user_id %s", req.AuthUser.ID)
@@ -432,8 +436,13 @@ func (s *offerImpl) ProviderAction(ctx context.Context, req types.OfferProviderA
 		return err
 	}
 
-	if err := req.Validate(offer.ServiceStartDate, offer.ServiceEndDate, offer.ServiceStartTime, offer.ServiceEndTime); err != nil {
+	err = req.ValidateDateAndTime(offer.ServiceStartDate, offer.ServiceEndDate, offer.ServiceStartTime, offer.ServiceEndTime)
+	if err != nil {
 		return err
+	}
+
+	if offer.Status != types.OfferStatusPending {
+		return errors.New(types.AppErr{Code: http.StatusForbidden, Message: "offer is already accepted, rejected, or canceled"})
 	}
 
 	token, err := s.fcmTokenRepo.Find(ctx, types.FCMTokenKey(offer.UserID))
@@ -460,6 +469,7 @@ func (s *offerImpl) ProviderAction(ctx context.Context, req types.OfferProviderA
 	}
 
 	defer tx.Rollback()
+
 	switch req.Action {
 	case types.OfferProviderActionReqActionAccept:
 		offer.Status = types.OfferStatusAccepted
@@ -649,7 +659,7 @@ func (s *offerImpl) ProviderGetByID(ctx context.Context, req types.OfferProvider
 			Message:              n.Message,
 			RequestedServiceCost: n.RequestedServiceCost,
 			Status:               n.Status,
-			CreatedAt:            n.CreatedAt,
+			CreatedAt:            n.CreatedAt.In(time.Local),
 		})
 	}
 
