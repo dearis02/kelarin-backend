@@ -45,6 +45,7 @@ type PaymentWithPaymentMethod struct {
 	PaymentLink       string            `db:"payment_link"`
 	Status            PaymentStatus     `db:"status"`
 	CreatedAt         time.Time         `db:"created_at"`
+	UpdatedAt         null.Time         `db:"updated_at"`
 	PaymentMethodName string            `db:"payment_method_name"`
 	PaymentMethodLogo string            `db:"payment_method_logo"`
 	PaymentMethodType PaymentMethodType `db:"payment_method_type"`
