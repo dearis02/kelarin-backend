@@ -675,6 +675,7 @@ func (s *offerImpl) ProviderGetByID(ctx context.Context, req types.OfferProvider
 			Status:           offer.Status,
 			CreatedAt:        offer.CreatedAt,
 		},
+		ServiceID: offer.ServiceID,
 		User: types.OfferGetByIDResUser{
 			ID:   user.ID,
 			Name: user.Name,

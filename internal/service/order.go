@@ -41,10 +41,11 @@ type orderImpl struct {
 	fcmRepo                         repository.FCMToken
 	notificationSvc                 Notification
 	db                              *sqlx.DB
+	serviceRepo                     repository.Service
 }
 
 func NewOrder(orderRepo repository.Order, fileSvc File, utilSvc Util, offerSvc Offer, paymentRepo repository.Payment, paymentMethodRepo repository.PaymentMethod, cfg *config.Config, serviceProviderRepo repository.ServiceProvider, consumerNotificationRepo repository.ConsumerNotification,
-	serviceProviderNotificationRepo repository.ServiceProviderNotification, fcmRepo repository.FCMToken, notificationSvc Notification, db *sqlx.DB) Order {
+	serviceProviderNotificationRepo repository.ServiceProviderNotification, fcmRepo repository.FCMToken, notificationSvc Notification, db *sqlx.DB, serviceRepo repository.Service) Order {
 	return &orderImpl{
 		orderRepo:                       orderRepo,
 		fileSvc:                         fileSvc,
@@ -59,6 +60,7 @@ func NewOrder(orderRepo repository.Order, fileSvc File, utilSvc Util, offerSvc O
 		fcmRepo:                         fcmRepo,
 		notificationSvc:                 notificationSvc,
 		db:                              db,
+		serviceRepo:                     serviceRepo,
 	}
 }
 
@@ -353,10 +355,18 @@ func (s *orderImpl) ProviderGetByID(ctx context.Context, req types.OrderProvider
 		return res, err
 	}
 
+	service, err := s.serviceRepo.FindByID(ctx, offer.ServiceID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("service not found: id %s", offer.ServiceID)
+	} else if err != nil {
+		return res, err
+	}
+
 	res = types.OrderProviderGetByIDRes{
 		ID:               order.ID,
 		OfferID:          order.OfferID,
 		PaymentFulfilled: order.PaymentFulfilled,
+		ServiceName:      service.Name,
 		ServiceFee:       order.ServiceFee,
 		ServiceDate:      order.ServiceDate.Format(time.DateOnly),
 		ServiceTime:      s.utilSvc.NormalizeTimeOnlyTz(order.ServiceTime).Format(time.TimeOnly),

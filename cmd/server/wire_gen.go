@@ -86,7 +86,7 @@ func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config2 *config.Con
 	midtrans := service.NewMidtrans(midtransSnapClient)
 	servicePayment := service.NewPayment(config2, db, payment, paymentMethod, order, midtrans, notification, fcmToken, consumerNotification, serviceProviderNotification)
 	handlerPayment := handler.NewPayment(servicePayment, authMiddleware)
-	serviceOrder := service.NewOrder(order, serviceFile, util, serviceOffer, payment, paymentMethod, config2, serviceProvider, consumerNotification, serviceProviderNotification, fcmToken, notification, db)
+	serviceOrder := service.NewOrder(order, serviceFile, util, serviceOffer, payment, paymentMethod, config2, serviceProvider, consumerNotification, serviceProviderNotification, fcmToken, notification, db, repositoryService)
 	handlerOrder := handler.NewOrder(serviceOrder, authMiddleware)
 	servicePaymentMethod := service.NewPaymentMethod(paymentMethod)
 	handlerPaymentMethod := handler.NewPaymentMethod(servicePaymentMethod)

@@ -245,6 +245,7 @@ func (r OrderProviderGetByIDReq) Validate() error {
 type OrderProviderGetByIDRes struct {
 	ID               uuid.UUID                      `json:"id"`
 	OfferID          uuid.UUID                      `json:"offer_id"`
+	ServiceName      string                         `json:"service_name"`
 	ServiceFee       decimal.Decimal                `json:"service_fee"`
 	ServiceDate      string                         `json:"service_date"`
 	ServiceTime      string                         `json:"service_time"`
