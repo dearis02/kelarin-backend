@@ -2,9 +2,13 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"kelarin/internal/repository"
 	"kelarin/internal/types"
 	"kelarin/internal/utils"
+	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -12,19 +16,22 @@ import (
 
 type Report interface {
 	ProviderGetMonthlySummary(ctx context.Context, req types.ReportProviderGetMonthlySummaryReq) (types.ReportProviderGetMonthlySummaryRes, error)
+	ProviderExportOrders(ctx context.Context, req types.ReportProviderExportOrdersReq) (types.ReportProviderExportOrdersRes, error)
 }
 
 type reportImpl struct {
 	serviceProviderRepo repository.ServiceProvider
 	offerRepo           repository.Offer
 	orderRepo           repository.Order
+	utilSvc             Util
 }
 
-func NewReport(serviceProviderRepo repository.ServiceProvider, offerRepo repository.Offer, orderRepo repository.Order) Report {
+func NewReport(serviceProviderRepo repository.ServiceProvider, offerRepo repository.Offer, orderRepo repository.Order, utilSvc Util) Report {
 	return &reportImpl{
 		serviceProviderRepo: serviceProviderRepo,
 		offerRepo:           offerRepo,
 		orderRepo:           orderRepo,
+		utilSvc:             utilSvc,
 	}
 }
 
@@ -95,4 +102,82 @@ func (s *reportImpl) ProviderGetMonthlySummary(ctx context.Context, req types.Re
 	}
 
 	return res, nil
+}
+
+func (s *reportImpl) ProviderExportOrders(ctx context.Context, req types.ReportProviderExportOrdersReq) (types.ReportProviderExportOrdersRes, error) {
+	res := types.ReportProviderExportOrdersRes{}
+
+	if err := req.Validate(); err != nil {
+		return res, err
+	}
+
+	provider, err := s.serviceProviderRepo.FindByUserID(ctx, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("service provider not found: user_id %s", req.AuthUser.ID)
+	} else if err != nil {
+		return res, err
+	}
+
+	orders, err := s.orderRepo.FindForReportExportByServiceProviderID(ctx, provider.ID)
+	if err != nil {
+		return res, err
+	}
+
+	fileName := s.generateReportFileName("orders")
+	filePath := filepath.Join(types.TempFileDir, fileName)
+	file, err := os.Create(filePath)
+	if err != nil {
+		return res, err
+	}
+	defer file.Close()
+
+	reqTz, err := s.utilSvc.ParseUserTimeZone(req.TimeZone)
+	if err != nil {
+		return res, err
+	}
+
+	csvRows := []types.ReportProviderGetAllOrderCSV{}
+
+	for _, o := range orders {
+		paymentFulfilled := "No"
+		if o.PaymentFulfilled {
+			paymentFulfilled = "Yes"
+		}
+
+		csvRows = append(csvRows, types.ReportProviderGetAllOrderCSV{
+			ID:               o.ID.String(),
+			ServiceFee:       o.ServiceFee.String(),
+			ServiceDate:      o.ServiceDate.Format(time.DateOnly),
+			ServiceTime:      o.ServiceTime.In(reqTz).Format(time.TimeOnly),
+			Status:           string(o.Status),
+			PaymentFulfilled: paymentFulfilled,
+			CustomerName:     o.UserName,
+			CustomerEmail:    o.UserEmail,
+			CustomerProvince: o.UserProvince,
+			CustomerCity:     o.UserCity,
+			CustomerAddress:  o.UserAddress,
+			CreatedAt:        o.CreatedAt.Format(time.DateTime),
+		})
+	}
+
+	err = utils.WriteCSV(csvRows, file)
+	if errors.Is(err, types.ErrEmptySlice) {
+		return res, errors.New(types.AppErr{Code: http.StatusBadRequest, Message: "no data to export"})
+	} else if err != nil {
+		return res, err
+	}
+
+	res = types.ReportProviderExportOrdersRes{
+		FileName: fileName,
+		FilePath: filePath,
+	}
+
+	return res, nil
+}
+
+func (reportImpl) generateReportFileName(prefix string) string {
+	timeNow := time.Now()
+	fileName := fmt.Sprintf("%s_%s_%d.csv", prefix, timeNow.Format(time.DateTime), timeNow.Unix())
+
+	return fileName
 }

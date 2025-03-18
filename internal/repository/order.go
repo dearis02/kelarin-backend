@@ -23,6 +23,7 @@ type Order interface {
 	UpdateStatusTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error
 	FindForReportByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID, month, year int) (int64, []types.OrderForReport, error)
 	FindTotalServiceFeeByServiceProviderIDAndStatusAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, status types.OrderStatus, month, year int) (decimal.Decimal, error)
+	FindForReportExportByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.OrderForReportExport, error)
 }
 
 type orderImpl struct {
@@ -360,4 +361,40 @@ func (r *orderImpl) FindTotalServiceFeeByServiceProviderIDAndStatusAndMonthAndYe
 	}
 
 	return total.Decimal, nil
+}
+
+func (r *orderImpl) FindForReportExportByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.OrderForReportExport, error) {
+	res := []types.OrderForReportExport{}
+
+	query := `
+		SELECT
+			orders.id,
+			orders.service_fee,
+			orders.service_date,
+			orders.service_time,
+			orders.status,
+			orders.payment_fulfilled,
+			users.name AS user_name,
+			users.email AS user_email,
+			user_addresses.province AS user_province,
+			user_addresses.city AS user_city,
+			user_addresses.address AS user_address,
+			orders.created_at
+		FROM orders
+		INNER JOIN offers
+			ON offers.id = orders.offer_id
+		INNER JOIN user_addresses 
+			ON offers.user_address_id = user_addresses.id
+		INNER JOIN users 
+			ON orders.user_id = users.id
+		WHERE orders.service_provider_id = $1
+		GROUP BY orders.id, users.name, users.email, user_addresses.province, user_addresses.city, user_addresses.address
+		ORDER BY orders.id DESC
+	`
+
+	if err := r.db.SelectContext(ctx, &res, query, serviceProviderID); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
 }

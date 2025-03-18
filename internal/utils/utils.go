@@ -1,8 +1,11 @@
 package utils
 
 import (
+	"encoding/csv"
 	"encoding/hex"
 	"fmt"
+	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -86,4 +89,66 @@ func GenerateDaysInMonth(year int, month time.Month) []time.Time {
 	}
 
 	return days
+}
+
+var errMustBeSlice = errors.New("must be slice")
+var errMustBeStruct = errors.New("must be struct")
+var errEmptySlice = errors.New("empty slice")
+
+// rows must be a slice of struct with all fields are string
+func WriteCSV(rows any, file *os.File) error {
+	sliceType := reflect.TypeOf(rows)
+	if sliceType.Kind() != reflect.Slice {
+		return errors.New(errMustBeSlice)
+	}
+
+	if sliceType.Elem().Kind() != reflect.Struct {
+		return errors.New(errMustBeStruct)
+	}
+
+	sliceValue := reflect.ValueOf(rows)
+	if sliceValue.Len() == 0 {
+		return errors.New(errEmptySlice)
+	}
+
+	firstSlice := sliceValue.Index(0)
+	rowValue := reflect.ValueOf(firstSlice.Interface())
+	rowType := rowValue.Type()
+
+	for i := range rowValue.NumField() {
+		fieldType := rowType.Field(i)
+		if fieldType.Type.Kind() != reflect.String {
+			return errors.Errorf("invalid type on field %s, must be string", fieldType.Name)
+		}
+	}
+
+	// append header
+	header := []string{}
+	for i := range rowValue.NumField() {
+		header = append(header, rowType.Field(i).Tag.Get("csv"))
+	}
+
+	csvWriter := csv.NewWriter(file)
+	defer csvWriter.Flush()
+
+	if err := csvWriter.Write(header); err != nil {
+		return errors.New(err)
+	}
+
+	for i := range sliceValue.Len() {
+		row := sliceValue.Index(i)
+		rowInterface := row.Interface()
+		rowValue := reflect.ValueOf(rowInterface)
+		csvRow := []string{}
+
+		for j := range rowValue.NumField() {
+			csvRow = append(csvRow, rowValue.Field(j).String())
+		}
+
+		if err := csvWriter.Write(csvRow); err != nil {
+			return errors.New(err)
+		}
+	}
+
+	return nil
 }

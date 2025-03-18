@@ -71,4 +71,37 @@ type ReportProviderGetSummaryResMonthlyReceivedOrders struct {
 	Total int64 `json:"total"`
 }
 
+type ReportProviderExportOrdersReq struct {
+	AuthUser AuthUser `middleware:"user"`
+	TimeZone string   `header:"Time-Zone"`
+}
+
+func (r ReportProviderExportOrdersReq) Validate() error {
+	if r.AuthUser.IsZero() {
+		return errors.New("AuthUser is required")
+	}
+
+	return nil
+}
+
+type ReportProviderExportOrdersRes struct {
+	FilePath string
+	FileName string
+}
+
+type ReportProviderGetAllOrderCSV struct {
+	ID               string `csv:"id"`
+	ServiceFee       string `csv:"Service Fee"`
+	ServiceDate      string `csv:"Service Date"`
+	ServiceTime      string `csv:"Service Time"`
+	Status           string `csv:"Status"`
+	PaymentFulfilled string `csv:"Payment Fulfilled"`
+	CustomerName     string `csv:"Customer Name"`
+	CustomerEmail    string `csv:"Customer Email"`
+	CustomerProvince string `csv:"Customer Province"`
+	CustomerCity     string `csv:"Customer City"`
+	CustomerAddress  string `csv:"Customer Address"`
+	CreatedAt        string `csv:"Created At"`
+}
+
 // endregion service types

@@ -71,6 +71,21 @@ type OrderForReport struct {
 	Count int64     `db:"count"`
 }
 
+type OrderForReportExport struct {
+	ID               uuid.UUID       `db:"id"`
+	ServiceFee       decimal.Decimal `db:"service_fee"`
+	ServiceDate      time.Time       `db:"service_date"`
+	ServiceTime      time.Time       `db:"service_time"`
+	Status           OrderStatus     `db:"status"`
+	PaymentFulfilled bool            `db:"payment_fulfilled"`
+	UserName         string          `db:"user_name"`
+	UserEmail        string          `db:"user_email"`
+	UserProvince     string          `db:"user_province"`
+	UserCity         string          `db:"user_city"`
+	UserAddress      string          `db:"user_address"`
+	CreatedAt        time.Time       `db:"created_at"`
+}
+
 // endregion repo types
 
 // region service types

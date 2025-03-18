@@ -21,4 +21,5 @@ func NewReport(g *gin.Engine, reportHandler handler.Report) *Report {
 
 func (r *Report) Register(m middleware.Auth) {
 	r.g.GET("/provider/v1/reports/_monthly", m.ServiceProvider, r.reportHandler.ProviderGetMonthlySummary)
+	r.g.GET("/provider/v1/report/orders", m.ServiceProvider, r.reportHandler.ProviderExportOrders)
 }
