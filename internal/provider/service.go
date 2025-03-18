@@ -29,4 +29,5 @@ var ServiceSet = wire.NewSet(
 	service.NewPaymentMethod,
 	service.NewConsumerNotification,
 	service.NewServiceProviderNotification,
+	service.NewReport,
 )

@@ -48,6 +48,11 @@ type OfferWithServiceAndProvider struct {
 	ServiceProviderLogo string    `db:"service_provider_logo_image"`
 }
 
+type OfferForReport struct {
+	Date  time.Time `db:"date"`
+	Count int64     `db:"count"`
+}
+
 // endregion repo types
 
 // region service types

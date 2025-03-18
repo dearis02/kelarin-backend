@@ -8,6 +8,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/shopspring/decimal"
 )
 
 type Order interface {
@@ -20,6 +21,8 @@ type Order interface {
 	FindAllByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.Order, error)
 	FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Order, error)
 	UpdateStatusTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error
+	FindForReportByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID, month, year int) (int64, []types.OrderForReport, error)
+	FindTotalServiceFeeByServiceProviderIDAndStatusAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, status types.OrderStatus, month, year int) (decimal.Decimal, error)
 }
 
 type orderImpl struct {
@@ -301,4 +304,60 @@ func (r *orderImpl) UpdateStatusTx(ctx context.Context, tx *sqlx.Tx, req types.O
 	}
 
 	return nil
+}
+
+func (r *orderImpl) FindForReportByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID, month, year int) (int64, []types.OrderForReport, error) {
+	var count int64
+	orders := []types.OrderForReport{}
+
+	query := `
+		SELECT
+			DATE(created_at) AS date,
+			COUNT(id) AS count
+		FROM orders
+		WHERE service_provider_id = $1
+			AND EXTRACT(MONTH FROM created_at) = $2
+			AND EXTRACT(YEAR FROM created_at) = $3
+		GROUP BY date
+		ORDER BY date
+	`
+
+	if err := r.db.SelectContext(ctx, &orders, query, serviceProviderID, month, year); err != nil {
+		return count, orders, errors.New(err)
+	}
+
+	query = `
+		SELECT
+			COUNT(id)
+		FROM orders
+		WHERE service_provider_id = $1
+			AND EXTRACT(MONTH FROM created_at) = $2
+			AND EXTRACT(YEAR FROM created_at) = $3
+	`
+
+	if err := r.db.GetContext(ctx, &count, query, serviceProviderID, month, year); err != nil {
+		return count, orders, errors.New(err)
+	}
+
+	return count, orders, nil
+}
+
+func (r *orderImpl) FindTotalServiceFeeByServiceProviderIDAndStatusAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, status types.OrderStatus, month, year int) (decimal.Decimal, error) {
+	var total decimal.NullDecimal
+
+	query := `
+		SELECT
+			SUM(service_fee)
+		FROM orders
+		WHERE service_provider_id = $1
+			AND status = $2
+			AND EXTRACT(MONTH FROM created_at) = $3
+			AND EXTRACT(YEAR FROM created_at) = $4
+	`
+
+	if err := r.db.GetContext(ctx, &total, query, serviceProviderID, status, month, year); err != nil {
+		return total.Decimal, errors.New(err)
+	}
+
+	return total.Decimal, nil
 }

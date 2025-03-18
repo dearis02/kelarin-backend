@@ -18,6 +18,7 @@ type Offer interface {
 	FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Offer, error)
 	UpdateTx(ctx context.Context, tx *sqlx.Tx, req types.Offer) error
 	FindAllByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.Offer, error)
+	FindForReportByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID, month, year int) (int64, []types.OfferForReport, error)
 }
 
 type offerImpl struct {
@@ -244,4 +245,43 @@ func (r *offerImpl) FindAllByServiceProviderID(ctx context.Context, serviceProvi
 	}
 
 	return res, nil
+}
+
+func (r *offerImpl) FindForReportByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID, month, year int) (int64, []types.OfferForReport, error) {
+	var total int64
+	offers := []types.OfferForReport{}
+
+	query := `
+		SELECT
+			DATE(offers.created_at) AS date,
+			COUNT(offers.id) AS count
+		FROM offers
+		INNER JOIN services
+			ON services.id = offers.service_id
+		WHERE services.service_provider_id = $1
+			AND EXTRACT(MONTH FROM offers.created_at) = $2
+			AND EXTRACT(YEAR FROM offers.created_at) = $3
+		GROUP BY date
+		ORDER BY date
+	`
+
+	if err := r.db.SelectContext(ctx, &offers, query, serviceProviderID, month, year); err != nil {
+		return total, offers, errors.New(err)
+	}
+
+	query = `
+		SELECT COUNT(offers.id)
+		FROM offers
+		INNER JOIN services
+			ON services.id = offers.service_id
+		WHERE services.service_provider_id = $1
+			AND EXTRACT(MONTH FROM offers.created_at) = $2
+			AND EXTRACT(YEAR FROM offers.created_at) = $3
+	`
+
+	if err := r.db.GetContext(ctx, &total, query, serviceProviderID, month, year); err != nil {
+		return total, offers, errors.New(err)
+	}
+
+	return total, offers, nil
 }

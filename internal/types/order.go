@@ -66,6 +66,11 @@ type OrderWithServiceAndServiceProvider struct {
 	PaymentPaymentLink       null.String         `db:"payment_payment_link"`
 }
 
+type OrderForReport struct {
+	Date  time.Time `db:"date"`
+	Count int64     `db:"count"`
+}
+
 // endregion repo types
 
 // region service types

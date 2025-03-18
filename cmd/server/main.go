@@ -133,6 +133,7 @@ func main() {
 	paymentRoutes := routes.NewPayment(g, server.PaymentHandler)
 	orderRoutes := routes.NewOrder(g, server.OrderHandler)
 	paymentMethodRoutes := routes.NewPaymentMethod(g, server.PaymentMethodHandler)
+	reportRoutes := routes.NewReport(g, server.ReportHandler)
 
 	// End init routes region
 
@@ -153,6 +154,7 @@ func main() {
 	paymentRoutes.Register(authMiddleware)
 	orderRoutes.Register(authMiddleware)
 	paymentMethodRoutes.Register()
+	reportRoutes.Register(authMiddleware)
 
 	// register websocket
 	wsClient := &WSClient{

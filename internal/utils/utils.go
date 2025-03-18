@@ -73,3 +73,17 @@ func FormatRupiah(a currency.Amount) string {
 
 	return formatted
 }
+
+func GenerateDaysInMonth(year int, month time.Month) []time.Time {
+	days := []time.Time{}
+
+	firstDay := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+
+	lastDay := firstDay.AddDate(0, 1, 0).Add(-time.Hour)
+
+	for d := firstDay; d.Before(lastDay) || d.Equal(lastDay); d = d.AddDate(0, 0, 1) {
+		days = append(days, d)
+	}
+
+	return days
+}

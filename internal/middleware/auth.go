@@ -161,6 +161,10 @@ func (authImpl) BindWithRequest(c *gin.Context, req any) error {
 		return err
 	}
 
+	if err := c.ShouldBindQuery(req); err != nil {
+		return err
+	}
+
 	reqType := reqValue.Elem().Type()
 	for i := range reqType.NumField() {
 		field := reqType.Field(i)
