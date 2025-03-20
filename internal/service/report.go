@@ -75,29 +75,30 @@ func (s *reportImpl) ProviderGetMonthlySummary(ctx context.Context, req types.Re
 	res.MonthlyTotalReceivedOrders = totalOrders
 
 	for _, d := range days {
-		var count int64
+		var offerCount int64
 		for _, o := range offerReports {
 			if o.Date.Equal(d) {
-				count = o.Count
+				offerCount = o.Count
 				break
 			}
 		}
 
 		res.MonthlyReceivedOffers = append(res.MonthlyReceivedOffers, types.ReportProviderGetSummaryResMonthlyReceivedOffers{
 			Date:  d.Day(),
-			Total: count,
+			Total: offerCount,
 		})
 
+		var orderCount int64
 		for _, o := range orderReports {
 			if o.Date.Equal(d) {
-				count = o.Count
+				orderCount = o.Count
 				break
 			}
 		}
 
 		res.MonthlyReceivedOrders = append(res.MonthlyReceivedOrders, types.ReportProviderGetSummaryResMonthlyReceivedOrders{
 			Date:  d.Day(),
-			Total: count,
+			Total: orderCount,
 		})
 	}
 

@@ -50,6 +50,7 @@ func main() {
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AllowOrigins = cfg.Server.CORS.AllowedOrigins
 	corsConfig.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization", "Time-Zone"}
+	corsConfig.ExposeHeaders = []string{"Content-Disposition"}
 	g.Use(cors.New(corsConfig))
 
 	db, err := dbUtil.NewPostgres(&cfg.DataBase)
