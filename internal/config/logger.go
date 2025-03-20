@@ -50,6 +50,7 @@ func NewLogger(c *Config) zerolog.Logger {
 
 		return nil
 	}
+	zerolog.DefaultContextLogger = &log.Logger
 
 	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
 	log.Logger = log.With().Stack().Logger()

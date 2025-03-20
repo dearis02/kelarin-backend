@@ -52,7 +52,7 @@ func (m *authImpl) ServiceProvider(c *gin.Context) {
 func (m *authImpl) parseAuthorizationHeader(c *gin.Context) {
 	accToken, err := getTokenFromHeader(c)
 	if err != nil {
-		log.Error().Err(err).Send()
+		log.Error().Stack().Err(err).Send()
 		c.Error(errors.New(types.AppErr{Code: http.StatusUnauthorized}))
 		c.Abort()
 		return
@@ -60,7 +60,7 @@ func (m *authImpl) parseAuthorizationHeader(c *gin.Context) {
 
 	claims, err := m.parseJwt(accToken)
 	if err != nil {
-		log.Error().Err(err).Send()
+		log.Error().Stack().Err(err).Send()
 		c.Error(errors.New(types.AppErr{Code: http.StatusUnauthorized}))
 		c.Abort()
 		return
@@ -75,13 +75,12 @@ func (m *authImpl) parseAuthorizationHeader(c *gin.Context) {
 	}
 
 	c.Set(types.AuthUserContextKey, authUser)
-	c.Next()
 }
 
 func (m *authImpl) nextFunc(c *gin.Context, role types.UserRole) {
 	userContext, exists := c.Get(types.AuthUserContextKey)
 	if !exists {
-		log.Error().Msg("missing user context")
+		log.Error().Stack().Err(errors.New("missing user context")).Send()
 		c.Error(errors.New(types.AppErr{Code: http.StatusUnauthorized}))
 		c.Abort()
 		return
@@ -89,14 +88,14 @@ func (m *authImpl) nextFunc(c *gin.Context, role types.UserRole) {
 
 	authUser, ok := userContext.(types.AuthUser)
 	if !ok {
-		log.Error().Msg("invalid user context")
+		log.Error().Stack().Err(errors.New("invalid user context")).Send()
 		c.Error(errors.New(types.AppErr{Code: http.StatusUnauthorized}))
 		c.Abort()
 		return
 	}
 
 	if authUser.Role != role {
-		log.Error().Msg("invalid user role")
+		log.Error().Stack().Err(errors.New("invalid user role")).Send()
 		c.Error(errors.New(types.AppErr{Code: http.StatusForbidden}))
 		c.Abort()
 		return
