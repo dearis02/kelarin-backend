@@ -24,6 +24,7 @@ type Order interface {
 	FindForReportByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID, month, year int) (int64, []types.OrderForReport, error)
 	FindTotalServiceFeeByServiceProviderIDAndStatusAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, status types.OrderStatus, month, year int) (decimal.Decimal, error)
 	FindForReportExportByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.OrderForReportExport, error)
+	FindByOfferID(ctx context.Context, offerID uuid.UUID) (types.OrderWithServiceAndServiceProvider, error)
 }
 
 type orderImpl struct {
@@ -393,6 +394,58 @@ func (r *orderImpl) FindForReportExportByServiceProviderID(ctx context.Context, 
 	`
 
 	if err := r.db.SelectContext(ctx, &res, query, serviceProviderID); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *orderImpl) FindByOfferID(ctx context.Context, offerID uuid.UUID) (types.OrderWithServiceAndServiceProvider, error) {
+	res := types.OrderWithServiceAndServiceProvider{}
+
+	query := `
+		SELECT
+			orders.id,
+			orders.user_id,
+			orders.service_provider_id,
+			orders.offer_id,
+			orders.payment_id,
+			orders.payment_fulfilled,
+			orders.service_fee,
+			orders.service_date,
+			orders.service_time,
+			orders.status,
+			orders.created_at,
+			orders.updated_at,
+			services.id AS service_id,
+			services.name AS service_name,
+			service_providers.name AS service_provider_name,
+			service_providers.logo_image AS service_provider_logo_image,
+			payment_methods.name AS payment_method_name,
+			payments.amount AS payment_amount,
+			payments.admin_fee AS payment_admin_fee,
+			payments.platform_fee AS payment_platform_fee,
+			payments.payment_link AS payment_payment_link,
+			payments.status  AS payment_status
+		FROM orders
+		INNER JOIN offers
+			ON offers.id = orders.offer_id
+		INNER JOIN services
+			ON services.id = offers.service_id
+		INNER JOIN service_providers
+			ON service_providers.id = services.service_provider_id
+		LEFT JOIN payments
+			ON payments.id = orders.payment_id
+		LEFT JOIN payment_methods
+			ON payment_methods.id = payments.payment_method_id
+		WHERE orders.offer_id = $1
+		ORDER BY orders.id DESC
+	`
+
+	err := r.db.GetContext(ctx, &res, query, offerID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, errors.New(types.ErrNoData)
+	} else if err != nil {
 		return res, errors.New(err)
 	}
 

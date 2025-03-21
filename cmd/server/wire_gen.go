@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/elastic/go-elasticsearch/v8"
+	"github.com/gorilla/websocket"
 	"github.com/hibiken/asynq"
 	"github.com/jmoiron/sqlx"
 	"github.com/midtrans/midtrans-go/snap"
@@ -23,11 +24,12 @@ import (
 	"kelarin/internal/queue/task"
 	"kelarin/internal/repository"
 	"kelarin/internal/service"
+	"kelarin/internal/types"
 )
 
 // Injectors from wire.go:
 
-func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config2 *config.Config, redis2 *redis.Client, s3UploadManager *manager.Uploader, queueClient *asynq.Client, s3Client *s3.Client, s3PresignClient *s3.PresignClient, opencageClient *opencage.Client, authMiddleware middleware.Auth, firebaseMessagingClient *messaging.Client, midtransSnapClient *snap.Client) (*provider.Server, error) {
+func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config2 *config.Config, redis2 *redis.Client, s3UploadManager *manager.Uploader, queueClient *asynq.Client, s3Client *s3.Client, s3PresignClient *s3.PresignClient, opencageClient *opencage.Client, authMiddleware middleware.Auth, firebaseMessagingClient *messaging.Client, midtransSnapClient *snap.Client, wsUpgrader *websocket.Upgrader, wsHub *types.WsHub) (*provider.Server, error) {
 	user := repository.NewUser(db)
 	serviceUser := service.NewUser(user)
 	handlerUser := handler.NewUser(serviceUser)
@@ -71,9 +73,9 @@ func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config2 *config.Con
 	chatRoom := repository.NewChatRoom(db)
 	chatRoomUser := repository.NewChatRoomUser(db)
 	chatMessage := repository.NewChatMessage(db)
-	chat := service.NewChat(user, chatRoom, chatRoomUser, chatMessage, offer, serviceProvider)
 	order := repository.NewOrder(db)
 	util := service.NewUtil()
+	chat := service.NewChat(db, repositoryService, user, chatRoom, chatRoomUser, chatMessage, wsHub, offer, serviceProvider, serviceFile, order, util)
 	serviceOffer := service.NewOffer(offer, userAddress, repositoryService, serviceFile, serviceProvider, offerNegotiation, serviceProviderNotification, fcmToken, notification, user, db, consumerNotification, chat, order, util)
 	handlerOffer := handler.NewOffer(serviceOffer, authMiddleware)
 	serviceOfferNegotiation := service.NewOfferNegotiation(serviceProvider, offerNegotiation, offer, repositoryService, db, notification, fcmToken, serviceFile, consumerNotification)
@@ -92,6 +94,7 @@ func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config2 *config.Con
 	handlerPaymentMethod := handler.NewPaymentMethod(servicePaymentMethod)
 	report := service.NewReport(serviceProvider, offer, order, util)
 	handlerReport := handler.NewReport(report, authMiddleware)
-	server := provider.NewServer(handlerUser, handlerAuth, handlerFile, handlerServiceProvider, handlerService, handlerProvince, handlerCity, handlerServiceCategory, handlerUserAddress, handlerOffer, handlerOfferNegotiation, handlerNotification, handlerPayment, handlerOrder, handlerPaymentMethod, handlerReport)
+	handlerChat := handler.NewChat(wsUpgrader, chat, wsHub, authMiddleware)
+	server := provider.NewServer(handlerUser, handlerAuth, handlerFile, handlerServiceProvider, handlerService, handlerProvince, handlerCity, handlerServiceCategory, handlerUserAddress, handlerOffer, handlerOfferNegotiation, handlerNotification, handlerPayment, handlerOrder, handlerPaymentMethod, handlerReport, handlerChat)
 	return server, nil
 }

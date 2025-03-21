@@ -17,6 +17,7 @@ type ServiceProvider interface {
 	FindByIDs(ctx context.Context, IDs []uuid.UUID) ([]types.ServiceProvider, error)
 	FindByID(ctx context.Context, ID uuid.UUID) (types.ServiceProvider, error)
 	UpdateCreditTx(ctx context.Context, req types.ServiceProvider) error
+	FindByUserIDs(ctx context.Context, IDs []uuid.UUID) ([]types.ServiceProvider, error)
 }
 
 type serviceProviderImpl struct {
@@ -174,4 +175,37 @@ func (r *serviceProviderImpl) UpdateCreditTx(ctx context.Context, req types.Serv
 	}
 
 	return nil
+}
+
+func (r *serviceProviderImpl) FindByUserIDs(ctx context.Context, IDs []uuid.UUID) ([]types.ServiceProvider, error) {
+	res := []types.ServiceProvider{}
+
+	query := `
+		SELECT
+			id,
+			user_id,
+			name,
+			description,
+			has_physical_office,
+			office_coordinates,
+			address,
+			mobile_phone_number,
+			telephone,
+			logo_image,
+			received_rating_count,
+			received_rating_average,
+			credit,
+			is_deleted,
+			created_at
+		FROM service_providers
+		WHERE user_id = ANY($1)
+		ORDER BY id DESC
+	`
+
+	err := r.db.SelectContext(ctx, &res, query, pq.Array(IDs))
+	if err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
 }

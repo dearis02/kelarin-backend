@@ -8,11 +8,16 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 type ChatRoomUser interface {
 	GetRoomIDAndIsExistsByUserIDs(ctx context.Context, userIDs []uuid.UUID) (uuid.UUID, bool, error)
 	CreateTx(ctx context.Context, tx *sqlx.Tx, req []types.ChatRoomUser) error
+	FindByUserID(ctx context.Context, userID uuid.UUID) ([]types.ChatRoomUserWithServiceIDAndOfferID, error)
+	FindRecipientByChatRoomIDs(ctx context.Context, userID uuid.UUID, roomIDs uuid.UUIDs) ([]types.ChatRoomUser, error)
+	FindRecipientByChatRoomID(ctx context.Context, userID uuid.UUID, roomID uuid.UUID) (types.ChatRoomUser, error)
+	FindByChatRoomIDAndUserID(ctx context.Context, roomID, userID uuid.UUID) (types.ChatRoomUser, error)
 }
 
 type chatRoomUserImpl struct {
@@ -73,4 +78,94 @@ func (r *chatRoomUserImpl) GetRoomIDAndIsExistsByUserIDs(ctx context.Context, us
 	}
 
 	return roomID, true, nil
+}
+
+func (r *chatRoomUserImpl) FindByUserID(ctx context.Context, userID uuid.UUID) ([]types.ChatRoomUserWithServiceIDAndOfferID, error) {
+	res := []types.ChatRoomUserWithServiceIDAndOfferID{}
+
+	query := `
+		SELECT
+			chat_room_users.chat_room_id,
+			chat_room_users.user_id,
+			chat_room_users.created_at,
+			chat_rooms.service_id,
+			chat_rooms.offer_id
+		FROM chat_room_users
+		INNER JOIN chat_rooms
+			ON chat_rooms.id = chat_room_users.chat_room_id
+		WHERE chat_room_users.user_id = $1
+		ORDER BY id DESC
+	`
+
+	if err := r.db.SelectContext(ctx, &res, query, userID); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *chatRoomUserImpl) FindRecipientByChatRoomIDs(ctx context.Context, userID uuid.UUID, roomIDs uuid.UUIDs) ([]types.ChatRoomUser, error) {
+	res := []types.ChatRoomUser{}
+
+	query := `
+		SELECT
+			chat_room_id,
+			user_id,
+			created_at
+		FROM chat_room_users
+		WHERE user_id != $1
+			AND chat_room_id = ANY($2)
+	`
+
+	if err := r.db.SelectContext(ctx, &res, query, userID, pq.Array(roomIDs)); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *chatRoomUserImpl) FindByChatRoomIDAndUserID(ctx context.Context, roomID, userID uuid.UUID) (types.ChatRoomUser, error) {
+	res := types.ChatRoomUser{}
+
+	query := `
+		SELECT
+			chat_room_id,
+			user_id,
+			created_at
+		FROM chat_room_users
+		WHERE chat_room_id = $1
+			AND user_id = $2
+	`
+
+	err := r.db.GetContext(ctx, &res, query, roomID, userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, errors.New(types.ErrNoData)
+	} else if err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *chatRoomUserImpl) FindRecipientByChatRoomID(ctx context.Context, userID uuid.UUID, roomID uuid.UUID) (types.ChatRoomUser, error) {
+	res := types.ChatRoomUser{}
+
+	query := `
+		SELECT
+			chat_room_id,
+			user_id,
+			created_at
+		FROM chat_room_users
+		WHERE user_id != $1
+			AND chat_room_id = $2
+	`
+
+	err := r.db.GetContext(ctx, &res, query, userID, roomID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, errors.New(types.ErrNoData)
+	} else if err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
 }

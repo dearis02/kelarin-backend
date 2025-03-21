@@ -8,6 +8,7 @@ import (
 	"kelarin/internal/middleware"
 	"kelarin/internal/provider"
 	"kelarin/internal/queue/task"
+	"kelarin/internal/types"
 
 	"firebase.google.com/go/messaging"
 	"github.com/alexliesenfeld/opencage"
@@ -15,13 +16,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/google/wire"
+	"github.com/gorilla/websocket"
 	"github.com/hibiken/asynq"
 	"github.com/jmoiron/sqlx"
 	"github.com/midtrans/midtrans-go/snap"
 	"github.com/redis/go-redis/v9"
 )
 
-func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config *config.Config, redis *redis.Client, s3UploadManager *manager.Uploader, queueClient *asynq.Client, s3Client *s3.Client, s3PresignClient *s3.PresignClient, opencageClient *opencage.Client, authMiddleware middleware.Auth, firebaseMessagingClient *messaging.Client, midtransSnapClient *snap.Client) (*provider.Server, error) {
+func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config *config.Config, redis *redis.Client, s3UploadManager *manager.Uploader, queueClient *asynq.Client, s3Client *s3.Client, s3PresignClient *s3.PresignClient, opencageClient *opencage.Client, authMiddleware middleware.Auth, firebaseMessagingClient *messaging.Client, midtransSnapClient *snap.Client, wsUpgrader *websocket.Upgrader, wsHub *types.WsHub) (*provider.Server, error) {
 	wire.Build(
 		task.NewTempFile,
 		provider.RepositorySet,

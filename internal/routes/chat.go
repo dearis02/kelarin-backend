@@ -12,13 +12,16 @@ type Chat struct {
 	chatHandler handler.Chat
 }
 
-func NewChat(g *gin.Engine, chatHandler handler.Chat) Chat {
-	return Chat{
+func NewChat(g *gin.Engine, chatHandler handler.Chat) *Chat {
+	return &Chat{
 		g:           g,
 		chatHandler: chatHandler,
 	}
 }
 
 func (r *Chat) Register(m middleware.Auth) {
-	r.g.GET("/v1/web-socket/chat", m.Authenticated, r.chatHandler.HandleInboundMessage)
+	r.g.GET("/v1/web-socket/chat", m.WS, r.chatHandler.HandleInboundMessage)
+
+	r.g.GET("/consumer/v1/chats", m.Consumer, r.chatHandler.ConsumerGetAll)
+	r.g.GET("/consumer/v1/chats/:room_id", m.Consumer, r.chatHandler.ConsumerGetByRoomID)
 }

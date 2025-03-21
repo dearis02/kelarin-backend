@@ -28,9 +28,10 @@ require (
 	github.com/prometheus/client_golang v1.20.5
 	github.com/redis/go-redis/v9 v9.7.0
 	github.com/rs/zerolog v1.33.0
+	github.com/samber/lo v1.49.1
 	github.com/shopspring/decimal v1.4.0
 	github.com/spf13/cobra v1.8.1
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/twpayne/go-geom v1.6.0
 	github.com/volatiletech/null/v9 v9.0.0
 	google.golang.org/api v0.215.0

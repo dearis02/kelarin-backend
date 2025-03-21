@@ -14,4 +14,10 @@ type ChatRoomUser struct {
 	CreatedAt  time.Time `db:"created_at"`
 }
 
+type ChatRoomUserWithServiceIDAndOfferID struct {
+	ChatRoomUser
+	ServiceID uuid.NullUUID `db:"service_id"`
+	OfferID   uuid.NullUUID `db:"offer_id"`
+}
+
 // end of region repo types

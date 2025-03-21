@@ -15,13 +15,8 @@ func NewWsUpgrader(cfg *config.Config) *websocket.Upgrader {
 		ReadBufferSize:   1024,
 		WriteBufferSize:  1024,
 		CheckOrigin: func(r *http.Request) bool {
-			for _, origin := range cfg.Server.CORS.AllowedOrigins {
-				if origin == r.Header.Get("Origin") {
-					return true
-				}
-			}
-
-			return false
+			return true
+			// return slices.Contains(cfg.Server.CORS.AllowedOrigins, r.Header.Get("Origin"))
 		},
 	}
 }

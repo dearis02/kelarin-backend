@@ -171,7 +171,7 @@ func (authImpl) BindWithRequest(c *gin.Context, req any) error {
 		if tag == "user" {
 			authUser, exists := c.Get("user")
 			if !exists {
-				return errors.New("auth user not found in context")
+				return errors.New("auth user not found in context, missing auth middleware on registered routes")
 			}
 
 			fieldValue := reqValue.Elem().Field(i)
@@ -207,5 +207,13 @@ func (m *authImpl) WS(c *gin.Context) {
 		return
 	}
 
-	c.Set(types.AuthUserContextKey, claims.Subject)
+	authUser := types.AuthUser{
+		ID:                     claims.Subject,
+		SessionID:              claims.ID,
+		Role:                   claims.Role,
+		Name:                   claims.Name,
+		IncompleteRegistration: claims.IncompleteRegistration,
+	}
+
+	c.Set(types.AuthUserContextKey, authUser)
 }

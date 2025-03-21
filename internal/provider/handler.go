@@ -23,4 +23,5 @@ var HandlerSet = wire.NewSet(
 	handler.NewOrder,
 	handler.NewPaymentMethod,
 	handler.NewReport,
+	handler.NewChat,
 )
