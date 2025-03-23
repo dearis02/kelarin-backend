@@ -38,7 +38,7 @@ func NewChat(upgrader *websocket.Upgrader, chatService service.Chat, hub *types.
 func (h *chatImpl) HandleInboundMessage(ctx *gin.Context) {
 	con, err := h.wsUpgrader.Upgrade(ctx.Writer, ctx.Request, nil)
 	if err != nil {
-		log.Error().Stack().Err(err).Send()
+		log.Error().Stack().Str("message", "error upgrading connection").Err(err).Send()
 		return
 	}
 
@@ -52,13 +52,9 @@ func (h *chatImpl) HandleInboundMessage(ctx *gin.Context) {
 		return
 	}
 
-	wsClient, ok := h.hub.Clients[client.AuthUser.ID.String()]
-	if !ok {
-		h.hub.Clients[client.AuthUser.ID.String()] = &client
-		wsClient = &client
-	}
+	h.hub.Clients[client.AuthUser.ID.String()] = &client
 
-	go h.chatService.HandleInboundMessage(wsClient)
+	go h.chatService.HandleInboundMessage(&client)
 }
 
 func (h *chatImpl) ConsumerGetAll(c *gin.Context) {

@@ -20,12 +20,13 @@ type WsHub struct {
 }
 
 type WsResponse struct {
-	Success bool           `json:"success"`
-	Type    WsResponseType `json:"type"`
-	Code    WsResponseCode `json:"code"`
-	Message string         `json:"message"`
-	Data    any            `json:"data,omitempty"`
-	Errors  any            `json:"errors,omitempty"`
+	Success  bool           `json:"success"`
+	Type     WsResponseType `json:"type"`
+	Code     WsResponseCode `json:"code"`
+	Message  string         `json:"message"`
+	Data     any            `json:"data,omitempty"`
+	Errors   any            `json:"errors,omitempty"`
+	Metadata any            `json:"metadata,omitempty"`
 }
 
 func (r WsResponse) Parse() ([]byte, error) {

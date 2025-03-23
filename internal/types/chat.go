@@ -35,6 +35,7 @@ type ChatChatRoomCreateRes struct {
 }
 
 type ChatSendMessageReq struct {
+	ID                uuid.UUID              `json:"id"` // id from client, needed for server response metadata
 	RoomID            uuid.NullUUID          `json:"room_id"`
 	SenderUserID      uuid.UUID              `json:"-"`
 	ServiceProviderID uuid.NullUUID          `json:"service_provider_id"`
@@ -48,10 +49,16 @@ func (r ChatSendMessageReq) Validate() error {
 	}
 
 	return validation.ValidateStruct(&r,
+		validation.Field(&r.ID, validation.Required),
+		validation.Field(&r.RoomID, validation.Required.When(!r.ServiceProviderID.Valid)),
 		validation.Field(&r.Content, validation.Required),
 		validation.Field(&r.ContentType, validation.Required),
 		validation.Field(&r.ServiceProviderID, validation.Required.When(!r.RoomID.Valid)),
 	)
+}
+
+type ChatSendMessageResMetadata struct {
+	ID uuid.UUID `json:"id"`
 }
 
 type ChatIncomingMessageRes struct {
@@ -90,6 +97,7 @@ type ChatSaveSentMessageRes struct {
 
 type ChatGetAllReq struct {
 	AuthUser AuthUser `middleware:"user"`
+	TimeZone string   `header:"Time-Zone"`
 }
 
 func (r ChatGetAllReq) Validate() error {
@@ -109,10 +117,11 @@ const (
 )
 
 type ChatConsumerGetAllRes struct {
-	Context         ChatContext                          `json:"context"`
-	RoomID          uuid.UUID                            `json:"room_id"`
-	ServiceProvider ChatConsumerGetAllResServiceProvider `json:"service_provider"`
-	UnreadMessages  []ChatGetAllResUnreadMessage         `json:"unread_messages"`
+	Context            ChatContext                          `json:"context"`
+	RoomID             uuid.UUID                            `json:"room_id"`
+	ServiceProvider    ChatConsumerGetAllResServiceProvider `json:"service_provider"`
+	UnreadMessageCount int                                  `json:"unread_message_count"`
+	LatestMessage      *ChatConsumerGetAllResLatestMessage  `json:"latest_message"`
 }
 
 type ChatConsumerGetAllResServiceProvider struct {
@@ -121,10 +130,11 @@ type ChatConsumerGetAllResServiceProvider struct {
 	LogoURL string    `json:"logo_url"`
 }
 
-type ChatGetAllResUnreadMessage struct {
+type ChatConsumerGetAllResLatestMessage struct {
 	ID          uuid.UUID              `json:"id"`
 	Content     string                 `json:"content"`
 	ContentType ChatMessageContentType `json:"content_type"`
+	Read        bool                   `json:"read"`
 	CreatedAt   time.Time              `json:"created_at"`
 }
 
@@ -176,7 +186,7 @@ type ChatGetByRoomIDResOrder struct {
 
 type ChatGetByRoomIDResMessage struct {
 	ID          uuid.UUID              `json:"id"`
-	SenderID    uuid.UUID              `json:"sender_id"`
+	IsSender    bool                   `json:"is_sender"`
 	Content     string                 `json:"content"`
 	ContentType ChatMessageContentType `json:"content_type"`
 	Read        bool                   `json:"read"`

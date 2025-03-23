@@ -74,6 +74,7 @@ func NewChat(
 func (s *chatImpl) HandleInboundMessage(client *types.WsClient) {
 	for {
 		client.Lock()
+
 		wsRes := types.WsResponse{
 			Success: false,
 			Type:    types.WsResponseTypeServer,
@@ -138,6 +139,10 @@ func (s *chatImpl) HandleInboundMessage(client *types.WsClient) {
 
 			client.Con.WriteMessage(websocket.BinaryMessage, res)
 			continue
+		}
+
+		wsRes.Metadata = types.ChatSendMessageResMetadata{
+			ID: m.ID,
 		}
 
 		recipientUserID := m.ServiceProviderID
@@ -287,7 +292,28 @@ func (s *chatImpl) HandleInboundMessage(client *types.WsClient) {
 			continue
 		}
 
-		incomingMsgRes := types.ChatIncomingMessageRes{
+		// ping target client
+		if err := targetClient.Con.WriteMessage(websocket.PingMessage, nil); err != nil {
+			if websocket.IsCloseError(err, websocket.CloseNormalClosure) || websocket.IsCloseError(err, websocket.CloseGoingAway) {
+				wsRes.Success = true
+				wsRes.Message = "recipient is offline"
+				wsRes.Code = types.WsResponseCodeChatRecipientOffline
+			} else {
+				log.Error().Stack().Err(err).Send()
+			}
+
+			res, err := wsRes.Parse()
+			if err != nil {
+				log.Error().Stack().Err(err).Send()
+				client.Con.Close()
+				return
+			}
+
+			client.Con.WriteMessage(websocket.BinaryMessage, res)
+			continue
+		}
+
+		incomingMsg := types.ChatIncomingMessageRes{
 			RoomID:      saveSentMsgRes.RoomID,
 			MessageID:   saveSentMsgRes.MessageID,
 			Content:     m.Content,
@@ -295,15 +321,15 @@ func (s *chatImpl) HandleInboundMessage(client *types.WsClient) {
 			CreatedAt:   saveSentMsgRes.CreatedAt,
 		}
 
-		wsRes = types.WsResponse{
+		wsIncomingMsgRes := types.WsResponse{
 			Success: true,
 			Type:    types.WsResponseTypeChatIncomingMessage,
 			Code:    types.WsResponseCodeSuccess,
 			Message: "success",
-			Data:    incomingMsgRes,
+			Data:    incomingMsg,
 		}
 
-		res, err := wsRes.Parse()
+		res, err := wsIncomingMsgRes.Parse()
 		if err != nil {
 			log.Error().Stack().Err(err).Send()
 			client.Con.Close()
@@ -329,6 +355,9 @@ func (s *chatImpl) HandleInboundMessage(client *types.WsClient) {
 			Type:    types.WsResponseTypeServer,
 			Code:    types.WsResponseCodeSuccess,
 			Message: "success",
+			Metadata: types.ChatSendMessageResMetadata{
+				ID: m.ID,
+			},
 		}
 
 		res, err = wsRes.Parse()
@@ -549,34 +578,22 @@ func (s *chatImpl) ConsumerGetAll(ctx context.Context, req types.ChatGetAllReq) 
 		return res, err
 	}
 
-	chatMessages, err := s.chatMessageRepo.FindAllUnreadReceivedByChatRoomIDs(ctx, req.AuthUser.ID, chatRoomIDs)
+	unreadMsgs, err := s.chatMessageRepo.CountUnreadReceivedByChatRoomIDs(ctx, req.AuthUser.ID, chatRoomIDs)
+	if err != nil {
+		return res, err
+	}
+
+	latestMessages, err := s.chatMessageRepo.FindLatestByChatRoomIDs(ctx, chatRoomIDs)
+	if err != nil {
+		return res, err
+	}
+
+	reqTz, err := s.utilSvc.ParseUserTimeZone(req.TimeZone)
 	if err != nil {
 		return res, err
 	}
 
 	for _, room := range chatRoomUsers {
-		unreadMessages := lo.FilterMap(chatMessages, func(chatMessage types.ChatMessage, _ int) (types.ChatGetAllResUnreadMessage, bool) {
-			msg := types.ChatGetAllResUnreadMessage{}
-
-			content := chatMessage.Content
-			if chatMessage.ContentType == types.ChatMessageContentTypeImage || chatMessage.ContentType == types.ChatMessageContentTypeVideo {
-				content, err = s.fileSvc.GetS3PresignedURL(ctx, chatMessage.Content)
-			}
-
-			msg = types.ChatGetAllResUnreadMessage{
-				ID:          chatMessage.ID,
-				Content:     content,
-				ContentType: chatMessage.ContentType,
-				CreatedAt:   chatMessage.CreatedAt,
-			}
-
-			return msg, chatMessage.ChatRoomID == room.ChatRoomID
-		})
-
-		if err != nil {
-			return res, err
-		}
-
 		recipientChatRoom, exs := lo.Find(recipients, func(recipient types.ChatRoomUser) bool {
 			return recipient.ChatRoomID == room.ChatRoomID
 		})
@@ -603,16 +620,49 @@ func (s *chatImpl) ConsumerGetAll(ctx context.Context, req types.ChatGetAllReq) 
 			chatCtx = types.ChatContextService
 		}
 
-		res = append(res, types.ChatConsumerGetAllRes{
-			Context: chatCtx,
-			RoomID:  room.ChatRoomID,
-			ServiceProvider: types.ChatConsumerGetAllResServiceProvider{
-				ID:      provider.ID,
-				Name:    provider.Name,
-				LogoURL: logoURL,
-			},
-			UnreadMessages: unreadMessages,
+		unreadMsgCount := 0
+		unreadMsg, exs := lo.Find(unreadMsgs, func(unreadMsg types.ChatMessageCountUnread) bool {
+			return unreadMsg.ChatRoomID == room.ChatRoomID
 		})
+
+		if exs {
+			unreadMsgCount = unreadMsg.Count
+		}
+
+		msg, exs := lo.Find(latestMessages, func(msg types.ChatMessage) bool {
+			return msg.ChatRoomID == room.ChatRoomID
+		})
+
+		if exs {
+			res = append(res, types.ChatConsumerGetAllRes{
+				Context: chatCtx,
+				RoomID:  room.ChatRoomID,
+				ServiceProvider: types.ChatConsumerGetAllResServiceProvider{
+					ID:      provider.ID,
+					Name:    provider.Name,
+					LogoURL: logoURL,
+				},
+				UnreadMessageCount: unreadMsgCount,
+				LatestMessage: &types.ChatConsumerGetAllResLatestMessage{
+					ID:          msg.ID,
+					Content:     msg.Content,
+					ContentType: msg.ContentType,
+					Read:        msg.Read,
+					CreatedAt:   msg.CreatedAt.In(reqTz),
+				},
+			})
+		} else {
+			res = append(res, types.ChatConsumerGetAllRes{
+				Context: chatCtx,
+				RoomID:  room.ChatRoomID,
+				ServiceProvider: types.ChatConsumerGetAllResServiceProvider{
+					ID:      provider.ID,
+					Name:    provider.Name,
+					LogoURL: logoURL,
+				},
+				UnreadMessageCount: unreadMsgCount,
+			})
+		}
 	}
 
 	return res, nil
@@ -709,11 +759,11 @@ func (s *chatImpl) ConsumerGetByRoomID(ctx context.Context, req types.ChatGetByR
 	for _, message := range messages {
 		res.Messages = append(res.Messages, types.ChatGetByRoomIDResMessage{
 			ID:          message.ID,
-			SenderID:    message.UserID,
+			IsSender:    message.UserID == req.AuthUser.ID,
 			Content:     message.Content,
 			ContentType: message.ContentType,
 			Read:        message.Read,
-			CreatedAt:   message.CreatedAt,
+			CreatedAt:   message.CreatedAt.In(reqTz),
 		})
 	}
 

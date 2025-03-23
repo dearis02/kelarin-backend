@@ -12,8 +12,9 @@ import (
 
 type ChatMessage interface {
 	CreateTx(ctx context.Context, tx *sqlx.Tx, req types.ChatMessage) error
-	FindAllUnreadReceivedByChatRoomIDs(ctx context.Context, userID uuid.UUID, chatRoomIDs uuid.UUIDs) ([]types.ChatMessage, error)
+	CountUnreadReceivedByChatRoomIDs(ctx context.Context, userID uuid.UUID, chatRoomIDs uuid.UUIDs) ([]types.ChatMessageCountUnread, error)
 	FindByChatRoomID(ctx context.Context, roomID uuid.UUID) ([]types.ChatMessage, error)
+	FindLatestByChatRoomIDs(ctx context.Context, roomIDs uuid.UUIDs) ([]types.ChatMessage, error)
 }
 
 type chatMessageImpl struct {
@@ -51,23 +52,18 @@ func (r *chatMessageImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, req types.C
 	return nil
 }
 
-func (r *chatMessageImpl) FindAllUnreadReceivedByChatRoomIDs(ctx context.Context, userID uuid.UUID, chatRoomIDs uuid.UUIDs) ([]types.ChatMessage, error) {
-	res := []types.ChatMessage{}
+func (r *chatMessageImpl) CountUnreadReceivedByChatRoomIDs(ctx context.Context, userID uuid.UUID, chatRoomIDs uuid.UUIDs) ([]types.ChatMessageCountUnread, error) {
+	res := []types.ChatMessageCountUnread{}
 
 	query := `
 		SELECT
-			id,
 			chat_room_id,
-			user_id,
-			content,
-			content_type,
-			read,
-			created_at
+			COUNT(id) AS count
 		FROM chat_messages
 		WHERE chat_room_id = ANY($1)
 			AND read = false
 			AND user_id != $2
-		ORDER BY id DESC
+		GROUP BY chat_room_id
 	`
 
 	if err := r.db.SelectContext(ctx, &res, query, pq.Array(chatRoomIDs), userID); err != nil {
@@ -91,10 +87,34 @@ func (r *chatMessageImpl) FindByChatRoomID(ctx context.Context, roomID uuid.UUID
 			created_at
 		FROM chat_messages
 		WHERE chat_room_id = $1
-		ORDER BY id DESC
+		ORDER BY id ASC
 	`
 
 	if err := r.db.SelectContext(ctx, &res, query, roomID); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *chatMessageImpl) FindLatestByChatRoomIDs(ctx context.Context, roomIDs uuid.UUIDs) ([]types.ChatMessage, error) {
+	res := []types.ChatMessage{}
+
+	query := `
+		SELECT DISTINCT ON (chat_room_id)
+			id,
+			chat_room_id,
+			user_id,
+			content,
+			content_type,
+			read,
+			created_at
+		FROM chat_messages
+		WHERE chat_room_id = ANY($1)
+		ORDER BY chat_room_id, id DESC
+	`
+
+	if err := r.db.SelectContext(ctx, &res, query, pq.Array(roomIDs)); err != nil {
 		return res, errors.New(err)
 	}
 

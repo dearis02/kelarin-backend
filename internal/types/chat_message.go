@@ -26,4 +26,9 @@ const (
 	ChatMessageContentTypeVideo ChatMessageContentType = "video"
 )
 
+type ChatMessageCountUnread struct {
+	ChatRoomID uuid.UUID `db:"chat_room_id"`
+	Count      int       `db:"count"`
+}
+
 // end of region repo types
