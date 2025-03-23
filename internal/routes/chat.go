@@ -24,4 +24,7 @@ func (r *Chat) Register(m middleware.Auth) {
 
 	r.g.GET("/consumer/v1/chats", m.Consumer, r.chatHandler.ConsumerGetAll)
 	r.g.GET("/consumer/v1/chats/:room_id", m.Consumer, r.chatHandler.ConsumerGetByRoomID)
+
+	r.g.GET("/provider/v1/chats", m.ServiceProvider, r.chatHandler.ProviderGetAll)
+	r.g.GET("/provider/v1/chats/:room_id", m.ServiceProvider, r.chatHandler.ProviderGetByRoomID)
 }

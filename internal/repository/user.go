@@ -8,6 +8,7 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 type User interface {
@@ -15,6 +16,7 @@ type User interface {
 	FindByID(ctx context.Context, ID uuid.UUID) (types.User, error)
 	Create(ctx context.Context, user types.User) error
 	CreateTx(ctx context.Context, tx *sqlx.Tx, user types.User) error
+	FindByIDs(ctx context.Context, IDs uuid.UUIDs) ([]types.User, error)
 }
 
 type userImpl struct {
@@ -140,4 +142,32 @@ func (r *userImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, user types.User) e
 	}
 
 	return nil
+}
+
+func (r *userImpl) FindByIDs(ctx context.Context, IDs uuid.UUIDs) ([]types.User, error) {
+	res := []types.User{}
+
+	statement := ` 
+		SELECT 
+			id,
+			name,
+			email,
+			password,
+			role,
+			is_suspended,
+			suspended_count,
+			suspended_from,
+			suspended_to,
+			is_banned,
+			banned_at,
+			created_at
+		FROM users
+		WHERE id = ANY($1)
+	`
+
+	if err := r.db.SelectContext(ctx, &res, statement, pq.Array(IDs)); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
 }

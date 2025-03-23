@@ -24,6 +24,9 @@ type Chat interface {
 
 	ConsumerGetAll(ctx context.Context, req types.ChatGetAllReq) ([]types.ChatConsumerGetAllRes, error)
 	ConsumerGetByRoomID(ctx context.Context, req types.ChatGetByRoomIDReq) (types.ChatConsumerGetByRoomIDRes, error)
+
+	ProviderGetAll(ctx context.Context, req types.ChatGetAllReq) ([]types.ChatProviderGetAllRes, error)
+	ProviderGetByRoomID(ctx context.Context, req types.ChatGetByRoomIDReq) (types.ChatProviderGetByRoomIDRes, error)
 }
 
 type chatImpl struct {
@@ -643,7 +646,7 @@ func (s *chatImpl) ConsumerGetAll(ctx context.Context, req types.ChatGetAllReq) 
 					LogoURL: logoURL,
 				},
 				UnreadMessageCount: unreadMsgCount,
-				LatestMessage: &types.ChatConsumerGetAllResLatestMessage{
+				LatestMessage: &types.ChatGetAllResLatestMessage{
 					ID:          msg.ID,
 					Content:     msg.Content,
 					ContentType: msg.ContentType,
@@ -711,6 +714,218 @@ func (s *chatImpl) ConsumerGetByRoomID(ctx context.Context, req types.ChatGetByR
 			ID:      provider.ID,
 			Name:    provider.Name,
 			LogoURL: logoURL,
+		},
+		Messages: []types.ChatGetByRoomIDResMessage{},
+	}
+
+	reqTz, err := s.utilSvc.ParseUserTimeZone(req.TimeZone)
+	if err != nil {
+		return res, err
+	}
+
+	if chatRoom.OfferID.Valid {
+		order, err := s.orderRepo.FindByOfferID(ctx, chatRoom.OfferID.UUID)
+		if errors.Is(err, types.ErrNoData) {
+			return res, errors.Errorf("order not found: offer_id %s", chatRoom.OfferID.UUID)
+		} else if err != nil {
+			return res, err
+		}
+
+		res.Context = types.ChatContextOrder
+		res.OfferID = uuid.NullUUID{UUID: order.OfferID, Valid: true}
+		res.Order = &types.ChatGetByRoomIDResOrder{
+			ID:          order.ID,
+			Status:      order.Status,
+			ServiceDate: order.ServiceDate.Format(time.DateOnly),
+			ServiceTime: order.ServiceTime.In(reqTz).Format(time.TimeOnly),
+		}
+
+		res.Service = &types.ChatGetByRoomIDResService{
+			ID:   order.ServiceID,
+			Name: order.ServiceName,
+		}
+	} else if chatRoom.ServiceID.Valid {
+		service, err := s.serviceRepo.FindByID(ctx, chatRoom.ServiceID.UUID)
+		if errors.Is(err, types.ErrNoData) {
+			return res, errors.Errorf("service not found: id %s", chatRoom.ServiceID.UUID)
+		} else if err != nil {
+			return res, err
+		}
+
+		res.Context = types.ChatContextService
+		res.Service = &types.ChatGetByRoomIDResService{
+			ID:   service.ID,
+			Name: service.Name,
+		}
+	}
+
+	for _, message := range messages {
+		res.Messages = append(res.Messages, types.ChatGetByRoomIDResMessage{
+			ID:          message.ID,
+			IsSender:    message.UserID == req.AuthUser.ID,
+			Content:     message.Content,
+			ContentType: message.ContentType,
+			Read:        message.Read,
+			CreatedAt:   message.CreatedAt.In(reqTz),
+		})
+	}
+
+	return res, nil
+}
+
+func (s *chatImpl) ProviderGetAll(ctx context.Context, req types.ChatGetAllReq) ([]types.ChatProviderGetAllRes, error) {
+	res := []types.ChatProviderGetAllRes{}
+
+	if err := req.Validate(); err != nil {
+		return res, err
+	}
+
+	chatRoomUsers, err := s.chatRoomUserRepo.FindByUserID(ctx, req.AuthUser.ID)
+	if err != nil {
+		return res, err
+	}
+
+	chatRoomIDs := uuid.UUIDs{}
+	for _, chatRoomUser := range chatRoomUsers {
+		chatRoomIDs = append(chatRoomIDs, chatRoomUser.ChatRoomID)
+	}
+
+	recipients, err := s.chatRoomUserRepo.FindRecipientByChatRoomIDs(ctx, req.AuthUser.ID, chatRoomIDs)
+	if err != nil {
+		return res, err
+	}
+
+	userIDs := lo.Map(recipients, func(recipient types.ChatRoomUser, _ int) uuid.UUID {
+		return recipient.UserID
+	})
+
+	userIDs = lo.Uniq(userIDs)
+
+	consumers, err := s.userRepo.FindByIDs(ctx, userIDs)
+	if err != nil {
+		return res, err
+	}
+
+	unreadMsgs, err := s.chatMessageRepo.CountUnreadReceivedByChatRoomIDs(ctx, req.AuthUser.ID, chatRoomIDs)
+	if err != nil {
+		return res, err
+	}
+
+	latestMessages, err := s.chatMessageRepo.FindLatestByChatRoomIDs(ctx, chatRoomIDs)
+	if err != nil {
+		return res, err
+	}
+
+	reqTz, err := s.utilSvc.ParseUserTimeZone(req.TimeZone)
+	if err != nil {
+		return res, err
+	}
+
+	for _, room := range chatRoomUsers {
+		recipientChatRoom, exs := lo.Find(recipients, func(recipient types.ChatRoomUser) bool {
+			return recipient.ChatRoomID == room.ChatRoomID
+		})
+		if !exs {
+			continue
+		}
+
+		consumer, exs := lo.Find(consumers, func(consumer types.User) bool {
+			return consumer.ID == recipientChatRoom.UserID
+		})
+		if !exs {
+			continue
+		}
+
+		chatCtx := types.ChatContextCommon
+		if room.OfferID.Valid {
+			chatCtx = types.ChatContextOrder
+		} else if room.ServiceID.Valid {
+			chatCtx = types.ChatContextService
+		}
+
+		unreadMsgCount := 0
+		unreadMsg, exs := lo.Find(unreadMsgs, func(unreadMsg types.ChatMessageCountUnread) bool {
+			return unreadMsg.ChatRoomID == room.ChatRoomID
+		})
+
+		if exs {
+			unreadMsgCount = unreadMsg.Count
+		}
+
+		msg, exs := lo.Find(latestMessages, func(msg types.ChatMessage) bool {
+			return msg.ChatRoomID == room.ChatRoomID
+		})
+
+		if exs {
+			res = append(res, types.ChatProviderGetAllRes{
+				Context:            chatCtx,
+				RoomID:             room.ChatRoomID,
+				UnreadMessageCount: unreadMsgCount,
+				Consumer: types.ChatProviderGetAllResConsumer{
+					ID:   consumer.ID,
+					Name: consumer.Name,
+				},
+				LatestMessage: &types.ChatGetAllResLatestMessage{
+					ID:          msg.ID,
+					Content:     msg.Content,
+					ContentType: msg.ContentType,
+					Read:        msg.Read,
+					CreatedAt:   msg.CreatedAt.In(reqTz),
+				},
+			})
+		} else {
+			res = append(res, types.ChatProviderGetAllRes{
+				Context:            chatCtx,
+				RoomID:             room.ChatRoomID,
+				UnreadMessageCount: unreadMsgCount,
+				Consumer: types.ChatProviderGetAllResConsumer{
+					ID:   consumer.ID,
+					Name: consumer.Name,
+				},
+			})
+		}
+	}
+
+	return res, nil
+}
+
+func (s *chatImpl) ProviderGetByRoomID(ctx context.Context, req types.ChatGetByRoomIDReq) (types.ChatProviderGetByRoomIDRes, error) {
+	res := types.ChatProviderGetByRoomIDRes{}
+
+	if err := req.Validate(); err != nil {
+		return res, err
+	}
+
+	chatRoom, err := s.chatRoomRepo.FindByID(ctx, req.RoomID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.New(types.AppErr{Code: http.StatusNotFound, Message: "chat room not found"})
+	} else if err != nil {
+		return res, err
+	}
+
+	messages, err := s.chatMessageRepo.FindByChatRoomID(ctx, chatRoom.ID)
+	if err != nil {
+		return res, err
+	}
+
+	recipient, err := s.chatRoomUserRepo.FindRecipientByChatRoomID(ctx, req.AuthUser.ID, chatRoom.ID)
+	if err != nil {
+		return res, err
+	}
+
+	consumer, err := s.userRepo.FindByID(ctx, recipient.UserID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.New(fmt.Sprintf("service provider not found: user_id %s", recipient.UserID))
+	} else if err != nil {
+		return res, err
+	}
+
+	res = types.ChatProviderGetByRoomIDRes{
+		Context: types.ChatContextCommon,
+		RoomID:  chatRoom.ID,
+		Consumer: types.ChatProviderGetByRoomIDResConsumer{
+			ID:   consumer.ID,
+			Name: consumer.Name,
 		},
 		Messages: []types.ChatGetByRoomIDResMessage{},
 	}

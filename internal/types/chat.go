@@ -121,7 +121,7 @@ type ChatConsumerGetAllRes struct {
 	RoomID             uuid.UUID                            `json:"room_id"`
 	ServiceProvider    ChatConsumerGetAllResServiceProvider `json:"service_provider"`
 	UnreadMessageCount int                                  `json:"unread_message_count"`
-	LatestMessage      *ChatConsumerGetAllResLatestMessage  `json:"latest_message"`
+	LatestMessage      *ChatGetAllResLatestMessage          `json:"latest_message"`
 }
 
 type ChatConsumerGetAllResServiceProvider struct {
@@ -130,7 +130,7 @@ type ChatConsumerGetAllResServiceProvider struct {
 	LogoURL string    `json:"logo_url"`
 }
 
-type ChatConsumerGetAllResLatestMessage struct {
+type ChatGetAllResLatestMessage struct {
 	ID          uuid.UUID              `json:"id"`
 	Content     string                 `json:"content"`
 	ContentType ChatMessageContentType `json:"content_type"`
@@ -192,5 +192,30 @@ type ChatGetByRoomIDResMessage struct {
 	Read        bool                   `json:"read"`
 	CreatedAt   time.Time              `json:"created_at"`
 }
+
+type ChatProviderGetAllRes struct {
+	Context            ChatContext                   `json:"context"`
+	RoomID             uuid.UUID                     `json:"room_id"`
+	Consumer           ChatProviderGetAllResConsumer `json:"consumer"`
+	UnreadMessageCount int                           `json:"unread_message_count"`
+	LatestMessage      *ChatGetAllResLatestMessage   `json:"latest_message"`
+}
+
+type ChatProviderGetAllResConsumer struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+type ChatProviderGetByRoomIDRes struct {
+	Context  ChatContext                        `json:"context"`
+	RoomID   uuid.UUID                          `json:"room_id"`
+	OfferID  uuid.NullUUID                      `json:"offer_id"`
+	Service  *ChatGetByRoomIDResService         `json:"service"`
+	Order    *ChatGetByRoomIDResOrder           `json:"order"`
+	Consumer ChatProviderGetByRoomIDResConsumer `json:"consumer"`
+	Messages []ChatGetByRoomIDResMessage        `json:"messages"`
+}
+
+type ChatProviderGetByRoomIDResConsumer ChatProviderGetAllResConsumer
 
 // end of region service types

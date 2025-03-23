@@ -17,6 +17,9 @@ type Chat interface {
 
 	ConsumerGetAll(c *gin.Context)
 	ConsumerGetByRoomID(c *gin.Context)
+
+	ProviderGetAll(c *gin.Context)
+	ProviderGetByRoomID(c *gin.Context)
 }
 
 type chatImpl struct {
@@ -89,6 +92,49 @@ func (h *chatImpl) ConsumerGetByRoomID(c *gin.Context) {
 	}
 
 	res, err := h.chatService.ConsumerGetByRoomID(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
+		Data:       res,
+	})
+}
+
+func (h *chatImpl) ProviderGetAll(c *gin.Context) {
+	var req types.ChatGetAllReq
+	if err := h.authMiddleware.BindWithRequest(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	res, err := h.chatService.ProviderGetAll(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
+		Data:       res,
+	})
+}
+
+func (h *chatImpl) ProviderGetByRoomID(c *gin.Context) {
+	var req types.ChatGetByRoomIDReq
+	if err := req.RoomID.UnmarshalText([]byte(c.Param("room_id"))); err != nil {
+		c.Error(err)
+		return
+	}
+
+	if err := h.authMiddleware.BindWithRequest(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	res, err := h.chatService.ProviderGetByRoomID(c.Request.Context(), req)
 	if err != nil {
 		c.Error(err)
 		return
