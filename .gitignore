@@ -2,5 +2,6 @@ config/config.yaml
 tmp
 migration-tool
 temp
-elasticsearch_cert.crt
+*.crt
 config/*service-account*.json
+*.env

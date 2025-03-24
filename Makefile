@@ -17,3 +17,10 @@ migration\:force:
 # Usage: make wire:generate
 wire\:generate:
 	wire ./cmd/server
+
+# Usage: make compose:up env-file=.env
+compose\:up:
+	docker compose --env-file "${env-file}" -f "${compose-file}" up -d 
+
+compose\:down:
+	docker compose --env-file "${env-file}" -f "${compose-file}" down

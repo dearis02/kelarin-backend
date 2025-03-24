@@ -115,8 +115,8 @@ func (f File) Validate() error {
 
 type ElasticsearchConfig struct {
 	Addresses          []string `yaml:"addresses"`
-	APIKey             string   `yaml:"api_key"`
-	CertificatePath    string   `yaml:"certificate_path"`
+	Username           string   `yaml:"username"`
+	Password           string   `yaml:"password"`
 	MaxIdleCons        int      `yaml:"max_idle_cons"`
 	MaxIdleConsPerHost int      `yaml:"max_idle_cons_per_host"`
 }
@@ -124,8 +124,8 @@ type ElasticsearchConfig struct {
 func (e ElasticsearchConfig) Validate() error {
 	return validation.ValidateStruct(&e,
 		validation.Field(&e.Addresses, validation.Required),
-		validation.Field(&e.APIKey, validation.Required),
-		validation.Field(&e.CertificatePath, validation.Required),
+		validation.Field(&e.Username, validation.Required),
+		validation.Field(&e.Password, validation.Required),
 		validation.Field(&e.MaxIdleCons, validation.Required),
 		validation.Field(&e.MaxIdleConsPerHost, validation.Required),
 	)
