@@ -22,5 +22,5 @@ func NewOfferNegotiation(g *gin.Engine, offerNegotiationHandler handler.OfferNeg
 func (r *OfferNegotiation) Register(authMw middleware.Auth) {
 	r.g.POST("/provider/v1/offer-negotiations", authMw.ServiceProvider, r.offerNegotiationHandler.ProviderCreate)
 
-	r.g.PATCH("/consumer/v1/offer-negotiations/:id", authMw.Consumer, r.offerNegotiationHandler.ConsumerAction)
+	r.g.POST("/consumer/v1/offer-negotiations/:id", authMw.Consumer, r.offerNegotiationHandler.ConsumerAction)
 }
