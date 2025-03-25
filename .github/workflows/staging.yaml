@@ -1,0 +1,112 @@
+name: Deploy to Staging
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+-alpha.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+'
+
+env:
+  SSH_KEY_FILE_NAME: ssh_key.pem
+  APP_DIR: kelarin/api/staging/
+  CONTAINER_NAME: kelarin-backend-staging #equal to docker env COMPOSE_PROJECT_NAME
+  DOCKER_ENV_FILE_NAME: .docker.env
+  CONFIG_FILE_NAME: config.yaml
+  COMPOSE_FILE_NAME: docker-compose.staging.yml
+  TAG: ${{ github.ref_name }}
+  MIGRATION_EXECUTABLE_FILE_NAME: migration-tool
+
+jobs:
+  test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23.4
+      - name: Install Dependencies
+        run: go mod tidy
+      - name: Run Unit Tests
+        run: go test -v ./internal/test
+
+  build_and_deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    steps:
+    - 
+      name: Checkout repository
+      uses: actions/checkout@v4
+    - 
+      name: Create config folder
+      run: mkdir config
+    -
+      name: store ${{ env.CONFIG_FILE_NAME }}
+      run : echo "${{ secrets.STAGING_APP_CONFIG }}" > config/${{ env.CONFIG_FILE_NAME }}
+    -
+      name: store ${{ env.DOCKER_ENV_FILE_NAME }}
+      run : echo "${{ secrets.STAGING_DOCKER_ENV }}" > config/${{ env.DOCKER_ENV_FILE_NAME }}
+    - 
+      name: Store SSH key
+      run: echo "${{ secrets.SSH_KEY }}" > ${{ env.SSH_KEY_FILE_NAME }}
+    - 
+      name: Change SSH key permission
+      run: chmod 444 ${{ env.SSH_KEY_FILE_NAME }}
+    - 
+      name: Docker meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.DOCKERHUB_REPO }}
+        tags: |
+          type=ref,event=tag
+        flavor: |
+          latest=false
+    -
+      name: Login to DockerHub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    -
+      name: Build and push docker image
+      uses: docker/build-push-action@v6
+      with:
+        context: ..
+        file: docker/Dockerfile
+        secret-files: ${{ env.DOCKER_ENV_FILE_NAME }}
+        push: true
+        tags: ${{ env.TAG }}
+    -
+      name: Copy files to server
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USERNAME }}
+        port: ${{ secrets.SSH_PORT }}
+        key_path: ${{ env.SSH_KEY_FILE_NAME }}
+        source: "./docker/${{env.COMPOSE_FILE_NAME}},./config,./database,Makefile"
+        target: "/home/${{ secrets.SSH_USERNAME }}/${{ env.APP_DIR }}"
+    -
+      name: Build migration tool
+      run: |
+        go build -o ${{ env.MIGRATION_EXECUTABLE_FILE_NAME }} ./cmd/migration
+    -
+      name: Executing remote commands
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
+        port: ${{ secrets.SSH_PORT }}
+        script: |
+          cd /home/${{ secrets.SSH_USERNAME }}/${{ env.APP_DIR }}
+          make migration:up
+          IMAGE_TAG=${{ env.TAG }} docker compose --env-file "${{ env.DOCKER_ENV_FILE_NAME }}" -f ${{ env.COMPOSE_FILE_NAME }} pull
+          docker compose -p ${{ env.CONTAINER_NAME }} down
+          IMAGE_TAG=${{ env.TAG }} docker compose --env-file "${{ env.DOCKER_ENV_FILE_NAME }}" -f ${{ env.COMPOSE_FILE_NAME }}  up -d
+          docker image prune -f
+          docker compose -f ${{ env.COMPOSE_FILE_NAME }} --env-file "${{ env.DOCKER_ENV_FILE_NAME }}" ps 
+          docker compose -f ${{ env.COMPOSE_FILE_NAME }} --env-file "${{ env.DOCKER_ENV_FILE_NAME }}" logs 

@@ -13,7 +13,11 @@ services:
     volumes:
       - es_data:/usr/share/elasticsearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -s -u elastic:${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"'"]
+      test:
+        [
+          "CMD-SHELL",
+          'curl -s -u elastic:${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health | grep -q ''"status":"green"''',
+        ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -53,14 +57,11 @@ services:
     restart: unless-stopped
 
   kelarin-api:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    container_name: kelarin-api
+    image: ${DOCKERHUB_USERNAME}/${DOCKERHUB_REPO}:${IMAGE_TAG}
     ports:
       - 3000:${API_PORT}
     volumes:
-        - ../config:/app/config
+      - ./config:/app/config
     depends_on:
       elasticsearch:
         condition: service_healthy
