@@ -76,7 +76,7 @@ jobs:
       name: Build and push docker image
       uses: docker/build-push-action@v6
       with:
-        context: ..
+        context: .
         file: docker/Dockerfile
         secret-files: ${{ env.DOCKER_ENV_FILE_NAME }}
         push: true
