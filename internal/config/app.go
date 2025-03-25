@@ -165,7 +165,6 @@ type Config struct {
 	DataBase               PostgresConfig      `yaml:"database"`
 	Redis                  RedisConfig         `yaml:"redis"`
 	JWT                    JWTConfig           `yaml:"jwt"`
-	PrettyLog              bool                `yaml:"pretty_log"`
 	Oauth                  OAuthConfig         `yaml:"oauth"`
 	File                   File                `yaml:"file"`
 	OpenCageApiKey         string              `yaml:"opencage_api_key"`

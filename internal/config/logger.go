@@ -51,15 +51,17 @@ func NewLogger(c *Config) zerolog.Logger {
 
 		return nil
 	}
-	zerolog.DefaultContextLogger = &log.Logger
 
-	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
-	log.Logger = log.With().Stack().Logger()
+	logContext := log.With().Stack()
+	logAppNameDict := zerolog.Dict().Str("name", "kelarin-backend")
 
-	if c.PrettyLog {
-		log.Logger = log.Output(jsonIndentWriter{Out: os.Stderr, TimeFormat: timeStampFormat})
-		logger = logger.Output(jsonIndentWriter{Out: os.Stderr, TimeFormat: timeStampFormat})
+	if c.Environment != "production" {
+		log.Logger = logContext.Logger().Output(jsonIndentWriter{Out: os.Stderr, TimeFormat: timeStampFormat})
+		return logContext.Logger().Output(jsonIndentWriter{Out: os.Stderr, TimeFormat: timeStampFormat})
 	}
+
+	logger := logContext.Dict("app", logAppNameDict).Logger()
+	log.Logger = logContext.Dict("app", logAppNameDict).Logger()
 
 	return logger
 }

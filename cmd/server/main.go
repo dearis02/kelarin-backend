@@ -46,7 +46,6 @@ func main() {
 	gin.SetMode(cfg.Mode())
 	g := gin.New()
 	g.Use(gin.RecoveryWithWriter(&logger))
-	g.Use(gin.LoggerWithWriter(&logger))
 
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AllowOrigins = cfg.Server.CORS.AllowedOrigins
