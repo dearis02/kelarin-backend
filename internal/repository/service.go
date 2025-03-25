@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"kelarin/internal/types"
+	dbUtil "kelarin/internal/utils/dbutil"
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
@@ -12,12 +13,12 @@ import (
 )
 
 type Service interface {
-	CreateTx(ctx context.Context, tx *sqlx.Tx, req types.Service) error
+	CreateTx(ctx context.Context, _tx dbUtil.Tx, req types.Service) error
 	FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Service, error)
-	UpdateTx(ctx context.Context, tx *sqlx.Tx, req types.Service) error
+	UpdateTx(ctx context.Context, _tx dbUtil.Tx, req types.Service) error
 	FindByID(ctx context.Context, ID uuid.UUID) (types.Service, error)
 	FindAllByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.Service, error)
-	DeleteTx(ctx context.Context, tx *sqlx.Tx, service types.Service) error
+	DeleteTx(ctx context.Context, _tx dbUtil.Tx, service types.Service) error
 	FindByIDs(ctx context.Context, IDs []uuid.UUID) ([]types.Service, error)
 }
 
@@ -63,7 +64,12 @@ func (r *serviceImpl) FindByID(ctx context.Context, ID uuid.UUID) (types.Service
 	return res, nil
 }
 
-func (r *serviceImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, req types.Service) error {
+func (r *serviceImpl) CreateTx(ctx context.Context, _tx dbUtil.Tx, req types.Service) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	statement := `
 		INSERT INTO services (
 			id,
@@ -134,7 +140,12 @@ func (r *serviceImpl) FindByIDAndServiceProviderID(ctx context.Context, ID, serv
 	return res, nil
 }
 
-func (r *serviceImpl) UpdateTx(ctx context.Context, tx *sqlx.Tx, req types.Service) error {
+func (r *serviceImpl) UpdateTx(ctx context.Context, _tx dbUtil.Tx, req types.Service) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	statement := `
 		UPDATE services
 		SET
@@ -187,7 +198,12 @@ func (r *serviceImpl) FindAllByServiceProviderID(ctx context.Context, servicePro
 	return res, nil
 }
 
-func (r *serviceImpl) DeleteTx(ctx context.Context, tx *sqlx.Tx, service types.Service) error {
+func (r *serviceImpl) DeleteTx(ctx context.Context, _tx dbUtil.Tx, service types.Service) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	statement := `
 		UPDATE services
 		SET

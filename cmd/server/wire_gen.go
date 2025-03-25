@@ -25,17 +25,18 @@ import (
 	"kelarin/internal/repository"
 	"kelarin/internal/service"
 	"kelarin/internal/types"
+	"kelarin/internal/utils/dbutil"
 )
 
 // Injectors from wire.go:
 
-func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config2 *config.Config, redis2 *redis.Client, s3UploadManager *manager.Uploader, queueClient *asynq.Client, s3Client *s3.Client, s3PresignClient *s3.PresignClient, opencageClient *opencage.Client, authMiddleware middleware.Auth, firebaseMessagingClient *messaging.Client, midtransSnapClient *snap.Client, wsUpgrader *websocket.Upgrader, wsHub *types.WsHub) (*provider.Server, error) {
+func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config2 *config.Config, redis2 *redis.Client, s3UploadManager *manager.Uploader, queueClient *asynq.Client, s3Client *s3.Client, s3PresignClient *s3.PresignClient, opencageClient *opencage.Client, authMiddleware middleware.Auth, firebaseMessagingClient *messaging.Client, midtransSnapClient *snap.Client, wsUpgrader *websocket.Upgrader, wsHub *types.WsHub, mainDBTx dbUtil.SqlxTx) (*provider.Server, error) {
 	user := repository.NewUser(db)
 	serviceUser := service.NewUser(user)
 	handlerUser := handler.NewUser(serviceUser)
 	session := repository.NewSession(redis2)
 	pendingRegistration := repository.NewPendingRegistration(redis2)
-	auth := service.NewAuth(config2, db, session, user, pendingRegistration)
+	auth := service.NewAuth(config2, mainDBTx, session, user, pendingRegistration)
 	handlerAuth := handler.NewAuth(auth)
 	file := repository.NewFile(redis2)
 	tempFile := task.NewTempFile(queueClient)
@@ -52,7 +53,7 @@ func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config2 *config.Con
 	repositoryService := repository.NewService(db)
 	serviceCategory := repository.NewServiceCategory(db)
 	serviceServiceCategory := repository.NewServiceServiceCategory(db)
-	serviceService := service.NewService(db, serviceIndex, serviceProvider, repositoryService, serviceCategory, serviceServiceCategory, serviceProviderArea, serviceFile)
+	serviceService := service.NewService(mainDBTx, serviceIndex, serviceProvider, repositoryService, serviceCategory, serviceServiceCategory, serviceProviderArea, serviceFile)
 	consumerService := service.NewConsumerService(serviceIndex, repositoryService, serviceProviderArea, serviceProvider, serviceFile)
 	handlerService := handler.NewService(serviceService, consumerService, authMiddleware)
 	serviceProvince := service.NewProvince(province)
@@ -75,20 +76,20 @@ func newServer(db *sqlx.DB, esDB *elasticsearch.TypedClient, config2 *config.Con
 	chatMessage := repository.NewChatMessage(db)
 	order := repository.NewOrder(db)
 	util := service.NewUtil()
-	chat := service.NewChat(db, repositoryService, user, chatRoom, chatRoomUser, chatMessage, wsHub, offer, serviceProvider, serviceFile, order, util)
-	serviceOffer := service.NewOffer(offer, userAddress, repositoryService, serviceFile, serviceProvider, offerNegotiation, serviceProviderNotification, fcmToken, notification, user, db, consumerNotification, chat, order, util)
+	chat := service.NewChat(mainDBTx, repositoryService, user, chatRoom, chatRoomUser, chatMessage, wsHub, offer, serviceProvider, serviceFile, order, util)
+	serviceOffer := service.NewOffer(mainDBTx, offer, userAddress, repositoryService, serviceFile, serviceProvider, offerNegotiation, serviceProviderNotification, fcmToken, notification, user, consumerNotification, chat, order, util)
 	handlerOffer := handler.NewOffer(serviceOffer, authMiddleware)
-	serviceOfferNegotiation := service.NewOfferNegotiation(serviceProvider, offerNegotiation, offer, repositoryService, db, notification, fcmToken, serviceFile, consumerNotification)
+	serviceOfferNegotiation := service.NewOfferNegotiation(mainDBTx, serviceProvider, offerNegotiation, offer, repositoryService, db, notification, fcmToken, serviceFile, consumerNotification)
 	handlerOfferNegotiation := handler.NewOfferNegotiation(authMiddleware, serviceOfferNegotiation)
-	serviceConsumerNotification := service.NewConsumerNotification(db, user, consumerNotification, util, serviceFile)
+	serviceConsumerNotification := service.NewConsumerNotification(mainDBTx, user, consumerNotification, util, serviceFile)
 	serviceServiceProviderNotification := service.NewServiceProviderNotification(serviceProvider, serviceProviderNotification, util)
 	handlerNotification := handler.NewNotification(authMiddleware, notification, serviceConsumerNotification, serviceServiceProviderNotification)
 	payment := repository.NewPayment(db)
 	paymentMethod := repository.NewPaymentMethod(db)
 	midtrans := service.NewMidtrans(midtransSnapClient)
-	servicePayment := service.NewPayment(config2, db, payment, paymentMethod, order, midtrans, notification, fcmToken, consumerNotification, serviceProviderNotification)
+	servicePayment := service.NewPayment(config2, mainDBTx, payment, paymentMethod, order, midtrans, notification, fcmToken, consumerNotification, serviceProviderNotification)
 	handlerPayment := handler.NewPayment(servicePayment, authMiddleware)
-	serviceOrder := service.NewOrder(order, serviceFile, util, serviceOffer, payment, paymentMethod, config2, serviceProvider, consumerNotification, serviceProviderNotification, fcmToken, notification, db, repositoryService)
+	serviceOrder := service.NewOrder(mainDBTx, order, serviceFile, util, serviceOffer, payment, paymentMethod, config2, serviceProvider, consumerNotification, serviceProviderNotification, fcmToken, notification, repositoryService)
 	handlerOrder := handler.NewOrder(serviceOrder, authMiddleware)
 	servicePaymentMethod := service.NewPaymentMethod(paymentMethod)
 	handlerPaymentMethod := handler.NewPaymentMethod(servicePaymentMethod)

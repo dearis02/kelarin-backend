@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"kelarin/internal/types"
+	dbUtil "kelarin/internal/utils/dbutil"
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
@@ -12,15 +13,15 @@ import (
 )
 
 type Order interface {
-	CreateTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error
+	CreateTx(ctx context.Context, tx dbUtil.Tx, req types.Order) error
 	FindByIDAndUserID(ctx context.Context, ID, userID uuid.UUID) (types.OrderWithRelations, error)
-	UpdateAsPaymentTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error
-	UpdateAsPaymentFulfilledTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error
+	UpdateAsPaymentTx(ctx context.Context, tx dbUtil.Tx, req types.Order) error
+	UpdateAsPaymentFulfilledTx(ctx context.Context, tx dbUtil.Tx, req types.Order) error
 	FindByPaymentID(ctx context.Context, paymentID uuid.UUID) (types.OrderWithUserAndServiceProvider, error)
 	FindAllByUserID(ctx context.Context, userID uuid.UUID) ([]types.OrderWithServiceAndServiceProvider, error)
 	FindAllByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.Order, error)
 	FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Order, error)
-	UpdateStatusTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error
+	UpdateStatusTx(ctx context.Context, tx dbUtil.Tx, req types.Order) error
 	FindForReportByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID, month, year int) (int64, []types.OrderForReport, error)
 	FindTotalServiceFeeByServiceProviderIDAndStatusAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, status types.OrderStatus, month, year int) (decimal.Decimal, error)
 	FindForReportExportByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.OrderForReportExport, error)
@@ -35,7 +36,12 @@ func NewOrder(db *sqlx.DB) Order {
 	return &orderImpl{db: db}
 }
 
-func (r *orderImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error {
+func (r *orderImpl) CreateTx(ctx context.Context, _tx dbUtil.Tx, req types.Order) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	query := `
 		INSERT INTO orders (
 			id,
@@ -111,7 +117,12 @@ func (r *orderImpl) FindByIDAndUserID(ctx context.Context, ID, userID uuid.UUID)
 	return res, nil
 }
 
-func (r *orderImpl) UpdateAsPaymentTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error {
+func (r *orderImpl) UpdateAsPaymentTx(ctx context.Context, _tx dbUtil.Tx, req types.Order) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE orders
 		SET
@@ -127,7 +138,12 @@ func (r *orderImpl) UpdateAsPaymentTx(ctx context.Context, tx *sqlx.Tx, req type
 	return nil
 }
 
-func (r *orderImpl) UpdateAsPaymentFulfilledTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error {
+func (r *orderImpl) UpdateAsPaymentFulfilledTx(ctx context.Context, _tx dbUtil.Tx, req types.Order) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE orders
 		SET
@@ -291,7 +307,12 @@ func (r *orderImpl) FindByIDAndServiceProviderID(ctx context.Context, ID, servic
 	return res, nil
 }
 
-func (r *orderImpl) UpdateStatusTx(ctx context.Context, tx *sqlx.Tx, req types.Order) error {
+func (r *orderImpl) UpdateStatusTx(ctx context.Context, _tx dbUtil.Tx, req types.Order) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE orders
 		SET
@@ -300,7 +321,7 @@ func (r *orderImpl) UpdateStatusTx(ctx context.Context, tx *sqlx.Tx, req types.O
 		WHERE id = :id
 	`
 
-	_, err := tx.NamedExecContext(ctx, query, req)
+	_, err = tx.NamedExecContext(ctx, query, req)
 	if err != nil {
 		return errors.New(err)
 	}

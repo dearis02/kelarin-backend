@@ -37,7 +37,7 @@ import (
 // type province map[string]string
 
 func main() {
-	cfg := config.NewApp()
+	cfg := config.NewApp("config/config.yaml")
 	logger := config.NewLogger(cfg)
 	if err := fileSystemUtil.InitTempDir(); err != nil {
 		log.Fatal().Stack().Err(err).Send()
@@ -98,7 +98,8 @@ func main() {
 	wsUpgrader := ws.NewWsUpgrader(cfg)
 	wsHub := ws.NewWsHub()
 
-	server, err := newServer(db, es, cfg, redis, s3Uploader, queueClient, s3Client, s3PresignClient, openCageClient, authMiddleware, firebaseMessagingClient, midtransSnapClient, wsUpgrader, wsHub)
+	mainDBTx := dbUtil.NewSqlxTx(db)
+	server, err := newServer(db, es, cfg, redis, s3Uploader, queueClient, s3Client, s3PresignClient, openCageClient, authMiddleware, firebaseMessagingClient, midtransSnapClient, wsUpgrader, wsHub, mainDBTx)
 	if err != nil {
 		log.Fatal().Stack().Err(err).Send()
 	}

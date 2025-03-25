@@ -9,27 +9,26 @@ import (
 	dbUtil "kelarin/internal/utils/dbutil"
 
 	"github.com/go-errors/errors"
-	"github.com/jmoiron/sqlx"
 	"github.com/shopspring/decimal"
 	"golang.org/x/text/currency"
 )
 
 type ConsumerNotification interface {
-	Create(ctx context.Context, tx *sqlx.Tx, req types.ConsumerNotification) error
+	Create(ctx context.Context, tx dbUtil.Tx, req types.ConsumerNotification) error
 	GetAll(ctx context.Context, req types.ConsumerNotificationGetAllReq) ([]types.ConsumerNotificationGetAllRes, error)
 }
 
 type consumerNotificationImpl struct {
-	db                       *sqlx.DB
+	beginMainDBTx            dbUtil.SqlxTx
 	userRepo                 repository.User
 	consumerNotificationRepo repository.ConsumerNotification
 	utilSvc                  Util
 	fileSvc                  File
 }
 
-func NewConsumerNotification(db *sqlx.DB, userRepo repository.User, consumerNotificationRepo repository.ConsumerNotification, utilSvc Util, fileSvc File) ConsumerNotification {
+func NewConsumerNotification(beginMainDBTx dbUtil.SqlxTx, userRepo repository.User, consumerNotificationRepo repository.ConsumerNotification, utilSvc Util, fileSvc File) ConsumerNotification {
 	return &consumerNotificationImpl{
-		db:                       db,
+		beginMainDBTx:            beginMainDBTx,
 		userRepo:                 userRepo,
 		consumerNotificationRepo: consumerNotificationRepo,
 		utilSvc:                  utilSvc,
@@ -37,12 +36,12 @@ func NewConsumerNotification(db *sqlx.DB, userRepo repository.User, consumerNoti
 	}
 }
 
-func (s *consumerNotificationImpl) Create(ctx context.Context, _tx *sqlx.Tx, req types.ConsumerNotification) error {
+func (s *consumerNotificationImpl) Create(ctx context.Context, _tx dbUtil.Tx, req types.ConsumerNotification) error {
 	var err error
 
 	tx := _tx
 	if _tx == nil {
-		tx, err = dbUtil.NewSqlxTx(ctx, s.db, nil)
+		tx, err = s.beginMainDBTx(ctx, nil)
 		if err != nil {
 			return errors.New(err)
 		}

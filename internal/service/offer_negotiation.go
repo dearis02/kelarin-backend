@@ -21,24 +21,24 @@ type OfferNegotiation interface {
 }
 
 type offerNegotiationImpl struct {
+	beginMainDBTx            dbUtil.SqlxTx
 	serviceProviderRepo      repository.ServiceProvider
 	offerNegotiationRepo     repository.OfferNegotiation
 	offerRepo                repository.Offer
 	serviceRepo              repository.Service
-	db                       *sqlx.DB
 	notificationSvc          Notification
 	fcmTokenRepo             repository.FCMToken
 	fileSvc                  File
 	consumerNotificationRepo repository.ConsumerNotification
 }
 
-func NewOfferNegotiation(serviceProviderRepo repository.ServiceProvider, offerNegotiationRepo repository.OfferNegotiation, offerRepo repository.Offer, serviceRepo repository.Service, db *sqlx.DB, notificationSvc Notification, fcmTokenRepo repository.FCMToken, fileSvc File, consumerNotificationRepo repository.ConsumerNotification) OfferNegotiation {
+func NewOfferNegotiation(beginMainDBTx dbUtil.SqlxTx, serviceProviderRepo repository.ServiceProvider, offerNegotiationRepo repository.OfferNegotiation, offerRepo repository.Offer, serviceRepo repository.Service, db *sqlx.DB, notificationSvc Notification, fcmTokenRepo repository.FCMToken, fileSvc File, consumerNotificationRepo repository.ConsumerNotification) OfferNegotiation {
 	return &offerNegotiationImpl{
+		beginMainDBTx:            beginMainDBTx,
 		serviceProviderRepo:      serviceProviderRepo,
 		offerNegotiationRepo:     offerNegotiationRepo,
 		offerRepo:                offerRepo,
 		serviceRepo:              serviceRepo,
-		db:                       db,
 		notificationSvc:          notificationSvc,
 		fcmTokenRepo:             fcmTokenRepo,
 		fileSvc:                  fileSvc,
@@ -111,7 +111,7 @@ func (s *offerNegotiationImpl) ProviderCreate(ctx context.Context, req types.Off
 		CreatedAt:          now,
 	}
 
-	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	tx, err := s.beginMainDBTx(ctx, nil)
 	if err != nil {
 		return errors.New(err)
 	}
@@ -189,7 +189,7 @@ func (s *offerNegotiationImpl) ConsumerAction(ctx context.Context, req types.Off
 		negotiation.Status = types.OfferNegotiationStatusRejected
 	}
 
-	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	tx, err := s.beginMainDBTx(ctx, nil)
 	if err != nil {
 		return errors.New(err)
 	}

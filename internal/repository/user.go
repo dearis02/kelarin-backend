@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"kelarin/internal/types"
+	dbUtil "kelarin/internal/utils/dbutil"
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
@@ -15,7 +16,7 @@ type User interface {
 	FindByEmail(ctx context.Context, email string) (types.User, error)
 	FindByID(ctx context.Context, ID uuid.UUID) (types.User, error)
 	Create(ctx context.Context, user types.User) error
-	CreateTx(ctx context.Context, tx *sqlx.Tx, user types.User) error
+	CreateTx(ctx context.Context, _tx dbUtil.Tx, user types.User) error
 	FindByIDs(ctx context.Context, IDs uuid.UUIDs) ([]types.User, error)
 }
 
@@ -117,7 +118,12 @@ func (r *userImpl) Create(ctx context.Context, user types.User) error {
 	return nil
 }
 
-func (r *userImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, user types.User) error {
+func (r *userImpl) CreateTx(ctx context.Context, _tx dbUtil.Tx, user types.User) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	statement := `
 		INSERT INTO users (
 			id, 

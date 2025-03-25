@@ -1,12 +1,12 @@
 package types
 
 import (
+	dbUtil "kelarin/internal/utils/dbutil"
 	"time"
 
 	"github.com/go-errors/errors"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 )
 
 // region service types
@@ -17,7 +17,7 @@ type ChatChatRoomCreateReq struct {
 	SenderID    uuid.UUID     `json:"sender_id"`
 	RecipientID uuid.UUID     `json:"recipient_id"`
 	OfferID     uuid.NullUUID `json:"offer_id"`
-	Tx          *sqlx.Tx
+	Tx          dbUtil.Tx
 }
 
 func (r ChatChatRoomCreateReq) Validate() error {

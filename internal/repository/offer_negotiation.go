@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"kelarin/internal/types"
+	dbUtil "kelarin/internal/utils/dbutil"
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
@@ -12,12 +13,12 @@ import (
 )
 
 type OfferNegotiation interface {
-	CreateTx(ctx context.Context, tx *sqlx.Tx, req types.OfferNegotiation) error
+	CreateTx(ctx context.Context, _tx dbUtil.Tx, req types.OfferNegotiation) error
 	FindByOfferIDAndStatus(ctx context.Context, offerID uuid.UUID, status types.OfferNegotiationStatus) (types.OfferNegotiation, error)
 	FindByOfferIDsAndStatus(ctx context.Context, offerIDs []uuid.UUID, status types.OfferNegotiationStatus) ([]types.OfferNegotiation, error)
 	FindAllByOfferID(ctx context.Context, offerID uuid.UUID) ([]types.OfferNegotiation, error)
 	FindByIDAndUserID(ctx context.Context, ID, userID uuid.UUID) (types.OfferNegotiation, error)
-	UpdateStatusTx(ctx context.Context, tx *sqlx.Tx, req types.OfferNegotiation) error
+	UpdateStatusTx(ctx context.Context, tx dbUtil.Tx, req types.OfferNegotiation) error
 }
 
 type offerNegotiationImpl struct {
@@ -30,7 +31,12 @@ func NewOfferNegotiation(db *sqlx.DB) OfferNegotiation {
 	}
 }
 
-func (r *offerNegotiationImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, req types.OfferNegotiation) error {
+func (r *offerNegotiationImpl) CreateTx(ctx context.Context, _tx dbUtil.Tx, req types.OfferNegotiation) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	query := `
 		INSERT INTO offer_negotiations (
 			id,
@@ -157,7 +163,12 @@ func (r *offerNegotiationImpl) FindByIDAndUserID(ctx context.Context, ID, userID
 	return res, nil
 }
 
-func (r *offerNegotiationImpl) UpdateStatusTx(ctx context.Context, tx *sqlx.Tx, req types.OfferNegotiation) error {
+func (r *offerNegotiationImpl) UpdateStatusTx(ctx context.Context, _tx dbUtil.Tx, req types.OfferNegotiation) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE offer_negotiations
 		SET

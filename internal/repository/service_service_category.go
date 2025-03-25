@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"kelarin/internal/types"
+	dbUtil "kelarin/internal/utils/dbutil"
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
@@ -10,8 +11,8 @@ import (
 )
 
 type ServiceServiceCategory interface {
-	BulkCreateTx(ctx context.Context, tx *sqlx.Tx, req []types.ServiceServiceCategory) error
-	DeleteByServiceIDTx(ctx context.Context, tx *sqlx.Tx, serviceID uuid.UUID) error
+	BulkCreateTx(ctx context.Context, tx dbUtil.Tx, req []types.ServiceServiceCategory) error
+	DeleteByServiceIDTx(ctx context.Context, tx dbUtil.Tx, serviceID uuid.UUID) error
 }
 
 type serviceServiceCategoryImpl struct {
@@ -24,7 +25,12 @@ func NewServiceServiceCategory(db *sqlx.DB) ServiceServiceCategory {
 	}
 }
 
-func (r *serviceServiceCategoryImpl) BulkCreateTx(ctx context.Context, tx *sqlx.Tx, req []types.ServiceServiceCategory) error {
+func (r *serviceServiceCategoryImpl) BulkCreateTx(ctx context.Context, _tx dbUtil.Tx, req []types.ServiceServiceCategory) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	statement := `
 		INSERT INTO service_service_categories (
 			service_id,
@@ -43,7 +49,12 @@ func (r *serviceServiceCategoryImpl) BulkCreateTx(ctx context.Context, tx *sqlx.
 	return nil
 }
 
-func (r *serviceServiceCategoryImpl) DeleteByServiceIDTx(ctx context.Context, tx *sqlx.Tx, serviceID uuid.UUID) error {
+func (r *serviceServiceCategoryImpl) DeleteByServiceIDTx(ctx context.Context, _tx dbUtil.Tx, serviceID uuid.UUID) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	query := `
 		DELETE FROM service_service_categories
 		WHERE service_id = $1

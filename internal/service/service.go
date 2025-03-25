@@ -12,7 +12,6 @@ import (
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/volatiletech/null/v9"
 )
 
@@ -27,7 +26,7 @@ type Service interface {
 }
 
 type serviceImpl struct {
-	db                         *sqlx.DB
+	beginMainDBTx              dbUtil.SqlxTx
 	serviceIndexRepo           repository.ServiceIndex
 	serviceProviderRepo        repository.ServiceProvider
 	serviceRepo                repository.Service
@@ -37,9 +36,9 @@ type serviceImpl struct {
 	fileSvc                    File
 }
 
-func NewService(db *sqlx.DB, serviceIndexRepo repository.ServiceIndex, serviceProviderRepo repository.ServiceProvider, serviceRepo repository.Service, serviceCategoryRepo repository.ServiceCategory, serviceServiceCategoryRepo repository.ServiceServiceCategory, serviceProviderAreaRepo repository.ServiceProviderArea, fileSvc File) Service {
+func NewService(beginMainDBTx dbUtil.SqlxTx, serviceIndexRepo repository.ServiceIndex, serviceProviderRepo repository.ServiceProvider, serviceRepo repository.Service, serviceCategoryRepo repository.ServiceCategory, serviceServiceCategoryRepo repository.ServiceServiceCategory, serviceProviderAreaRepo repository.ServiceProviderArea, fileSvc File) Service {
 	return &serviceImpl{
-		db:                         db,
+		beginMainDBTx:              beginMainDBTx,
 		serviceIndexRepo:           serviceIndexRepo,
 		serviceProviderRepo:        serviceProviderRepo,
 		serviceRepo:                serviceRepo,
@@ -178,7 +177,7 @@ func (s *serviceImpl) Create(ctx context.Context, req types.ServiceCreateReq) er
 
 	service.Images = imagesPath
 
-	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	tx, err := s.beginMainDBTx(ctx, nil)
 	if err != nil {
 		return errors.New(err)
 	}
@@ -363,7 +362,7 @@ func (s *serviceImpl) Update(ctx context.Context, req types.ServiceUpdateReq) er
 		idxService.City = area.CityName
 	}
 
-	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	tx, err := s.beginMainDBTx(ctx, nil)
 	if err != nil {
 		return errors.New(err)
 	}
@@ -419,7 +418,7 @@ func (s *serviceImpl) Delete(ctx context.Context, req types.ServiceDeleteReq) er
 		return err
 	}
 
-	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	tx, err := s.beginMainDBTx(ctx, nil)
 	if err != nil {
 		return errors.New(err)
 	}
@@ -478,7 +477,7 @@ func (s *serviceImpl) AddImages(ctx context.Context, req types.ServiceImageActio
 
 	service.Images = append(service.Images, imgKeys...)
 
-	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	tx, err := s.beginMainDBTx(ctx, nil)
 	if err != nil {
 		return errors.New(err)
 	}
@@ -530,7 +529,7 @@ func (s *serviceImpl) RemoveImages(ctx context.Context, req types.ServiceImageAc
 
 	service.Images = images
 
-	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	tx, err := s.beginMainDBTx(ctx, nil)
 	if err != nil {
 		return errors.New(err)
 	}

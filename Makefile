@@ -24,3 +24,10 @@ compose\:up:
 
 compose\:down:
 	docker compose --env-file "${env-file}" -f "${compose-file}" down
+
+generate-mock\:repo:
+	mockery --name=${name} --dir=internal/repository --output=internal/mocks/repository --case=underscore
+
+generate-mock\:service:
+	mockery --name=${name} --dir=internal/service --output=internal/mocks/service --case=underscore
+

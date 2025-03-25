@@ -202,10 +202,10 @@ func (c *Config) Mode() string {
 	}
 }
 
-func NewApp() *Config {
+func NewApp(filePath string) *Config {
 	cfg := &Config{}
 
-	cfgData, err := os.ReadFile("config/config.yaml")
+	cfgData, err := os.ReadFile(filePath)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to read config file")
 	}

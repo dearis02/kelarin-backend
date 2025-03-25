@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"kelarin/internal/types"
+	dbUtil "kelarin/internal/utils/dbutil"
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
@@ -12,7 +13,7 @@ import (
 
 type ChatRoom interface {
 	FindByID(ctx context.Context, ID uuid.UUID) (types.ChatRoom, error)
-	CreateTx(ctx context.Context, tx *sqlx.Tx, req types.ChatRoom) error
+	CreateTx(ctx context.Context, tx dbUtil.Tx, req types.ChatRoom) error
 }
 
 type chatRoomImpl struct {
@@ -46,7 +47,12 @@ func (r *chatRoomImpl) FindByID(ctx context.Context, ID uuid.UUID) (types.ChatRo
 	return res, nil
 }
 
-func (r *chatRoomImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, req types.ChatRoom) error {
+func (r *chatRoomImpl) CreateTx(ctx context.Context, _tx dbUtil.Tx, req types.ChatRoom) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	query := `
 		INSERT INTO chat_rooms (
 			id,

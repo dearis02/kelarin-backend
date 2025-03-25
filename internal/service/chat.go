@@ -13,7 +13,6 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
 )
@@ -30,7 +29,7 @@ type Chat interface {
 }
 
 type chatImpl struct {
-	db                  *sqlx.DB
+	beginMainDBTx       dbUtil.SqlxTx
 	serviceRepo         repository.Service
 	userRepo            repository.User
 	chatRoomRepo        repository.ChatRoom
@@ -45,7 +44,7 @@ type chatImpl struct {
 }
 
 func NewChat(
-	db *sqlx.DB,
+	beginMainDBTx dbUtil.SqlxTx,
 	serviceRepo repository.Service,
 	userRepo repository.User,
 	chatRoomRepo repository.ChatRoom,
@@ -59,7 +58,7 @@ func NewChat(
 	utilSvc Util,
 ) Chat {
 	return &chatImpl{
-		db:                  db,
+		beginMainDBTx:       beginMainDBTx,
 		serviceRepo:         serviceRepo,
 		userRepo:            userRepo,
 		chatRoomRepo:        chatRoomRepo,
@@ -388,7 +387,7 @@ func (s *chatImpl) SaveSentMessage(ctx context.Context, req types.ChatSaveSentMe
 		return res, err
 	}
 
-	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	tx, err := s.beginMainDBTx(ctx, nil)
 	if err != nil {
 		return res, err
 	}

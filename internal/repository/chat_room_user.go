@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"kelarin/internal/types"
+	dbUtil "kelarin/internal/utils/dbutil"
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
@@ -13,7 +14,7 @@ import (
 
 type ChatRoomUser interface {
 	GetRoomIDAndIsExistsByUserIDs(ctx context.Context, userIDs []uuid.UUID) (uuid.UUID, bool, error)
-	CreateTx(ctx context.Context, tx *sqlx.Tx, req []types.ChatRoomUser) error
+	CreateTx(ctx context.Context, tx dbUtil.Tx, req []types.ChatRoomUser) error
 	FindByUserID(ctx context.Context, userID uuid.UUID) ([]types.ChatRoomUserWithServiceIDAndOfferID, error)
 	FindRecipientByChatRoomIDs(ctx context.Context, userID uuid.UUID, roomIDs uuid.UUIDs) ([]types.ChatRoomUser, error)
 	FindRecipientByChatRoomID(ctx context.Context, userID uuid.UUID, roomID uuid.UUID) (types.ChatRoomUser, error)
@@ -28,7 +29,12 @@ func NewChatRoomUser(db *sqlx.DB) ChatRoomUser {
 	return &chatRoomUserImpl{db: db}
 }
 
-func (r *chatRoomUserImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, req []types.ChatRoomUser) error {
+func (r *chatRoomUserImpl) CreateTx(ctx context.Context, _tx dbUtil.Tx, req []types.ChatRoomUser) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	query := `
 		INSERT INTO chat_room_users (
 			chat_room_id,

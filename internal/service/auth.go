@@ -13,7 +13,6 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/api/idtoken"
 )
@@ -27,16 +26,16 @@ type Auth interface {
 
 type authImpl struct {
 	config                  *config.Config
-	db                      *sqlx.DB
+	beginMainDBTx           dbUtil.SqlxTx
 	sessionRepo             repository.Session
 	userRepo                repository.User
 	pendingRegistrationRepo repository.PendingRegistration
 }
 
-func NewAuth(cfg *config.Config, db *sqlx.DB, sessionRepo repository.Session, userRepo repository.User, pendingRegistrationRepo repository.PendingRegistration) Auth {
+func NewAuth(cfg *config.Config, beginMainDBTx dbUtil.SqlxTx, sessionRepo repository.Session, userRepo repository.User, pendingRegistrationRepo repository.PendingRegistration) Auth {
 	return &authImpl{
 		config:                  cfg,
-		db:                      db,
+		beginMainDBTx:           beginMainDBTx,
 		sessionRepo:             sessionRepo,
 		userRepo:                userRepo,
 		pendingRegistrationRepo: pendingRegistrationRepo,
@@ -195,7 +194,7 @@ func (s *authImpl) ProviderCreateSession(ctx context.Context, req types.AuthCrea
 			AuthProvider: types.AuthProviderGoogle,
 		}
 
-		tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+		tx, err := s.beginMainDBTx(ctx, nil)
 		if err != nil {
 			return res, err
 		}

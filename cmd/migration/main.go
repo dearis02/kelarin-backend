@@ -24,7 +24,7 @@ var rootCmd = &cobra.Command{
 }
 
 func main() {
-	cfg = config.NewApp()
+	cfg = config.NewApp("config/config.yaml")
 
 	db, err := dbUtil.NewPostgres(&cfg.DataBase)
 	if err != nil {

@@ -13,7 +13,6 @@ import (
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/shopspring/decimal"
 	"github.com/volatiletech/null/v9"
 )
@@ -29,6 +28,7 @@ type Offer interface {
 }
 
 type offerImpl struct {
+	beginMainDBTx                   dbUtil.SqlxTx
 	offerRepo                       repository.Offer
 	userAddressRepo                 repository.UserAddress
 	serviceRepo                     repository.Service
@@ -39,7 +39,6 @@ type offerImpl struct {
 	fcmTokenRepo                    repository.FCMToken
 	notificationSvc                 Notification
 	userRepo                        repository.User
-	db                              *sqlx.DB
 	consumerNotificationRepo        repository.ConsumerNotification
 	chatSvc                         Chat
 	orderRepo                       repository.Order
@@ -47,6 +46,7 @@ type offerImpl struct {
 }
 
 func NewOffer(
+	beginMainDBTx dbUtil.SqlxTx,
 	offerRepo repository.Offer,
 	userAddressRepo repository.UserAddress,
 	serviceRepo repository.Service,
@@ -57,13 +57,13 @@ func NewOffer(
 	fcmTokenRepo repository.FCMToken,
 	notificationSvc Notification,
 	userRepo repository.User,
-	db *sqlx.DB,
 	consumerNotificationRepo repository.ConsumerNotification,
 	chatSvc Chat,
 	orderRepo repository.Order,
 	utilSvc Util,
 ) Offer {
 	return &offerImpl{
+		beginMainDBTx:                   beginMainDBTx,
 		offerRepo:                       offerRepo,
 		userAddressRepo:                 userAddressRepo,
 		serviceRepo:                     serviceRepo,
@@ -74,7 +74,6 @@ func NewOffer(
 		fcmTokenRepo:                    fcmTokenRepo,
 		notificationSvc:                 notificationSvc,
 		userRepo:                        userRepo,
-		db:                              db,
 		consumerNotificationRepo:        consumerNotificationRepo,
 		chatSvc:                         chatSvc,
 		orderRepo:                       orderRepo,
@@ -133,11 +132,6 @@ func (s *offerImpl) ConsumerCreate(ctx context.Context, req types.OfferConsumerC
 		return err
 	}
 
-	id, err := uuid.NewV7()
-	if err != nil {
-		return errors.New(err)
-	}
-
 	startDate, err := time.Parse(time.DateOnly, req.ServiceStartDate)
 	if err != nil {
 		return errors.New(err)
@@ -160,7 +154,12 @@ func (s *offerImpl) ConsumerCreate(ctx context.Context, req types.OfferConsumerC
 		return err
 	}
 
-	now := time.Now()
+	timeNow := time.Now()
+
+	id, err := uuid.NewV7()
+	if err != nil {
+		return errors.New(err)
+	}
 	offer := types.Offer{
 		ID:               id,
 		UserID:           req.AuthUser.ID,
@@ -173,7 +172,7 @@ func (s *offerImpl) ConsumerCreate(ctx context.Context, req types.OfferConsumerC
 		ServiceStartTime: startTime,
 		ServiceEndTime:   endTime,
 		Status:           types.OfferStatusPending,
-		CreatedAt:        now,
+		CreatedAt:        timeNow,
 	}
 
 	id, err = uuid.NewV7()
@@ -185,10 +184,10 @@ func (s *offerImpl) ConsumerCreate(ctx context.Context, req types.OfferConsumerC
 		ServiceProviderID: service.ServiceProviderID,
 		OfferID:           uuid.NullUUID{UUID: offer.ID, Valid: true},
 		Type:              types.ServiceProviderNotificationTypeOfferReceived,
-		CreatedAt:         now,
+		CreatedAt:         timeNow,
 	}
 
-	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	tx, err := s.beginMainDBTx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -463,7 +462,7 @@ func (s *offerImpl) ProviderAction(ctx context.Context, req types.OfferProviderA
 		CreatedAt: now,
 	}
 
-	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	tx, err := s.beginMainDBTx(ctx, nil)
 	if err != nil {
 		errors.New(err)
 	}

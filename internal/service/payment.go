@@ -14,7 +14,6 @@ import (
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/midtrans/midtrans-go"
 	"github.com/midtrans/midtrans-go/snap"
 	"github.com/shopspring/decimal"
@@ -30,7 +29,7 @@ type Payment interface {
 
 type paymentImpl struct {
 	cfg                             *config.MidtransConfig
-	db                              *sqlx.DB
+	beginMainDBTx                   dbUtil.SqlxTx
 	paymentRepo                     repository.Payment
 	paymentMethodRepo               repository.PaymentMethod
 	orderRepo                       repository.Order
@@ -41,10 +40,10 @@ type paymentImpl struct {
 	serviceProviderNotificationRepo repository.ServiceProviderNotification
 }
 
-func NewPayment(cfg *config.Config, db *sqlx.DB, paymentRepo repository.Payment, paymentMethodRepo repository.PaymentMethod, orderRepo repository.Order, midtransSvc Midtrans, notificationSvc Notification, fcmTokenRepo repository.FCMToken, consumerNotificationRepo repository.ConsumerNotification, serviceProviderNotificationRepo repository.ServiceProviderNotification) Payment {
+func NewPayment(cfg *config.Config, beginMainDBTx dbUtil.SqlxTx, paymentRepo repository.Payment, paymentMethodRepo repository.PaymentMethod, orderRepo repository.Order, midtransSvc Midtrans, notificationSvc Notification, fcmTokenRepo repository.FCMToken, consumerNotificationRepo repository.ConsumerNotification, serviceProviderNotificationRepo repository.ServiceProviderNotification) Payment {
 	return &paymentImpl{
 		cfg:                             &cfg.Midtrans,
-		db:                              db,
+		beginMainDBTx:                   beginMainDBTx,
 		paymentRepo:                     paymentRepo,
 		paymentMethodRepo:               paymentMethodRepo,
 		orderRepo:                       orderRepo,
@@ -153,7 +152,7 @@ func (s *paymentImpl) Create(ctx context.Context, req types.PaymentCreateReq) (t
 	order.PaymentID = uuid.NullUUID{UUID: id, Valid: true}
 	order.UpdatedAt = null.TimeFrom(timeNow)
 
-	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	tx, err := s.beginMainDBTx(ctx, nil)
 	if err != nil {
 		return res, errors.New(err)
 	}
@@ -221,7 +220,7 @@ func (s *paymentImpl) MidtransNotification(ctx context.Context, req types.Paymen
 	}
 
 	timeNow := time.Now()
-	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	tx, err := s.beginMainDBTx(ctx, nil)
 	if err != nil {
 		return errors.New(err)
 	}

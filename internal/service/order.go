@@ -13,7 +13,6 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/volatiletech/null/v9"
 )
 
@@ -28,6 +27,7 @@ type Order interface {
 }
 
 type orderImpl struct {
+	beginMainDBTx                   dbUtil.SqlxTx
 	orderRepo                       repository.Order
 	fileSvc                         File
 	utilSvc                         Util
@@ -40,13 +40,13 @@ type orderImpl struct {
 	serviceProviderNotificationRepo repository.ServiceProviderNotification
 	fcmRepo                         repository.FCMToken
 	notificationSvc                 Notification
-	db                              *sqlx.DB
 	serviceRepo                     repository.Service
 }
 
-func NewOrder(orderRepo repository.Order, fileSvc File, utilSvc Util, offerSvc Offer, paymentRepo repository.Payment, paymentMethodRepo repository.PaymentMethod, cfg *config.Config, serviceProviderRepo repository.ServiceProvider, consumerNotificationRepo repository.ConsumerNotification,
-	serviceProviderNotificationRepo repository.ServiceProviderNotification, fcmRepo repository.FCMToken, notificationSvc Notification, db *sqlx.DB, serviceRepo repository.Service) Order {
+func NewOrder(beginMainDBTx dbUtil.SqlxTx, orderRepo repository.Order, fileSvc File, utilSvc Util, offerSvc Offer, paymentRepo repository.Payment, paymentMethodRepo repository.PaymentMethod, cfg *config.Config, serviceProviderRepo repository.ServiceProvider, consumerNotificationRepo repository.ConsumerNotification,
+	serviceProviderNotificationRepo repository.ServiceProviderNotification, fcmRepo repository.FCMToken, notificationSvc Notification, serviceRepo repository.Service) Order {
 	return &orderImpl{
+		beginMainDBTx:                   beginMainDBTx,
 		orderRepo:                       orderRepo,
 		fileSvc:                         fileSvc,
 		utilSvc:                         utilSvc,
@@ -59,7 +59,6 @@ func NewOrder(orderRepo repository.Order, fileSvc File, utilSvc Util, offerSvc O
 		serviceProviderNotificationRepo: serviceProviderNotificationRepo,
 		fcmRepo:                         fcmRepo,
 		notificationSvc:                 notificationSvc,
-		db:                              db,
 		serviceRepo:                     serviceRepo,
 	}
 }
@@ -499,7 +498,7 @@ func (s *orderImpl) ProviderFinish(ctx context.Context, req types.OrderProviderV
 		CreatedAt:         timeNow,
 	}
 
-	tx, err := dbUtil.NewSqlxTx(ctx, s.db, nil)
+	tx, err := s.beginMainDBTx(ctx, nil)
 	if err != nil {
 		return errors.New(err)
 	}

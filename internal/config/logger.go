@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"kelarin/internal/types"
 	"os"
 	"sync"
 
@@ -13,6 +12,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
+
+const timeStampFormat = "2006-01-02 15:04:05 -0700"
 
 var jsonIndentWriterBufPool = sync.Pool{
 	New: func() interface{} {
@@ -42,7 +43,7 @@ func (w jsonIndentWriter) Write(p []byte) (int, error) {
 }
 
 func NewLogger(c *Config) zerolog.Logger {
-	zerolog.TimeFieldFormat = types.TIME_FORMAT_TZ
+	zerolog.TimeFieldFormat = timeStampFormat
 	zerolog.ErrorStackMarshaler = func(err error) interface{} {
 		if err, ok := err.(*errors.Error); ok {
 			return FilterStackTrace(err.StackFrames())
@@ -56,8 +57,8 @@ func NewLogger(c *Config) zerolog.Logger {
 	log.Logger = log.With().Stack().Logger()
 
 	if c.PrettyLog {
-		log.Logger = log.Output(jsonIndentWriter{Out: os.Stderr, TimeFormat: types.TIME_FORMAT_TZ})
-		logger = logger.Output(jsonIndentWriter{Out: os.Stderr, TimeFormat: types.TIME_FORMAT_TZ})
+		log.Logger = log.Output(jsonIndentWriter{Out: os.Stderr, TimeFormat: timeStampFormat})
+		logger = logger.Output(jsonIndentWriter{Out: os.Stderr, TimeFormat: timeStampFormat})
 	}
 
 	return logger

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"kelarin/internal/types"
+	dbUtil "kelarin/internal/utils/dbutil"
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
@@ -10,7 +11,7 @@ import (
 )
 
 type ConsumerNotification interface {
-	CreateTx(ctx context.Context, tx *sqlx.Tx, req types.ConsumerNotification) error
+	CreateTx(ctx context.Context, tx dbUtil.Tx, req types.ConsumerNotification) error
 	FindAllByUserID(ctx context.Context, userID uuid.UUID) ([]types.ConsumerNotificationWithServiceProviderAndPayment, error)
 }
 
@@ -24,7 +25,12 @@ func NewConsumerNotification(db *sqlx.DB) ConsumerNotification {
 	}
 }
 
-func (r *consumerNotificationImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, req types.ConsumerNotification) error {
+func (r *consumerNotificationImpl) CreateTx(ctx context.Context, _tx dbUtil.Tx, req types.ConsumerNotification) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	query := `
 		INSERT INTO consumer_notifications (
 			id,

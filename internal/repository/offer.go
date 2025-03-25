@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"kelarin/internal/types"
+	dbUtil "kelarin/internal/utils/dbutil"
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
@@ -11,12 +12,12 @@ import (
 )
 
 type Offer interface {
-	CreateTx(ctx context.Context, tx *sqlx.Tx, offer types.Offer) error
+	CreateTx(ctx context.Context, tx dbUtil.Tx, offer types.Offer) error
 	IsPendingOfferExists(ctx context.Context, userID, serviceID uuid.UUID) (bool, error)
 	FindAllByUserID(ctx context.Context, userID uuid.UUID) ([]types.OfferWithServiceAndProvider, error)
 	FindByIDAndUserID(ctx context.Context, ID, userID uuid.UUID) (types.Offer, error)
 	FindByIDAndServiceProviderID(ctx context.Context, ID, serviceProviderID uuid.UUID) (types.Offer, error)
-	UpdateTx(ctx context.Context, tx *sqlx.Tx, req types.Offer) error
+	UpdateTx(ctx context.Context, tx dbUtil.Tx, req types.Offer) error
 	FindAllByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.Offer, error)
 	FindForReportByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID, month, year int) (int64, []types.OfferForReport, error)
 }
@@ -31,7 +32,12 @@ func NewOffer(db *sqlx.DB) Offer {
 	}
 }
 
-func (r *offerImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, offer types.Offer) error {
+func (r *offerImpl) CreateTx(ctx context.Context, _tx dbUtil.Tx, offer types.Offer) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	query := `
 		INSERT INTO offers (
 			id,
@@ -194,7 +200,12 @@ func (r *offerImpl) FindByIDAndServiceProviderID(ctx context.Context, ID, servic
 	return res, nil
 }
 
-func (r *offerImpl) UpdateTx(ctx context.Context, tx *sqlx.Tx, req types.Offer) error {
+func (r *offerImpl) UpdateTx(ctx context.Context, _tx dbUtil.Tx, req types.Offer) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE offers
 		SET

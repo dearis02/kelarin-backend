@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"kelarin/internal/types"
+	dbUtil "kelarin/internal/utils/dbutil"
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
@@ -11,7 +12,7 @@ import (
 )
 
 type ChatMessage interface {
-	CreateTx(ctx context.Context, tx *sqlx.Tx, req types.ChatMessage) error
+	CreateTx(ctx context.Context, _tx dbUtil.Tx, req types.ChatMessage) error
 	CountUnreadReceivedByChatRoomIDs(ctx context.Context, userID uuid.UUID, chatRoomIDs uuid.UUIDs) ([]types.ChatMessageCountUnread, error)
 	FindByChatRoomID(ctx context.Context, roomID uuid.UUID) ([]types.ChatMessage, error)
 	FindLatestByChatRoomIDs(ctx context.Context, roomIDs uuid.UUIDs) ([]types.ChatMessage, error)
@@ -25,7 +26,12 @@ func NewChatMessage(db *sqlx.DB) ChatMessage {
 	return &chatMessageImpl{db: db}
 }
 
-func (r *chatMessageImpl) CreateTx(ctx context.Context, tx *sqlx.Tx, req types.ChatMessage) error {
+func (r *chatMessageImpl) CreateTx(ctx context.Context, _tx dbUtil.Tx, req types.ChatMessage) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
 	query := `
 		INSERT INTO chat_messages (
 			id,
