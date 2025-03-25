@@ -13,6 +13,7 @@ env:
   DOCKER_ENV_FILE_NAME: .docker.env
   CONFIG_FILE_NAME: config.yaml
   COMPOSE_FILE_NAME: docker-compose.staging.yml
+  FIREBASE_SERVICE_ACCOUNT_KEY_FILE_NAME: firebase-service-account-key.json
   TAG: ${{ github.ref_name }}
   MIGRATION_EXECUTABLE_FILE_NAME: migration-tool
 
@@ -40,15 +41,15 @@ jobs:
     - 
       name: Checkout repository
       uses: actions/checkout@v4
-    - 
-      name: Create config folder
-      run: mkdir config
     -
       name: store ${{ env.CONFIG_FILE_NAME }}
       run : echo "${{ secrets.STAGING_APP_CONFIG }}" > config/${{ env.CONFIG_FILE_NAME }}
     -
       name: store ${{ env.DOCKER_ENV_FILE_NAME }}
       run : echo "${{ secrets.STAGING_DOCKER_ENV }}" > config/${{ env.DOCKER_ENV_FILE_NAME }}
+    -
+      name: store ${{ env.FIREBASE_SERVICE_ACCOUNT_KEY_FILE_NAME }}
+      run : echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}" > config/${{ env.FIREBASE_SERVICE_ACCOUNT_KEY_FILE_NAME }}
     - 
       name: Store SSH key
       run: echo "${{ secrets.SSH_KEY }}" > ${{ env.SSH_KEY_FILE_NAME }}
