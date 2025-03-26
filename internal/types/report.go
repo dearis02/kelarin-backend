@@ -104,4 +104,61 @@ type ReportProviderGetAllOrderCSV struct {
 	CreatedAt        string `csv:"Created At"`
 }
 
+type ReportProviderExportMonthlySummaryReq struct {
+	AuthUser AuthUser `middleware:"user"`
+	Year     int      `form:"year" json:"year"`
+	Month    int      `form:"month" json:"month"`
+}
+
+func (r ReportProviderExportMonthlySummaryReq) Validate() error {
+	if r.AuthUser.IsZero() {
+		return errors.New("AuthUser is required")
+	}
+
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.Month, validation.In(
+			int(time.January),
+			int(time.February),
+			int(time.March),
+			int(time.April),
+			int(time.May),
+			int(time.June),
+			int(time.July),
+			int(time.August),
+			int(time.September),
+			int(time.October),
+			int(time.November),
+			int(time.December),
+		)),
+	)
+}
+
+func (r *ReportProviderExportMonthlySummaryReq) SetDefaultMonthAndYear() {
+	now := time.Now()
+
+	if r.Month == 0 {
+		r.Month = int(now.Month())
+	}
+
+	if r.Year == 0 {
+		r.Year = now.Year()
+	}
+}
+
+type ReportProviderExportMonthlySummaryRes struct {
+	FilePath string
+	FileName string
+}
+
+type ReportProviderGetMonthlySummaryCSV struct {
+	PendingOfferCount  string `csv:"Total Pending Offer"`
+	AcceptedOfferCount string `csv:"Total Accepted Offer"`
+	RejectedOfferCount string `csv:"Total Rejected Offer"`
+	CanceledOfferCount string `csv:"Total Canceled Offer"`
+	PendingOrderCount  string `csv:"Total Pending Order"`
+	OngoingOrderCount  string `csv:"Total Ongoing Order"`
+	FinishedOrderCount string `csv:"Total Finished Order"`
+	TotalIncome        string `csv:"Total Income"`
+}
+
 // endregion service types

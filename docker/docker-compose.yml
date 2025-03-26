@@ -23,9 +23,8 @@ services:
     image: postgres:17
     container_name: postgres
     ports:
-      - 5431:5431
+      - 5431:5432
     environment:
-      POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
@@ -52,15 +51,15 @@ services:
       - loki_data:/loki
     restart: unless-stopped
 
-  kelarin-api:
+  api:
+    container_name: api
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    container_name: kelarin-api
     ports:
       - 3000:${API_PORT}
     volumes:
-        - ../config:/app/config
+      - ../config:/app/config
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -70,7 +69,7 @@ services:
         condition: service_started
       loki:
         condition: service_started
-    restart: unless-stopped
+    restart: no
     logging:
       driver: loki
       options:

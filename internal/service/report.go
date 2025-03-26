@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/go-errors/errors"
@@ -17,6 +18,7 @@ import (
 type Report interface {
 	ProviderGetMonthlySummary(ctx context.Context, req types.ReportProviderGetMonthlySummaryReq) (types.ReportProviderGetMonthlySummaryRes, error)
 	ProviderExportOrders(ctx context.Context, req types.ReportProviderExportOrdersReq) (types.ReportProviderExportOrdersRes, error)
+	ProviderExportMonthlySummary(ctx context.Context, req types.ReportProviderExportMonthlySummaryReq) (types.ReportProviderExportMonthlySummaryRes, error)
 }
 
 type reportImpl struct {
@@ -181,4 +183,92 @@ func (reportImpl) generateReportFileName(prefix string) string {
 	fileName := fmt.Sprintf("%s_%s_%d.csv", prefix, timeNow.Format(time.DateTime), timeNow.Unix())
 
 	return fileName
+}
+
+func (s *reportImpl) ProviderExportMonthlySummary(ctx context.Context, req types.ReportProviderExportMonthlySummaryReq) (types.ReportProviderExportMonthlySummaryRes, error) {
+	res := types.ReportProviderExportMonthlySummaryRes{}
+
+	if err := req.Validate(); err != nil {
+		return res, err
+	}
+
+	req.SetDefaultMonthAndYear()
+
+	provider, err := s.serviceProviderRepo.FindByUserID(ctx, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("service provider not found: user_id %s", req.AuthUser.ID)
+	} else if err != nil {
+		return res, err
+	}
+
+	offerGroupByStatusCount, err := s.offerRepo.CountGroupByStatusByServiceProviderIDAndMonthAndYear(ctx, provider.ID, req.Month, req.Year)
+	if err != nil {
+		return res, err
+	}
+
+	orderGroupByStatusCount, err := s.orderRepo.CountGroupByStatusByServiceProviderIDAndMonthAndYear(ctx, provider.ID, req.Month, req.Year)
+	if err != nil {
+		return res, err
+	}
+
+	totalServiceFee, err := s.orderRepo.SumServiceFeeByServiceProviderIDAndStatusAndMonthAndYear(ctx, provider.ID, types.OrderStatusFinished, req.Month, req.Year)
+	if err != nil {
+		return res, err
+	}
+
+	csv := []types.ReportProviderGetMonthlySummaryCSV{
+		{
+			PendingOfferCount:  "0",
+			AcceptedOfferCount: "0",
+			RejectedOfferCount: "0",
+			CanceledOfferCount: "0",
+			PendingOrderCount:  "0",
+			OngoingOrderCount:  "0",
+			FinishedOrderCount: "0",
+			TotalIncome:        totalServiceFee.String(),
+		},
+	}
+
+	for status, count := range offerGroupByStatusCount {
+		switch status {
+		case types.OfferStatusPending:
+			csv[0].PendingOfferCount = strconv.FormatInt(count, 10)
+		case types.OfferStatusAccepted:
+			csv[0].AcceptedOfferCount = strconv.FormatInt(count, 10)
+		case types.OfferStatusRejected:
+			csv[0].RejectedOfferCount = strconv.FormatInt(count, 10)
+		case types.OfferStatusCanceled:
+			csv[0].CanceledOfferCount = strconv.FormatInt(count, 10)
+		}
+	}
+
+	for status, count := range orderGroupByStatusCount {
+		switch status {
+		case types.OrderStatusPending:
+			csv[0].PendingOrderCount = strconv.FormatInt(count, 10)
+		case types.OrderStatusOngoing:
+			csv[0].OngoingOrderCount = strconv.FormatInt(count, 10)
+		case types.OrderStatusFinished:
+			csv[0].FinishedOrderCount = strconv.FormatInt(count, 10)
+		}
+	}
+
+	fileName := s.generateReportFileName("monthly_summary")
+	filePath := filepath.Join(types.TempFileDir, fileName)
+	file, err := os.Create(filePath)
+	if err != nil {
+		return res, errors.New(err)
+	}
+
+	err = utils.WriteCSV(csv, file)
+	if errors.Is(err, types.ErrEmptySlice) {
+		return res, errors.New(types.AppErr{Code: http.StatusBadRequest, Message: "no data to export"})
+	} else if err != nil {
+		return res, err
+	}
+
+	res.FileName = fileName
+	res.FilePath = filePath
+
+	return res, nil
 }

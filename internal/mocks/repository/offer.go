@@ -18,6 +18,36 @@ type Offer struct {
 	mock.Mock
 }
 
+// CountGroupByStatusByServiceProviderIDAndMonthAndYear provides a mock function with given fields: ctx, serviceProviderID, month, year
+func (_m *Offer) CountGroupByStatusByServiceProviderIDAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, month int, year int) (map[types.OfferStatus]int64, error) {
+	ret := _m.Called(ctx, serviceProviderID, month, year)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CountGroupByStatusByServiceProviderIDAndMonthAndYear")
+	}
+
+	var r0 map[types.OfferStatus]int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, int, int) (map[types.OfferStatus]int64, error)); ok {
+		return rf(ctx, serviceProviderID, month, year)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, int, int) map[types.OfferStatus]int64); ok {
+		r0 = rf(ctx, serviceProviderID, month, year)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[types.OfferStatus]int64)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, int, int) error); ok {
+		r1 = rf(ctx, serviceProviderID, month, year)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CreateTx provides a mock function with given fields: ctx, tx, offer
 func (_m *Offer) CreateTx(ctx context.Context, tx dbUtil.Tx, offer types.Offer) error {
 	ret := _m.Called(ctx, tx, offer)

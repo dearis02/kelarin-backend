@@ -12,6 +12,7 @@ import (
 type Report interface {
 	ProviderGetMonthlySummary(c *gin.Context)
 	ProviderExportOrders(c *gin.Context)
+	ProviderExportMonthlySummary(c *gin.Context)
 }
 
 type reportImpl struct {
@@ -55,6 +56,23 @@ func (h *reportImpl) ProviderExportOrders(c *gin.Context) {
 	}
 
 	res, err := h.reportService.ProviderExportOrders(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.FileAttachment(res.FilePath, res.FileName)
+}
+
+func (h *reportImpl) ProviderExportMonthlySummary(c *gin.Context) {
+	var req types.ReportProviderExportMonthlySummaryReq
+
+	if err := h.authMiddleware.BindWithRequest(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	res, err := h.reportService.ProviderExportMonthlySummary(c.Request.Context(), req)
 	if err != nil {
 		c.Error(err)
 		return

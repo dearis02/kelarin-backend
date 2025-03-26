@@ -26,6 +26,8 @@ type Order interface {
 	FindTotalServiceFeeByServiceProviderIDAndStatusAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, status types.OrderStatus, month, year int) (decimal.Decimal, error)
 	FindForReportExportByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.OrderForReportExport, error)
 	FindByOfferID(ctx context.Context, offerID uuid.UUID) (types.OrderWithServiceAndServiceProvider, error)
+	CountGroupByStatusByServiceProviderIDAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, month, year int) (map[types.OrderStatus]int64, error)
+	SumServiceFeeByServiceProviderIDAndStatusAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, status types.OrderStatus, month, year int) (decimal.Decimal, error)
 }
 
 type orderImpl struct {
@@ -471,4 +473,59 @@ func (r *orderImpl) FindByOfferID(ctx context.Context, offerID uuid.UUID) (types
 	}
 
 	return res, nil
+}
+
+func (r *orderImpl) CountGroupByStatusByServiceProviderIDAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, month, year int) (map[types.OrderStatus]int64, error) {
+	res := make(map[types.OrderStatus]int64)
+
+	query := `
+		SELECT
+			status,
+			COUNT(id) AS count
+		FROM orders
+		WHERE service_provider_id = $1
+			AND EXTRACT(MONTH FROM created_at) = $2
+			AND EXTRACT(YEAR FROM created_at) = $3
+		GROUP BY status
+	`
+
+	query = r.db.Rebind(query)
+	rows, err := r.db.QueryxContext(ctx, query, serviceProviderID, month, year)
+	if err != nil {
+		return res, errors.New(err)
+	}
+
+	for rows.Next() {
+		var status types.OrderStatus
+		var count int64
+		if err := rows.Scan(&status, &count); err != nil {
+			return res, errors.New(err)
+		}
+		res[status] = count
+	}
+
+	return res, nil
+}
+
+func (r *orderImpl) SumServiceFeeByServiceProviderIDAndStatusAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, status types.OrderStatus, month, year int) (decimal.Decimal, error) {
+	var total decimal.NullDecimal
+
+	query := `
+		SELECT
+			SUM(service_fee)
+		FROM orders
+		WHERE service_provider_id = $1
+			AND status = $2
+			AND EXTRACT(MONTH FROM created_at) = $3
+			AND EXTRACT(YEAR FROM created_at) = $4
+	`
+
+	err := r.db.GetContext(ctx, &total, query, serviceProviderID, status, month, year)
+	if errors.Is(err, sql.ErrNoRows) {
+		return total.Decimal, nil
+	} else if err != nil {
+		return total.Decimal, errors.New(err)
+	}
+
+	return total.Decimal, nil
 }

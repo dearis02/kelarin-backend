@@ -20,6 +20,36 @@ type Order struct {
 	mock.Mock
 }
 
+// CountGroupByStatusByServiceProviderIDAndMonthAndYear provides a mock function with given fields: ctx, serviceProviderID, month, year
+func (_m *Order) CountGroupByStatusByServiceProviderIDAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, month int, year int) (map[types.OrderStatus]int64, error) {
+	ret := _m.Called(ctx, serviceProviderID, month, year)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CountGroupByStatusByServiceProviderIDAndMonthAndYear")
+	}
+
+	var r0 map[types.OrderStatus]int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, int, int) (map[types.OrderStatus]int64, error)); ok {
+		return rf(ctx, serviceProviderID, month, year)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, int, int) map[types.OrderStatus]int64); ok {
+		r0 = rf(ctx, serviceProviderID, month, year)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[types.OrderStatus]int64)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, int, int) error); ok {
+		r1 = rf(ctx, serviceProviderID, month, year)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CreateTx provides a mock function with given fields: ctx, tx, req
 func (_m *Order) CreateTx(ctx context.Context, tx dbUtil.Tx, req types.Order) error {
 	ret := _m.Called(ctx, tx, req)
@@ -283,6 +313,34 @@ func (_m *Order) FindTotalServiceFeeByServiceProviderIDAndStatusAndMonthAndYear(
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindTotalServiceFeeByServiceProviderIDAndStatusAndMonthAndYear")
+	}
+
+	var r0 decimal.Decimal
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, types.OrderStatus, int, int) (decimal.Decimal, error)); ok {
+		return rf(ctx, serviceProviderID, status, month, year)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, types.OrderStatus, int, int) decimal.Decimal); ok {
+		r0 = rf(ctx, serviceProviderID, status, month, year)
+	} else {
+		r0 = ret.Get(0).(decimal.Decimal)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, types.OrderStatus, int, int) error); ok {
+		r1 = rf(ctx, serviceProviderID, status, month, year)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SumServiceFeeByServiceProviderIDAndStatusAndMonthAndYear provides a mock function with given fields: ctx, serviceProviderID, status, month, year
+func (_m *Order) SumServiceFeeByServiceProviderIDAndStatusAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, status types.OrderStatus, month int, year int) (decimal.Decimal, error) {
+	ret := _m.Called(ctx, serviceProviderID, status, month, year)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SumServiceFeeByServiceProviderIDAndStatusAndMonthAndYear")
 	}
 
 	var r0 decimal.Decimal

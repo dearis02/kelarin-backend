@@ -20,6 +20,7 @@ type Offer interface {
 	UpdateTx(ctx context.Context, tx dbUtil.Tx, req types.Offer) error
 	FindAllByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.Offer, error)
 	FindForReportByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID, month, year int) (int64, []types.OfferForReport, error)
+	CountGroupByStatusByServiceProviderIDAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, month, year int) (map[types.OfferStatus]int64, error)
 }
 
 type offerImpl struct {
@@ -295,4 +296,38 @@ func (r *offerImpl) FindForReportByServiceProviderID(ctx context.Context, servic
 	}
 
 	return total, offers, nil
+}
+
+func (r *offerImpl) CountGroupByStatusByServiceProviderIDAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, month, year int) (map[types.OfferStatus]int64, error) {
+	res := make(map[types.OfferStatus]int64)
+
+	query := `
+		SELECT
+			offers.status,
+			COUNT(offers.id) AS count
+		FROM offers
+		INNER JOIN services
+			ON services.id = offers.service_id
+		WHERE services.service_provider_id = ?
+			AND EXTRACT(MONTH FROM offers.created_at) = ?
+			AND EXTRACT(YEAR FROM offers.created_at) = ?
+		GROUP BY offers.status
+	`
+
+	query = r.db.Rebind(query)
+	rows, err := r.db.QueryxContext(ctx, query, serviceProviderID, month, year)
+	if err != nil {
+		return res, errors.New(err)
+	}
+
+	for rows.Next() {
+		var status types.OfferStatus
+		var count int64
+		if err := rows.Scan(&status, &count); err != nil {
+			return res, errors.New(err)
+		}
+		res[status] = count
+	}
+
+	return res, nil
 }
