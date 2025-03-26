@@ -34,9 +34,8 @@ services:
     image: postgres:17
     container_name: postgres
     ports:
-      - 5432:5431
+      - 5431:5432
     environment:
-      POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
@@ -63,12 +62,12 @@ services:
       - loki_data:/loki
     restart: unless-stopped
 
-  kelarin-api:
+  api:
     image: ${DOCKERHUB_USERNAME}/${DOCKERHUB_REPO}:${IMAGE_TAG}
     ports:
       - 5000:${API_PORT}
     volumes:
-      - ./config:/app/config
+      - ../config:/app/config
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -78,11 +77,16 @@ services:
         condition: service_started
       loki:
         condition: service_started
-    restart: unless-stopped
     logging:
       driver: loki
       options:
         loki-url: "http://127.0.0.1:3100/loki/api/v1/push"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
 
 volumes:
   es_data:

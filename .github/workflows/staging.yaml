@@ -115,7 +115,7 @@ jobs:
           export IMAGE_TAG=${{ steps.docker-meta.outputs.version }}
           docker compose --env-file "config/${{ env.DOCKER_ENV_FILE_NAME }}" -f docker/${{ env.COMPOSE_FILE_NAME }} pull
           docker compose -p ${{ env.CONTAINER_NAME }} down
-          docker compose --env-file "config/${{ env.DOCKER_ENV_FILE_NAME }}" -f docker/${{ env.COMPOSE_FILE_NAME }}  up -d
+          docker compose --env-file "config/${{ env.DOCKER_ENV_FILE_NAME }}" -f docker/${{ env.COMPOSE_FILE_NAME }}  up --remove-orphans -d
           docker image prune -f
           docker compose -f docker/${{ env.COMPOSE_FILE_NAME }} --env-file "config/${{ env.DOCKER_ENV_FILE_NAME }}" ps 
           docker compose -f docker/${{ env.COMPOSE_FILE_NAME }} --env-file "config/${{ env.DOCKER_ENV_FILE_NAME }}" logs 
