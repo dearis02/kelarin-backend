@@ -39,6 +39,9 @@ jobs:
     needs: test
     steps:
     - 
+      name: Print github tag
+      run: echo ${{ github.ref_name }}
+    - 
       name: Checkout repository
       uses: actions/checkout@v4
     -
