@@ -14,7 +14,6 @@ env:
   CONFIG_FILE_NAME: config.yaml
   COMPOSE_FILE_NAME: docker-compose.staging.yml
   FIREBASE_SERVICE_ACCOUNT_KEY_FILE_NAME: firebase-service-account-key.json
-  TAG: ${{ github.ref_name }}
   MIGRATION_EXECUTABLE_FILE_NAME: migration-tool
 
 jobs:
@@ -81,7 +80,7 @@ jobs:
         file: docker/Dockerfile
         secret-files: ${{ env.DOCKER_ENV_FILE_NAME }}
         push: true
-        tags: ${{ env.TAG }}
+        tags: ${{ steps.docker-meta.outputs.tags }}
         labels: ${{ steps.docker-meta.outputs.labels }}
     -
       name: Copy files to server
@@ -108,9 +107,9 @@ jobs:
         script: |
           cd /home/${{ secrets.SSH_USERNAME }}/${{ env.APP_DIR }}
           make migration:up
-          IMAGE_TAG=${{ env.TAG }} docker compose --env-file "${{ env.DOCKER_ENV_FILE_NAME }}" -f ${{ env.COMPOSE_FILE_NAME }} pull
+          IMAGE_TAG=${{ steps.docker-meta.outputs.version }} docker compose --env-file "${{ env.DOCKER_ENV_FILE_NAME }}" -f ${{ env.COMPOSE_FILE_NAME }} pull
           docker compose -p ${{ env.CONTAINER_NAME }} down
-          IMAGE_TAG=${{ env.TAG }} docker compose --env-file "${{ env.DOCKER_ENV_FILE_NAME }}" -f ${{ env.COMPOSE_FILE_NAME }}  up -d
+          IMAGE_TAG=${{ steps.docker-meta.outputs.version }} docker compose --env-file "${{ env.DOCKER_ENV_FILE_NAME }}" -f ${{ env.COMPOSE_FILE_NAME }}  up -d
           docker image prune -f
           docker compose -f ${{ env.COMPOSE_FILE_NAME }} --env-file "${{ env.DOCKER_ENV_FILE_NAME }}" ps 
           docker compose -f ${{ env.COMPOSE_FILE_NAME }} --env-file "${{ env.DOCKER_ENV_FILE_NAME }}" logs 
