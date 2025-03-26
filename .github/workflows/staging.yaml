@@ -88,6 +88,10 @@ jobs:
         tags: ${{ steps.docker-meta.outputs.tags }}
         labels: ${{ steps.docker-meta.outputs.labels }}
     -
+      name: Build migration tool
+      run: |
+        go build -o ${{ env.MIGRATION_EXECUTABLE_FILE_NAME }} ./cmd/migration
+    -
       name: Copy files to server
       uses: appleboy/scp-action@master
       with:
@@ -95,12 +99,8 @@ jobs:
         username: ${{ secrets.SSH_USERNAME }}
         port: ${{ secrets.SSH_PORT }}
         key_path: ${{ env.SSH_KEY_FILE_NAME }}
-        source: "./docker/${{env.COMPOSE_FILE_NAME}},./config,./database,Makefile"
+        source: "./docker/${{env.COMPOSE_FILE_NAME}},./config,./database,${{ env.MIGRATION_EXECUTABLE_FILE_NAME }},Makefile"
         target: "/home/${{ secrets.SSH_USERNAME }}/${{ env.APP_DIR }}"
-    -
-      name: Build migration tool
-      run: |
-        go build -o ${{ env.MIGRATION_EXECUTABLE_FILE_NAME }} ./cmd/migration
     -
       name: Executing remote commands
       uses: appleboy/ssh-action@master
