@@ -6,10 +6,17 @@ services:
       - 9200:9200
     environment:
       - discovery.type=single-node
-      - "ES_JAVA_OPTS=-Xms100m -Xmx100m"
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
       - xpack.security.enabled=false
       - xpack.security.http.ssl.enabled=false
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          memory: 100m
+        reservations:
+          memory: 512m
+    memswap_limit: 1g
     volumes:
       - es_data:/usr/share/elasticsearch/data
     healthcheck:
