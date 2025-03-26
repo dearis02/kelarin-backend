@@ -24,9 +24,6 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-      - 
-        name: Print github tag
-        run: echo ${{ github.ref_name }}
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -61,6 +58,7 @@ jobs:
       run: chmod 444 ${{ env.SSH_KEY_FILE_NAME }}
     - 
       name: Docker meta
+      id: docker-meta
       uses: docker/metadata-action@v5
       with:
         images: |
@@ -84,6 +82,7 @@ jobs:
         secret-files: ${{ env.DOCKER_ENV_FILE_NAME }}
         push: true
         tags: ${{ env.TAG }}
+        labels: ${{ steps.docker-meta.outputs.labels }}
     -
       name: Copy files to server
       uses: appleboy/scp-action@master
