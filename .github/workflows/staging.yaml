@@ -112,9 +112,10 @@ jobs:
         script: |
           cd /home/${{ secrets.SSH_USERNAME }}/${{ env.APP_DIR }}
           make migration:up
-          IMAGE_TAG=${{ steps.docker-meta.outputs.version }} docker compose --env-file "config/${{ env.DOCKER_ENV_FILE_NAME }}" -f docker/${{ env.COMPOSE_FILE_NAME }} pull
+          export IMAGE_TAG=${{ steps.docker-meta.outputs.version }}
+          docker compose --env-file "config/${{ env.DOCKER_ENV_FILE_NAME }}" -f docker/${{ env.COMPOSE_FILE_NAME }} pull
           docker compose -p ${{ env.CONTAINER_NAME }} down
-          IMAGE_TAG=${{ steps.docker-meta.outputs.version }} docker compose --env-file "config/${{ env.DOCKER_ENV_FILE_NAME }}" -f docker/${{ env.COMPOSE_FILE_NAME }}  up -d
+          docker compose --env-file "config/${{ env.DOCKER_ENV_FILE_NAME }}" -f docker/${{ env.COMPOSE_FILE_NAME }}  up -d
           docker image prune -f
           docker compose -f docker/${{ env.COMPOSE_FILE_NAME }} --env-file "config/${{ env.DOCKER_ENV_FILE_NAME }}" ps 
           docker compose -f docker/${{ env.COMPOSE_FILE_NAME }} --env-file "config/${{ env.DOCKER_ENV_FILE_NAME }}" logs 
