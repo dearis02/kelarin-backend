@@ -11,7 +11,6 @@ import (
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/shopspring/decimal"
 )
 
@@ -21,28 +20,44 @@ type OfferNegotiation interface {
 }
 
 type offerNegotiationImpl struct {
-	beginMainDBTx            dbUtil.SqlxTx
-	serviceProviderRepo      repository.ServiceProvider
-	offerNegotiationRepo     repository.OfferNegotiation
-	offerRepo                repository.Offer
-	serviceRepo              repository.Service
-	notificationSvc          Notification
-	fcmTokenRepo             repository.FCMToken
-	fileSvc                  File
-	consumerNotificationRepo repository.ConsumerNotification
+	beginMainDBTx                   dbUtil.SqlxTx
+	serviceProviderRepo             repository.ServiceProvider
+	offerNegotiationRepo            repository.OfferNegotiation
+	offerRepo                       repository.Offer
+	serviceRepo                     repository.Service
+	notificationSvc                 Notification
+	fcmTokenRepo                    repository.FCMToken
+	fileSvc                         File
+	consumerNotificationRepo        repository.ConsumerNotification
+	serviceProviderNotificationRepo repository.ServiceProviderNotification
+	userRepo                        repository.User
 }
 
-func NewOfferNegotiation(beginMainDBTx dbUtil.SqlxTx, serviceProviderRepo repository.ServiceProvider, offerNegotiationRepo repository.OfferNegotiation, offerRepo repository.Offer, serviceRepo repository.Service, db *sqlx.DB, notificationSvc Notification, fcmTokenRepo repository.FCMToken, fileSvc File, consumerNotificationRepo repository.ConsumerNotification) OfferNegotiation {
+func NewOfferNegotiation(
+	beginMainDBTx dbUtil.SqlxTx,
+	serviceProviderRepo repository.ServiceProvider,
+	offerNegotiationRepo repository.OfferNegotiation,
+	offerRepo repository.Offer,
+	serviceRepo repository.Service,
+	notificationSvc Notification,
+	fcmTokenRepo repository.FCMToken,
+	fileSvc File,
+	consumerNotificationRepo repository.ConsumerNotification,
+	serviceProviderNotificationRepo repository.ServiceProviderNotification,
+	userRepo repository.User,
+) OfferNegotiation {
 	return &offerNegotiationImpl{
-		beginMainDBTx:            beginMainDBTx,
-		serviceProviderRepo:      serviceProviderRepo,
-		offerNegotiationRepo:     offerNegotiationRepo,
-		offerRepo:                offerRepo,
-		serviceRepo:              serviceRepo,
-		notificationSvc:          notificationSvc,
-		fcmTokenRepo:             fcmTokenRepo,
-		fileSvc:                  fileSvc,
-		consumerNotificationRepo: consumerNotificationRepo,
+		beginMainDBTx:                   beginMainDBTx,
+		serviceProviderRepo:             serviceProviderRepo,
+		offerNegotiationRepo:            offerNegotiationRepo,
+		offerRepo:                       offerRepo,
+		serviceRepo:                     serviceRepo,
+		notificationSvc:                 notificationSvc,
+		fcmTokenRepo:                    fcmTokenRepo,
+		fileSvc:                         fileSvc,
+		consumerNotificationRepo:        consumerNotificationRepo,
+		serviceProviderNotificationRepo: serviceProviderNotificationRepo,
+		userRepo:                        userRepo,
 	}
 }
 
@@ -161,6 +176,13 @@ func (s *offerNegotiationImpl) ConsumerAction(ctx context.Context, req types.Off
 		return err
 	}
 
+	user, err := s.userRepo.FindByID(ctx, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.Errorf("user not found: id %s", req.AuthUser.ID)
+	} else if err != nil {
+		return err
+	}
+
 	negotiation, err := s.offerNegotiationRepo.FindByIDAndUserID(ctx, req.ID, req.AuthUser.ID)
 	if errors.Is(err, types.ErrNoData) {
 		return errors.New(types.AppErr{Code: http.StatusNotFound, Message: "offer negotiation not found"})
@@ -175,18 +197,53 @@ func (s *offerNegotiationImpl) ConsumerAction(ctx context.Context, req types.Off
 		return err
 	}
 
+	provider, err := s.serviceProviderRepo.FindByServiceID(ctx, offer.ServiceID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.Errorf("service provider not found: service_id %s", offer.ServiceID)
+	} else if err != nil {
+		return err
+	}
+
 	if negotiation.Status != types.OfferNegotiationStatusPending {
 		return errors.New(types.AppErr{Code: http.StatusForbidden, Message: "only pending negotiation can be accept or reject"})
 	} else if offer.Status != types.OfferStatusPending {
 		return errors.New(types.AppErr{Code: http.StatusForbidden, Message: "offer is already accepted, rejected, or canceled"})
 	}
 
+	id, err := uuid.NewV7()
+	if err != nil {
+		return errors.New(err)
+	}
+
+	providerNotification := types.ServiceProviderNotification{
+		ID:                 id,
+		OfferNegotiationID: uuid.NullUUID{UUID: negotiation.ID, Valid: true},
+		ServiceProviderID:  provider.ID,
+		CreatedAt:          time.Now(),
+	}
+
+	fcmToken, err := s.fcmTokenRepo.Find(ctx, types.FCMTokenKey(provider.UserID))
+	if !errors.Is(err, types.ErrNoData) && err != nil {
+		return err
+	}
+
+	pushNotif := types.NotificationSendReq{
+		Message: "Please check your offer",
+		Token:   fcmToken,
+	}
+
 	switch req.Action {
 	case types.OfferNegotiationConsumerActionAccept:
 		negotiation.Status = types.OfferNegotiationStatusAccepted
 		offer.ServiceCost = negotiation.RequestedServiceCost
+		providerNotification.Type = types.ServiceProviderNotificationTypeOfferNegotiationAccepted
+
+		pushNotif.Message = fmt.Sprintf("%s accepted your offer negotiation", user.Name)
 	case types.OfferNegotiationConsumerActionReject:
 		negotiation.Status = types.OfferNegotiationStatusRejected
+		providerNotification.Type = types.ServiceProviderNotificationTypeOfferNegotiationRejected
+
+		pushNotif.Message = fmt.Sprintf("%s rejected your offer negotiation", user.Name)
 	}
 
 	tx, err := s.beginMainDBTx(ctx, nil)
@@ -202,6 +259,17 @@ func (s *offerNegotiationImpl) ConsumerAction(ctx context.Context, req types.Off
 
 	if err := s.offerRepo.UpdateTx(ctx, tx, offer); err != nil {
 		return err
+	}
+
+	if err := s.serviceProviderNotificationRepo.CreateTx(ctx, tx, providerNotification); err != nil {
+		return err
+	}
+
+	if fcmToken != "" {
+		err = s.notificationSvc.SendPush(ctx, pushNotif)
+		if err != nil {
+			return err
+		}
 	}
 
 	if err := tx.Commit(); err != nil {

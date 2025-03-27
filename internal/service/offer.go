@@ -459,6 +459,7 @@ func (s *offerImpl) ProviderAction(ctx context.Context, req types.OfferProviderA
 	consumerNotification := types.ConsumerNotification{
 		ID:        id,
 		UserID:    offer.UserID,
+		OfferID:   uuid.NullUUID{UUID: offer.ID, Valid: true},
 		CreatedAt: now,
 	}
 

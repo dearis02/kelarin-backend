@@ -95,6 +95,34 @@ func (_m *ServiceProvider) FindByIDs(ctx context.Context, IDs []uuid.UUID) ([]ty
 	return r0, r1
 }
 
+// FindByServiceID provides a mock function with given fields: ctx, serviceID
+func (_m *ServiceProvider) FindByServiceID(ctx context.Context, serviceID uuid.UUID) (types.ServiceProvider, error) {
+	ret := _m.Called(ctx, serviceID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindByServiceID")
+	}
+
+	var r0 types.ServiceProvider
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) (types.ServiceProvider, error)); ok {
+		return rf(ctx, serviceID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) types.ServiceProvider); ok {
+		r0 = rf(ctx, serviceID)
+	} else {
+		r0 = ret.Get(0).(types.ServiceProvider)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
+		r1 = rf(ctx, serviceID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindByUserID provides a mock function with given fields: ctx, userID
 func (_m *ServiceProvider) FindByUserID(ctx context.Context, userID uuid.UUID) (types.ServiceProvider, error) {
 	ret := _m.Called(ctx, userID)

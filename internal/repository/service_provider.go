@@ -18,6 +18,7 @@ type ServiceProvider interface {
 	FindByID(ctx context.Context, ID uuid.UUID) (types.ServiceProvider, error)
 	UpdateCreditTx(ctx context.Context, req types.ServiceProvider) error
 	FindByUserIDs(ctx context.Context, IDs []uuid.UUID) ([]types.ServiceProvider, error)
+	FindByServiceID(ctx context.Context, serviceID uuid.UUID) (types.ServiceProvider, error)
 }
 
 type serviceProviderImpl struct {
@@ -204,6 +205,42 @@ func (r *serviceProviderImpl) FindByUserIDs(ctx context.Context, IDs []uuid.UUID
 
 	err := r.db.SelectContext(ctx, &res, query, pq.Array(IDs))
 	if err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *serviceProviderImpl) FindByServiceID(ctx context.Context, serviceID uuid.UUID) (types.ServiceProvider, error) {
+	res := types.ServiceProvider{}
+
+	query := `
+		SELECT
+			service_providers.id,
+			service_providers.user_id,
+			service_providers.name,
+			service_providers.description,
+			service_providers.has_physical_office,
+			service_providers.office_coordinates,
+			service_providers.address,
+			service_providers.mobile_phone_number,
+			service_providers.telephone,
+			service_providers.logo_image,
+			service_providers.received_rating_count,
+			service_providers.received_rating_average,
+			service_providers.credit,
+			service_providers.is_deleted,
+			service_providers.created_at
+		FROM service_providers
+		INNER JOIN services
+			ON services.service_provider_id = service_providers.id
+		WHERE services.id = $1
+	`
+
+	err := r.db.GetContext(ctx, &res, query, serviceID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, errors.New(types.ErrNoData)
+	} else if err != nil {
 		return res, errors.New(err)
 	}
 

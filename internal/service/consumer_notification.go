@@ -143,7 +143,7 @@ func (s *consumerNotificationImpl) GenerateDetails(notification types.ConsumerNo
 		amount := notification.PaymentAmount.Decimal.Add(decimal.NewFromInt32(notification.PaymentAdminFee.Int32).Add(decimal.NewFromInt32(notification.PaymentPlatformFee.Int32)))
 
 		details.Title = "Payment success"
-		details.Message = fmt.Sprintf("You has paid %s with %s", utils.FormatRupiah(currency.IDR.Amount(amount.BigFloat())), notification.PaymentMethodName.String)
+		details.Message = fmt.Sprintf("You has paid %s with %s", utils.FormatRupiah(currency.IDR.Amount(amount.InexactFloat64())), notification.PaymentMethodName.String)
 	case types.ConsumerNotificationTypePaymentExpired:
 		details.Title = "Your payment is expired"
 		details.Message = fmt.Sprintf("Your payment with order id %s is expire, create a new one!", notification.OrderID.UUID.String())
