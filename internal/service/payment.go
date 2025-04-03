@@ -25,6 +25,7 @@ const PlatformFee = 5000
 type Payment interface {
 	Create(ctx context.Context, req types.PaymentCreateReq) (types.PaymentCreateRes, error)
 	MidtransNotification(ctx context.Context, req types.PaymentMidtransNotificationReq) error
+	CalculateAdminFee(amount decimal.Decimal, adminFee float32, adminFeeUnit types.PaymentMethodAdminFeeUnit) decimal.Decimal
 }
 
 type paymentImpl struct {
