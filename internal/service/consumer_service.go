@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 )
 
 type ConsumerService interface {
@@ -58,7 +59,7 @@ func (s *consumerServiceImpl) GetAll(ctx context.Context, req types.ConsumerServ
 		Keyword:         req.Keyword,
 	}
 
-	idxServices, totalItem, latestTimestamp, err := s.serviceIndexRepo.FindAllByFilter(ctx, filter)
+	services, totalItem, latestTimestamp, err := s.serviceIndexRepo.FindAllByFilter(ctx, filter)
 	if err != nil {
 		return res, paginationRes, metadata, err
 	}
@@ -66,16 +67,6 @@ func (s *consumerServiceImpl) GetAll(ctx context.Context, req types.ConsumerServ
 	metadata.LatestTimestamp = latestTimestamp
 
 	paginationRes = req.GeneratePaginationResponse(totalItem)
-
-	serviceIDs := []uuid.UUID{}
-	for _, service := range idxServices {
-		serviceIDs = append(serviceIDs, service.ID)
-	}
-
-	services, err := s.serviceRepo.FindByIDs(ctx, serviceIDs)
-	if err != nil {
-		return res, paginationRes, metadata, err
-	}
 
 	serviceProviderIDs := []uuid.UUID{}
 	for _, service := range services {
@@ -87,28 +78,13 @@ func (s *consumerServiceImpl) GetAll(ctx context.Context, req types.ConsumerServ
 		return res, paginationRes, metadata, err
 	}
 
-	areas, err := s.serviceProviderAreaRepo.FindByServiceProviderIDs(ctx, serviceProviderIDs)
-	if err != nil {
-		return res, paginationRes, metadata, err
-	}
-
 	for _, service := range services {
-		area := types.ServiceProviderAreaWithAreaDetail{}
-	areaLoop:
-		for _, a := range areas {
-			if a.ServiceProviderID == service.ServiceProviderID {
-				area = a
-				break areaLoop
-			}
-		}
+		serviceProvider, exs := lo.Find(serviceProviders, func(v types.ServiceProvider) bool {
+			return v.ID == service.ServiceProviderID
+		})
 
-		serviceProvider := types.ServiceProvider{}
-	svcProviderLoop:
-		for _, s := range serviceProviders {
-			if s.ID == service.ServiceProviderID {
-				serviceProvider = s
-				break svcProviderLoop
-			}
+		if !exs {
+			return res, paginationRes, metadata, errors.Errorf("service provider not found: id %s", service.ServiceProviderID)
 		}
 
 		imgURL, err := s.fileSvc.GetS3PresignedURL(ctx, service.Images[0])
@@ -123,8 +99,8 @@ func (s *consumerServiceImpl) GetAll(ctx context.Context, req types.ConsumerServ
 			FeeStartAt:            service.FeeStartAt,
 			FeeEndAt:              service.FeeEndAt,
 			Address:               serviceProvider.Address,
-			Province:              area.ProvinceName.String,
-			City:                  area.CityName.String,
+			Province:              service.Province.String,
+			City:                  service.City.String,
 			ReceivedRatingCount:   service.ReceivedRatingCount,
 			ReceivedRatingAverage: service.ReceivedRatingAverage,
 		})

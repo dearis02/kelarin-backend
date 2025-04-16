@@ -14,7 +14,7 @@ import (
 )
 
 type ServiceIndex interface {
-	Index(ctx context.Context, req types.ServiceIndex) error
+	Create(ctx context.Context, req types.ServiceIndex) error
 	FindByID(ctx context.Context, ID string) (types.ServiceIndex, error)
 	Update(ctx context.Context, req types.ServiceIndex) error
 	Delete(ctx context.Context, req types.ServiceIndex) error
@@ -31,7 +31,7 @@ func NewServiceIndex(esDB *elasticsearch.TypedClient) ServiceIndex {
 	}
 }
 
-func (r *serviceIndexImpl) Index(ctx context.Context, req types.ServiceIndex) error {
+func (r *serviceIndexImpl) Create(ctx context.Context, req types.ServiceIndex) error {
 	_, err := r.esDB.Index(types.ServiceElasticSearchIndexName).Request(req).Id(req.ID.String()).Do(ctx)
 	if err != nil {
 		return errors.New(err)

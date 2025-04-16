@@ -169,18 +169,23 @@ func (r ServiceCreateReq) Validate() error {
 }
 
 type ServiceIndex struct {
-	ID              uuid.UUID               `json:"id"`
-	Name            string                  `json:"name"`
-	Description     string                  `json:"description"`
-	Province        null.String             `json:"province"`
-	City            null.String             `json:"city"`
-	DeliveryMethods []ServiceDeliveryMethod `json:"delivery_methods"`
-	Categories      []string                `json:"categories"`
-	Rules           ServiceRules            `json:"rules"`
-	FeeStartAt      decimal.Decimal         `json:"fee_start_at"`
-	FeeEndAt        decimal.Decimal         `json:"fee_end_at"`
-	IsAvailable     bool                    `json:"is_available"`
-	CreatedAt       time.Time               `json:"created_at"`
+	ID                    uuid.UUID               `json:"id"`
+	ServiceProviderID     uuid.UUID               `json:"service_provider_id"`
+	Name                  string                  `json:"name"`
+	Description           string                  `json:"description"`
+	Province              null.String             `json:"province"`
+	City                  null.String             `json:"city"`
+	DeliveryMethods       []ServiceDeliveryMethod `json:"delivery_methods"`
+	Categories            []string                `json:"categories"`
+	Rules                 ServiceRules            `json:"rules"`
+	FeeStartAt            decimal.Decimal         `json:"fee_start_at"`
+	FeeEndAt              decimal.Decimal         `json:"fee_end_at"`
+	Coordinates           null.String             `json:"coordinates"`
+	IsAvailable           bool                    `json:"is_available"`
+	Images                []string                `json:"images"`
+	ReceivedRatingCount   int32                   `json:"received_rating_count"`
+	ReceivedRatingAverage float32                 `json:"received_rating_average"`
+	CreatedAt             time.Time               `json:"created_at"`
 }
 
 type ServiceGetByIDReq struct {

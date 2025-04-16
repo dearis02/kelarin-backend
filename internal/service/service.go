@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/volatiletech/null/v9"
 )
 
@@ -118,16 +119,23 @@ func (s *serviceImpl) Create(ctx context.Context, req types.ServiceCreateReq) er
 		return err
 	}
 
-	if len(categories) != len(req.CategoryIDs) {
-		return errors.New(types.AppErr{
-			Code:    http.StatusBadRequest,
-			Message: "invalid category_ids",
-		})
+	categoriesMap := lo.SliceToMap(categories, func(category types.ServiceCategory) (uuid.UUID, types.ServiceCategory) {
+		return category.ID, category
+	})
+
+	for _, id := range req.CategoryIDs {
+		if _, ok := categoriesMap[id]; !ok {
+			return errors.New(types.AppErr{
+				Code:    http.StatusBadRequest,
+				Message: fmt.Sprintf("invalid category_id: %s", id),
+			})
+		}
 	}
 
+	areaExists := true
 	area, err := s.serviceProviderAreaRepo.FindByServiceProviderID(ctx, provider.ID)
 	if errors.Is(err, types.ErrNoData) {
-		// do noting
+		areaExists = false
 	} else if err != nil {
 		return err
 	}
@@ -192,30 +200,32 @@ func (s *serviceImpl) Create(ctx context.Context, req types.ServiceCreateReq) er
 		return err
 	}
 
-	idxCategories := []string{}
+	categoriesName := []string{}
 	for _, category := range categories {
-		idxCategories = append(idxCategories, category.Name)
+		categoriesName = append(categoriesName, category.Name)
 	}
 
 	indexReq := types.ServiceIndex{
-		ID:              service.ID,
-		Name:            service.Name,
-		Description:     service.Description,
-		DeliveryMethods: service.DeliveryMethods,
-		Categories:      idxCategories,
-		Rules:           service.Rules,
-		FeeStartAt:      service.FeeStartAt,
-		FeeEndAt:        service.FeeEndAt,
-		IsAvailable:     service.IsAvailable,
-		CreatedAt:       timeNow,
+		ID:                service.ID,
+		ServiceProviderID: service.ServiceProviderID,
+		Name:              service.Name,
+		Description:       service.Description,
+		DeliveryMethods:   service.DeliveryMethods,
+		Categories:        categoriesName,
+		Rules:             service.Rules,
+		FeeStartAt:        service.FeeStartAt,
+		FeeEndAt:          service.FeeEndAt,
+		IsAvailable:       service.IsAvailable,
+		Images:            service.Images,
+		CreatedAt:         timeNow,
 	}
 
-	if area.ID != 0 {
+	if areaExists {
 		indexReq.Province = area.ProvinceName
 		indexReq.City = area.CityName
 	}
 
-	if err := s.serviceIndexRepo.Index(ctx, indexReq); err != nil {
+	if err := s.serviceIndexRepo.Create(ctx, indexReq); err != nil {
 		return err
 	}
 
