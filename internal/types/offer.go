@@ -37,6 +37,7 @@ const (
 	OfferStatusAccepted OfferStatus = "accepted"
 	OfferStatusRejected OfferStatus = "rejected"
 	OfferStatusCanceled OfferStatus = "canceled"
+	OfferStatusExpired  OfferStatus = "expired"
 )
 
 type OfferWithServiceAndProvider struct {

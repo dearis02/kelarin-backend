@@ -219,6 +219,24 @@ func (_m *Offer) FindForReportByServiceProviderID(ctx context.Context, servicePr
 	return r0, r1, r2
 }
 
+// FindIDsWhereExpired provides a mock function with given fields: ctx, idsChan
+func (_m *Offer) FindIDsWhereExpired(ctx context.Context, idsChan chan<- uuid.UUID) error {
+	ret := _m.Called(ctx, idsChan)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindIDsWhereExpired")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, chan<- uuid.UUID) error); ok {
+		r0 = rf(ctx, idsChan)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // IsPendingOfferExists provides a mock function with given fields: ctx, userID, serviceID
 func (_m *Offer) IsPendingOfferExists(ctx context.Context, userID uuid.UUID, serviceID uuid.UUID) (bool, error) {
 	ret := _m.Called(ctx, userID, serviceID)
@@ -245,6 +263,24 @@ func (_m *Offer) IsPendingOfferExists(ctx context.Context, userID uuid.UUID, ser
 	}
 
 	return r0, r1
+}
+
+// UpdateAsExpired provides a mock function with given fields: ctx, _tx, IDs
+func (_m *Offer) UpdateAsExpired(ctx context.Context, _tx dbUtil.Tx, IDs uuid.UUIDs) error {
+	ret := _m.Called(ctx, _tx, IDs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateAsExpired")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, dbUtil.Tx, uuid.UUIDs) error); ok {
+		r0 = rf(ctx, _tx, IDs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // UpdateTx provides a mock function with given fields: ctx, tx, req

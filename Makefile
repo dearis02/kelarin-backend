@@ -16,7 +16,7 @@ migration\:force:
 
 # Usage: make wire:generate
 wire\:generate:
-	wire ./cmd/server
+	wire ./cmd/server ./cmd/cronjob
 
 # Usage: make compose:up env-file=.env
 compose\:up:

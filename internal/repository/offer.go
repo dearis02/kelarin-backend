@@ -4,11 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"kelarin/internal/types"
+	"kelarin/internal/utils"
 	dbUtil "kelarin/internal/utils/dbutil"
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
+	"github.com/rs/zerolog/log"
 )
 
 type Offer interface {
@@ -21,6 +24,8 @@ type Offer interface {
 	FindAllByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.Offer, error)
 	FindForReportByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID, month, year int) (int64, []types.OfferForReport, error)
 	CountGroupByStatusByServiceProviderIDAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, month, year int) (map[types.OfferStatus]int64, error)
+	FindIDsWhereExpired(ctx context.Context, idsChan chan<- uuid.UUID) error
+	UpdateAsExpired(ctx context.Context, _tx dbUtil.Tx, IDs uuid.UUIDs) error
 }
 
 type offerImpl struct {
@@ -330,4 +335,66 @@ func (r *offerImpl) CountGroupByStatusByServiceProviderIDAndMonthAndYear(ctx con
 	}
 
 	return res, nil
+}
+
+func (r *offerImpl) FindIDsWhereExpired(ctx context.Context, idsChan chan<- uuid.UUID) error {
+	query := `
+		SELECT id
+		FROM offers
+		WHERE service_end_date <= $1
+			AND status = $2
+	`
+
+	dateNow := utils.DateNowInUTC()
+
+	query = r.db.Rebind(query)
+	rows, err := r.db.QueryxContext(ctx, query, dateNow, types.OfferStatusPending)
+	if err != nil {
+		return errors.New(err)
+	}
+
+	go func() {
+		defer rows.Close()
+		defer close(idsChan)
+
+		for rows.Next() {
+			var id uuid.UUID
+
+			err = rows.Scan(&id)
+			if err != nil {
+				log.Error().Err(errors.New(err)).Send()
+			}
+
+			idsChan <- id
+		}
+	}()
+
+	return nil
+}
+
+func (r *offerImpl) UpdateAsExpired(ctx context.Context, _tx dbUtil.Tx, IDs uuid.UUIDs) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
+	query := `SELECT id FROM offers WHERE id = ANY($1) FOR UPDATE`
+
+	_, err = tx.ExecContext(ctx, query, pq.Array(IDs))
+	if err != nil {
+		return errors.New(err)
+	}
+
+	query = `
+		UPDATE offers
+		SET status = $1
+		WHERE id = ANY($2)
+	`
+
+	_, err = tx.ExecContext(ctx, query, types.OfferStatusExpired, pq.Array(IDs))
+	if err != nil {
+		return errors.New(err)
+	}
+
+	return nil
 }

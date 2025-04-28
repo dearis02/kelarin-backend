@@ -4,7 +4,8 @@ BEGIN
         'pending', 
         'accepted',
         'rejected',
-        'canceled'
+        'canceled',
+        'expired'
     );
     EXCEPTION WHEN duplicate_object THEN 
         RAISE NOTICE 'offer_status type already exists';

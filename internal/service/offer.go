@@ -25,6 +25,8 @@ type Offer interface {
 	ProviderAction(ctx context.Context, req types.OfferProviderActionReq) error
 	ProviderGetAll(ctx context.Context, req types.OfferProviderGetAllReq) ([]types.OfferProviderGetAllRes, error)
 	ProviderGetByID(ctx context.Context, req types.OfferProviderGetByIDReq) (types.OfferProviderGetByIDRes, error)
+
+	TaskMarkAsExpired(ctx context.Context) error
 }
 
 type offerImpl struct {
@@ -693,4 +695,59 @@ func (s *offerImpl) ProviderGetByID(ctx context.Context, req types.OfferProvider
 	}
 
 	return res, nil
+}
+
+func (s *offerImpl) TaskMarkAsExpired(ctx context.Context) error {
+	const batchSize = 1000
+
+	idsChan := make(chan uuid.UUID, batchSize)
+
+	err := s.offerRepo.FindIDsWhereExpired(ctx, idsChan)
+	if err != nil {
+		return err
+	}
+
+	updateFunc := func(ids uuid.UUIDs) error {
+		tx, err := s.beginMainDBTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+
+		defer tx.Rollback()
+
+		err = s.offerRepo.UpdateAsExpired(ctx, tx, ids)
+		if err != nil {
+			return err
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			return errors.New(err)
+		}
+
+		return nil
+	}
+
+	var ids uuid.UUIDs
+	for id := range idsChan {
+		ids = append(ids, id)
+
+		if len(ids) == batchSize {
+			err := updateFunc(ids)
+			if err != nil {
+				return err
+			}
+
+			ids = ids[:0]
+		}
+	}
+
+	if len(ids) > 0 {
+		err := updateFunc(ids)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
