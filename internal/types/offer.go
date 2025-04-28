@@ -75,7 +75,7 @@ func (r OfferConsumerCreateReq) Validate() error {
 		return errors.New("AuthUser is required")
 	}
 
-	return validation.ValidateStruct(&r,
+	err := validation.ValidateStruct(&r,
 		validation.Field(&r.ServiceID, validation.Required),
 		validation.Field(&r.AddressID, validation.Required),
 		validation.Field(&r.Detail, validation.Required),
@@ -85,6 +85,36 @@ func (r OfferConsumerCreateReq) Validate() error {
 		validation.Field(&r.ServiceStartTime, validation.Required, validation.Date(time.TimeOnly)),
 		validation.Field(&r.ServiceEndTime, validation.Required, validation.Date(time.TimeOnly)),
 	)
+
+	if err != nil {
+		return err
+	}
+
+	ve := validation.Errors{}
+
+	startDate, err := time.Parse(time.DateOnly, r.ServiceStartDate)
+	if err != nil {
+		return errors.New(err)
+	}
+
+	endDate, err := time.Parse(time.DateOnly, r.ServiceEndDate)
+	if err != nil {
+		return errors.New(err)
+	}
+
+	if startDate.Before(utils.DateNowInUTC()) {
+		ve["service_start_date"] = validation.NewError("service_start_date_min", "service_start_date must be equal or greater than today")
+	}
+
+	if endDate.Before(startDate) {
+		ve["service_end_date"] = validation.NewError("service_end_date_min", "service_end_date must be equal or greater than service_start_date")
+	}
+
+	if len(ve) > 0 {
+		return ve
+	}
+
+	return nil
 }
 
 func (r OfferConsumerCreateReq) ValidateDateTimeAndServiceFee(userTz *time.Location, serviceFeeStartAt decimal.Decimal) error {

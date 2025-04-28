@@ -1,14 +1,17 @@
 package utils
 
 import (
+	"encoding/base64"
 	"encoding/csv"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
 	"strings"
 	"time"
 
+	"github.com/elastic/go-elasticsearch/v8/typedapi/types"
 	"github.com/go-errors/errors"
 	"github.com/twpayne/go-geom/encoding/ewkb"
 	"golang.org/x/text/currency"
@@ -151,4 +154,42 @@ func WriteCSV(rows any, file *os.File) error {
 	}
 
 	return nil
+}
+
+func EncodeEsAfter(after []types.FieldValue) (string, error) {
+	if len(after) == 0 {
+		return "", nil
+	}
+
+	b, err := json.Marshal(after)
+	if err != nil {
+		return "", errors.New(err)
+	}
+
+	return base64.StdEncoding.EncodeToString(b), nil
+}
+
+func DecodeESAfter(after string) ([]types.FieldValue, error) {
+	var res []types.FieldValue
+
+	if after == "" {
+		return res, nil
+	}
+
+	b, err := base64.StdEncoding.DecodeString(after)
+	if err != nil {
+		return res, errors.New(err)
+	}
+
+	if err := json.Unmarshal(b, &res); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func DateNowInUTC() time.Time {
+	now := time.Now()
+	d := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	return d
 }

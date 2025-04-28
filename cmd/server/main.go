@@ -63,7 +63,7 @@ func main() {
 		log.Fatal().Stack().Err(err).Send()
 	}
 
-	es, err := dbUtil.NewElasticsearchClient(&cfg.Elasticsearch)
+	es, err := dbUtil.NewElasticsearchClient(cfg.Elasticsearch)
 	if err != nil {
 		log.Fatal().Stack().Caller().Err(err).Send()
 	}

@@ -6,13 +6,10 @@ import (
 	"kelarin/internal/types"
 	"net/http"
 	"slices"
-	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
-	"github.com/volatiletech/null/v9"
 )
 
 type Service interface {
@@ -26,6 +23,7 @@ type Service interface {
 
 	ConsumerGetAll(c *gin.Context)
 	ConsumerGetByID(c *gin.Context)
+	ConsumerCreateServiceFeedback(c *gin.Context)
 }
 
 type serviceImpl struct {
@@ -197,6 +195,7 @@ func (h *serviceImpl) ConsumerGetAll(c *gin.Context) {
 	var req types.ConsumerServiceGetAllReq
 	var err error
 
+	req.After = c.Query("after")
 	req.Keyword = c.Query("keyword")
 	req.Province = c.Query("province")
 	req.City = c.Query("city")
@@ -215,18 +214,7 @@ func (h *serviceImpl) ConsumerGetAll(c *gin.Context) {
 		}
 	})
 
-	latestTimestamp := c.Query("latest_timestamp")
-	if latestTimestamp != "" {
-		timestamp, err := strconv.ParseInt(latestTimestamp, 10, 64)
-		if err != nil {
-			c.Error(errors.New(types.AppErr{Code: http.StatusBadRequest, Message: "invalid latest_timestamp metadata"}))
-			return
-		}
-
-		req.LatestTimestamp = null.TimeFrom(time.UnixMilli(timestamp))
-	}
-
-	res, paginationRes, metadata, err := h.consumerSvc.GetAll(c.Request.Context(), req)
+	res, paginationRes, err := h.consumerSvc.GetAll(c.Request.Context(), req)
 	if err != nil {
 		c.Error(err)
 		return
@@ -236,7 +224,6 @@ func (h *serviceImpl) ConsumerGetAll(c *gin.Context) {
 		StatusCode: http.StatusOK,
 		Data:       res,
 		Pagination: &paginationRes,
-		Metadata:   metadata,
 	})
 }
 
@@ -256,5 +243,22 @@ func (h *serviceImpl) ConsumerGetByID(c *gin.Context) {
 	c.JSON(http.StatusOK, types.ApiResponse{
 		StatusCode: http.StatusOK,
 		Data:       res,
+	})
+}
+
+func (h *serviceImpl) ConsumerCreateServiceFeedback(c *gin.Context) {
+	var req types.ConsumerServiceFeedbackCreateReq
+	if err := h.authMiddleware.BindWithRequest(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	if err := h.consumerSvc.CreateFeedback(c.Request.Context(), req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusCreated, types.ApiResponse{
+		StatusCode: http.StatusCreated,
 	})
 }

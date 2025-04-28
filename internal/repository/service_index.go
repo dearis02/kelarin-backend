@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"kelarin/internal/types"
+	"net/http"
+	"strconv"
 
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/typedapi/core/search"
 	esTypes "github.com/elastic/go-elasticsearch/v8/typedapi/types"
+	"github.com/elastic/go-elasticsearch/v8/typedapi/types/enums/fieldsortnumerictype"
 	"github.com/elastic/go-elasticsearch/v8/typedapi/types/enums/operator"
 	"github.com/elastic/go-elasticsearch/v8/typedapi/types/enums/sortorder"
 	"github.com/go-errors/errors"
@@ -15,10 +18,10 @@ import (
 
 type ServiceIndex interface {
 	Create(ctx context.Context, req types.ServiceIndex) error
-	FindByID(ctx context.Context, ID string) (types.ServiceIndex, error)
-	Update(ctx context.Context, req types.ServiceIndex) error
+	FindByID(ctx context.Context, ID string) (types.ServiceIndex, int64, int64, error)
+	Update(ctx context.Context, req types.ServiceIndex, seqNo int64, primaryTerm int64) error
 	Delete(ctx context.Context, req types.ServiceIndex) error
-	FindAllByFilter(ctx context.Context, req types.ServiceIndexFilter) ([]types.ServiceIndex, int64, *float64, error)
+	FindAllByFilter(ctx context.Context, req types.ServiceIndexFilter) ([]types.ServiceIndex, int64, []esTypes.FieldValue, error)
 }
 
 type serviceIndexImpl struct {
@@ -40,27 +43,53 @@ func (r *serviceIndexImpl) Create(ctx context.Context, req types.ServiceIndex) e
 	return nil
 }
 
-func (r *serviceIndexImpl) FindByID(ctx context.Context, ID string) (types.ServiceIndex, error) {
+func (r *serviceIndexImpl) FindByID(ctx context.Context, ID string) (types.ServiceIndex, int64, int64, error) {
 	res := types.ServiceIndex{}
+	seqNo := int64(0)
+	primaryTerm := int64(0)
 
 	svc, err := r.esDB.Get(types.ServiceElasticSearchIndexName, ID).Do(ctx)
 	if err != nil {
-		return res, errors.New(err)
+		return res, seqNo, primaryTerm, errors.New(err)
 	}
 
 	if !svc.Found {
-		return res, types.ErrNoData
+		return res, seqNo, primaryTerm, types.ErrNoData
 	}
 
 	if err := json.Unmarshal(svc.Source_, &res); err != nil {
-		return res, errors.New(err)
+		return res, seqNo, primaryTerm, errors.New(err)
 	}
 
-	return res, nil
+	if svc.SeqNo_ != nil {
+		seqNo = *svc.SeqNo_
+	}
+	if svc.PrimaryTerm_ != nil {
+		primaryTerm = *svc.PrimaryTerm_
+	}
+
+	return res, seqNo, primaryTerm, nil
 }
 
-func (r *serviceIndexImpl) Update(ctx context.Context, req types.ServiceIndex) error {
-	if _, err := r.esDB.Update(types.ServiceElasticSearchIndexName, req.ID.String()).Doc(req).Do(ctx); err != nil {
+func (r *serviceIndexImpl) Update(ctx context.Context, req types.ServiceIndex, seqNo int64, primaryTerm int64) error {
+	seqNoStr := strconv.FormatInt(seqNo, 10)
+	primaryTermStr := strconv.FormatInt(primaryTerm, 10)
+
+	updateReq := r.esDB.Update(types.ServiceElasticSearchIndexName, req.ID.String()).
+		Doc(req).
+		IfSeqNo(seqNoStr).
+		IfPrimaryTerm(primaryTermStr)
+
+	esErr := esTypes.NewElasticsearchError()
+	_, err := updateReq.Do(ctx)
+	if errors.Is(err, esErr) {
+		esErr = err.(*esTypes.ElasticsearchError)
+		if esErr.Status == http.StatusConflict {
+			return nil
+		} else {
+			return errors.New(err)
+		}
+	} else if err != nil {
 		return errors.New(err)
 	}
 
@@ -76,25 +105,32 @@ func (r *serviceIndexImpl) Delete(ctx context.Context, req types.ServiceIndex) e
 	return nil
 }
 
-func (r *serviceIndexImpl) FindAllByFilter(ctx context.Context, req types.ServiceIndexFilter) ([]types.ServiceIndex, int64, *float64, error) {
+func (r *serviceIndexImpl) FindAllByFilter(ctx context.Context, req types.ServiceIndexFilter) ([]types.ServiceIndex, int64, []esTypes.FieldValue, error) {
 	res := []types.ServiceIndex{}
-	var latestTimeStamp *float64
+	var after []esTypes.FieldValue
+
+	dateTimeFormat := "strict_date_optional_time_nanos"
 
 	searchReq := search.Request{
 		Size: &req.Limit,
 		Sort: []esTypes.SortCombinations{
 			esTypes.SortOptions{
+				Score_: &esTypes.ScoreSort{
+					Order: &sortorder.Desc,
+				},
 				SortOptions: map[string]esTypes.FieldSort{
 					"created_at": {
-						Order: &sortorder.Desc,
+						NumericType: &fieldsortnumerictype.Date,
+						Format:      &dateTimeFormat,
+						Order:       &sortorder.Desc,
 					},
 				},
 			},
 		},
 	}
 
-	if req.LatestTimestamp.Valid {
-		searchReq.SearchAfter = []esTypes.FieldValue{req.LatestTimestamp}
+	if len(req.After) > 0 {
+		searchReq.SearchAfter = req.After
 	}
 
 	mustQuery := []esTypes.Query{}
@@ -150,27 +186,21 @@ func (r *serviceIndexImpl) FindAllByFilter(ctx context.Context, req types.Servic
 
 	services, err := r.esDB.Search().Index(types.ServiceElasticSearchIndexName).Request(&searchReq).Do(ctx)
 	if err != nil {
-		return res, 0, latestTimeStamp, errors.New(err)
+		return res, 0, nil, errors.New(err)
 	}
 
 	for _, hit := range services.Hits.Hits {
 		var service types.ServiceIndex
 		if err := json.Unmarshal(hit.Source_, &service); err != nil {
-			return res, 0, latestTimeStamp, errors.New(err)
+			return res, 0, nil, errors.New(err)
 		}
 
 		res = append(res, service)
 	}
 
-	if len(services.Hits.Hits) > 0 {
-		if latest, ok := services.Hits.Hits[len(services.Hits.Hits)-1].Sort[0].(float64); !ok {
-			return res, 0, latestTimeStamp, errors.New("latest_timestamp is not float64")
-		} else {
-			latestTimeStamp = &latest
-		}
-	} else {
-		latestTimeStamp = nil
+	if len(services.Hits.Hits) == req.Limit {
+		after = services.Hits.Hits[len(services.Hits.Hits)-1].Sort
 	}
 
-	return res, services.Hits.Total.Value, latestTimeStamp, nil
+	return res, services.Hits.Total.Value, after, nil
 }

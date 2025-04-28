@@ -117,6 +117,7 @@ type ElasticsearchConfig struct {
 	Addresses          []string `yaml:"addresses"`
 	Username           string   `yaml:"username"`
 	Password           string   `yaml:"password"`
+	SSLCertificate     string   `yaml:"ssl_certificate"`
 	MaxIdleCons        int      `yaml:"max_idle_cons"`
 	MaxIdleConsPerHost int      `yaml:"max_idle_cons_per_host"`
 }
@@ -126,6 +127,7 @@ func (e ElasticsearchConfig) Validate() error {
 		validation.Field(&e.Addresses, validation.Required),
 		validation.Field(&e.Username, validation.Required),
 		validation.Field(&e.Password, validation.Required),
+		validation.Field(&e.SSLCertificate, validation.Required),
 		validation.Field(&e.MaxIdleCons, validation.Required),
 		validation.Field(&e.MaxIdleConsPerHost, validation.Required),
 	)

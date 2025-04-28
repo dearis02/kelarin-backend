@@ -321,7 +321,7 @@ func (s *serviceImpl) Update(ctx context.Context, req types.ServiceUpdateReq) er
 		return err
 	}
 
-	idxService, err := s.serviceIndexRepo.FindByID(ctx, service.ID.String())
+	idxService, seqNo, primaryTerm, err := s.serviceIndexRepo.FindByID(ctx, service.ID.String())
 	if errors.Is(err, types.ErrNoData) {
 		return errors.New(fmt.Sprintf("service index not found for service_id: %s", service.ID))
 	} else if err != nil {
@@ -333,11 +333,17 @@ func (s *serviceImpl) Update(ctx context.Context, req types.ServiceUpdateReq) er
 		return err
 	}
 
-	if len(categories) != len(req.CategoryIDs) {
-		return errors.New(types.AppErr{
-			Code:    http.StatusBadRequest,
-			Message: "invalid category_ids",
-		})
+	categoryIDsMap := lo.SliceToMap(categories, func(category types.ServiceCategory) (uuid.UUID, any) {
+		return category.ID, struct{}{}
+	})
+
+	for _, id := range req.CategoryIDs {
+		if _, ok := categoryIDsMap[id]; !ok {
+			return errors.New(types.AppErr{
+				Code:    http.StatusUnprocessableEntity,
+				Message: fmt.Sprintf("category_ids: id %s is invalid", id),
+			})
+		}
 	}
 
 	serviceCategories := []types.ServiceServiceCategory{}
@@ -387,11 +393,12 @@ func (s *serviceImpl) Update(ctx context.Context, req types.ServiceUpdateReq) er
 		return err
 	}
 
-	if err := s.serviceRepo.UpdateTx(ctx, tx, service); err != nil {
+	err = s.serviceRepo.UpdateTx(ctx, tx, service)
+	if err != nil {
 		return err
 	}
 
-	if err := s.serviceIndexRepo.Update(ctx, idxService); err != nil {
+	if err := s.serviceIndexRepo.Update(ctx, idxService, seqNo, primaryTerm); err != nil {
 		return err
 	}
 
@@ -421,7 +428,7 @@ func (s *serviceImpl) Delete(ctx context.Context, req types.ServiceDeleteReq) er
 		return err
 	}
 
-	idxService, err := s.serviceIndexRepo.FindByID(ctx, service.ID.String())
+	idxService, _, _, err := s.serviceIndexRepo.FindByID(ctx, service.ID.String())
 	if errors.Is(err, types.ErrNoData) {
 		return errors.New(fmt.Sprintf("service index not found for service_id: %s", service.ID))
 	} else if err != nil {

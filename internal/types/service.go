@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/elastic/go-elasticsearch/v8/typedapi/types"
 	"github.com/go-errors/errors"
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/google/uuid"
@@ -313,12 +314,12 @@ func (r ServiceImageActionReq) Validate() error {
 }
 
 type ServiceIndexFilter struct {
-	Limit           int
-	LatestTimestamp null.Time
-	Keyword         string
-	Province        string
-	City            string
-	Categories      []string
+	Limit      int
+	After      []types.FieldValue
+	Keyword    string
+	Province   string
+	City       string
+	Categories []string
 }
 
 // end of region service types

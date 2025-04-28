@@ -20,6 +20,7 @@ type Service interface {
 	FindAllByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.Service, error)
 	DeleteTx(ctx context.Context, _tx dbUtil.Tx, service types.Service) error
 	FindByIDs(ctx context.Context, IDs []uuid.UUID) ([]types.Service, error)
+	UpdateAsFeedbackGiven(ctx context.Context, _tx dbUtil.Tx, ID uuid.UUID, rating int16) (int32, float32, error)
 }
 
 type serviceImpl struct {
@@ -247,4 +248,39 @@ func (r *serviceImpl) FindByIDs(ctx context.Context, IDs []uuid.UUID) ([]types.S
 	}
 
 	return res, nil
+}
+
+func (r *serviceImpl) UpdateAsFeedbackGiven(ctx context.Context, _tx dbUtil.Tx, ID uuid.UUID, rating int16) (int32, float32, error) {
+	var receivedRatingCount int32
+	var receivedRatingAverage float32
+
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return receivedRatingCount, receivedRatingAverage, err
+	}
+
+	query := `
+		SELECT id FROM services WHERE id = $1 FOR UPDATE
+	`
+
+	if _, err := tx.ExecContext(ctx, query, ID); err != nil {
+		return receivedRatingCount, receivedRatingAverage, errors.New(err)
+	}
+
+	query = `
+		UPDATE services
+		SET
+			received_rating_count = received_rating_count + 1,
+			received_rating_average = ((received_rating_average * received_rating_count) + $1) / (received_rating_count + 1)
+		WHERE id = $2
+		RETURNING received_rating_count, received_rating_average
+	`
+
+	query = tx.Rebind(query)
+	err = tx.QueryRowxContext(ctx, query, rating, ID).Scan(&receivedRatingCount, &receivedRatingAverage)
+	if err != nil {
+		return receivedRatingCount, receivedRatingAverage, errors.New(err)
+	}
+
+	return receivedRatingCount, receivedRatingAverage, nil
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"kelarin/internal/repository"
 	"kelarin/internal/types"
+	"kelarin/internal/utils"
+	dbUtil "kelarin/internal/utils/dbutil"
 	"net/http"
 	"strconv"
 	"time"
@@ -14,59 +16,83 @@ import (
 )
 
 type ConsumerService interface {
-	GetAll(ctx context.Context, req types.ConsumerServiceGetAllReq) ([]types.ConsumerServiceGetAllRes, types.PaginationRes, types.ConsumerServiceGetAllMetadata, error)
+	GetAll(ctx context.Context, req types.ConsumerServiceGetAllReq) ([]types.ConsumerServiceGetAllRes, types.PaginationRes, error)
 	GetByID(ctx context.Context, ID uuid.UUID) (types.ConsumerServiceGetByIDRes, error)
+	CreateFeedback(ctx context.Context, req types.ConsumerServiceFeedbackCreateReq) error
 }
 
 type consumerServiceImpl struct {
+	beginMainDBTx           dbUtil.SqlxTx
 	serviceIndexRepo        repository.ServiceIndex
 	serviceRepo             repository.Service
 	serviceProviderAreaRepo repository.ServiceProviderArea
 	serviceProviderRepo     repository.ServiceProvider
 	fileSvc                 File
+	orderRepo               repository.Order
+	serviceFeedbackRepo     repository.ServiceFeedback
 }
 
-func NewConsumerService(serviceIndexRepo repository.ServiceIndex, serviceRepo repository.Service, serviceProviderAreaRepo repository.ServiceProviderArea, serviceProviderRepo repository.ServiceProvider, fileSvc File) ConsumerService {
+func NewConsumerService(
+	beginMainDBTx dbUtil.SqlxTx,
+	serviceIndexRepo repository.ServiceIndex,
+	serviceRepo repository.Service,
+	serviceProviderAreaRepo repository.ServiceProviderArea,
+	serviceProviderRepo repository.ServiceProvider,
+	fileSvc File,
+	orderRepo repository.Order,
+	serviceFeedbackRepo repository.ServiceFeedback,
+) ConsumerService {
 	return &consumerServiceImpl{
+		beginMainDBTx:           beginMainDBTx,
 		serviceIndexRepo:        serviceIndexRepo,
 		serviceRepo:             serviceRepo,
 		serviceProviderAreaRepo: serviceProviderAreaRepo,
 		serviceProviderRepo:     serviceProviderRepo,
 		fileSvc:                 fileSvc,
+		orderRepo:               orderRepo,
+		serviceFeedbackRepo:     serviceFeedbackRepo,
 	}
 }
 
-func (s *consumerServiceImpl) GetAll(ctx context.Context, req types.ConsumerServiceGetAllReq) ([]types.ConsumerServiceGetAllRes, types.PaginationRes, types.ConsumerServiceGetAllMetadata, error) {
+func (s *consumerServiceImpl) GetAll(ctx context.Context, req types.ConsumerServiceGetAllReq) ([]types.ConsumerServiceGetAllRes, types.PaginationRes, error) {
 	res := []types.ConsumerServiceGetAllRes{}
 	paginationRes := types.PaginationRes{}
-	metadata := types.ConsumerServiceGetAllMetadata{}
 
 	if err := req.ValidateAndNormalize(); err != nil {
-		return res, paginationRes, metadata, err
+		return res, paginationRes, err
 	}
 
 	sizeInt, err := strconv.Atoi(req.Size)
 	if err != nil {
-		return res, paginationRes, metadata, errors.New(err)
+		return res, paginationRes, errors.New(err)
+	}
+
+	after, err := utils.DecodeESAfter(req.After)
+	if err != nil {
+		return res, paginationRes, err
 	}
 
 	filter := types.ServiceIndexFilter{
-		Limit:           sizeInt,
-		LatestTimestamp: req.LatestTimestamp,
-		Province:        req.Province,
-		City:            req.City,
-		Categories:      req.Categories,
-		Keyword:         req.Keyword,
+		Limit:      sizeInt,
+		After:      after,
+		Province:   req.Province,
+		City:       req.City,
+		Categories: req.Categories,
+		Keyword:    req.Keyword,
 	}
 
-	services, totalItem, latestTimestamp, err := s.serviceIndexRepo.FindAllByFilter(ctx, filter)
+	services, totalItem, after, err := s.serviceIndexRepo.FindAllByFilter(ctx, filter)
 	if err != nil {
-		return res, paginationRes, metadata, err
+		return res, paginationRes, err
 	}
 
-	metadata.LatestTimestamp = latestTimestamp
+	afterRes, err := utils.EncodeEsAfter(after)
+	if err != nil {
+		return res, paginationRes, err
+	}
 
 	paginationRes = req.GeneratePaginationResponse(totalItem)
+	paginationRes.After = afterRes
 
 	serviceProviderIDs := []uuid.UUID{}
 	for _, service := range services {
@@ -75,7 +101,7 @@ func (s *consumerServiceImpl) GetAll(ctx context.Context, req types.ConsumerServ
 
 	serviceProviders, err := s.serviceProviderRepo.FindByIDs(ctx, serviceProviderIDs)
 	if err != nil {
-		return res, paginationRes, metadata, err
+		return res, paginationRes, err
 	}
 
 	for _, service := range services {
@@ -84,12 +110,12 @@ func (s *consumerServiceImpl) GetAll(ctx context.Context, req types.ConsumerServ
 		})
 
 		if !exs {
-			return res, paginationRes, metadata, errors.Errorf("service provider not found: id %s", service.ServiceProviderID)
+			return res, paginationRes, errors.Errorf("service provider not found: id %s", service.ServiceProviderID)
 		}
 
 		imgURL, err := s.fileSvc.GetS3PresignedURL(ctx, service.Images[0])
 		if err != nil {
-			return res, paginationRes, metadata, err
+			return res, paginationRes, err
 		}
 
 		res = append(res, types.ConsumerServiceGetAllRes{
@@ -106,7 +132,7 @@ func (s *consumerServiceImpl) GetAll(ctx context.Context, req types.ConsumerServ
 		})
 	}
 
-	return res, paginationRes, metadata, nil
+	return res, paginationRes, nil
 }
 
 func (s *consumerServiceImpl) GetByID(ctx context.Context, ID uuid.UUID) (types.ConsumerServiceGetByIDRes, error) {
@@ -175,4 +201,89 @@ func (s *consumerServiceImpl) GetByID(ctx context.Context, ID uuid.UUID) (types.
 	}
 
 	return res, nil
+}
+
+func (s *consumerServiceImpl) CreateFeedback(ctx context.Context, req types.ConsumerServiceFeedbackCreateReq) error {
+	err := req.Validate()
+	if err != nil {
+		return err
+	}
+
+	order, err := s.orderRepo.FindByIDAndUserID(ctx, req.OrderID, req.AuthUser.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(types.AppErr{Code: http.StatusForbidden, Message: "order not found"})
+	} else if err != nil {
+		return err
+	}
+
+	if order.Status != types.OrderStatusFinished {
+		return errors.New(types.AppErr{Code: http.StatusConflict, Message: "order not finished"})
+	}
+
+	feedbackGiven := true
+	_, err = s.serviceFeedbackRepo.FindByOrderID(ctx, order.ID)
+	if errors.Is(err, types.ErrNoData) {
+		feedbackGiven = false
+	} else if err != nil {
+		return err
+	}
+
+	if feedbackGiven {
+		return errors.New(types.AppErr{Code: http.StatusConflict, Message: "feedback already given"})
+	}
+
+	timeNow := time.Now()
+
+	id, err := uuid.NewV7()
+	if err != nil {
+		return errors.New(err)
+	}
+
+	feedback := types.ServiceFeedback{
+		ID:        id,
+		ServiceID: order.ServiceID,
+		OrderID:   order.ID,
+		Rating:    req.Rating,
+		Comment:   req.Comment,
+		CreatedAt: timeNow,
+	}
+
+	idxService, seqNo, primaryTerm, err := s.serviceIndexRepo.FindByID(ctx, order.ServiceID.String())
+	if errors.Is(err, types.ErrNoData) {
+		return errors.Errorf("service index not found: id %s", order.ServiceID)
+	} else if err != nil {
+		return err
+	}
+
+	tx, err := s.beginMainDBTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	err = s.serviceFeedbackRepo.CreateTx(ctx, tx, feedback)
+	if err != nil {
+		return err
+	}
+
+	recvRatingCount, recvRatingAverage, err := s.serviceRepo.UpdateAsFeedbackGiven(ctx, tx, order.ServiceID, req.Rating)
+	if err != nil {
+		return err
+	}
+
+	idxService.ReceivedRatingCount = recvRatingCount
+	idxService.ReceivedRatingAverage = recvRatingAverage
+
+	err = s.serviceIndexRepo.Update(ctx, idxService, seqNo, primaryTerm)
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return errors.New(err)
+	}
+
+	return nil
 }

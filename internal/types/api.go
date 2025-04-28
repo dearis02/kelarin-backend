@@ -32,10 +32,11 @@ type PaginationReq struct {
 }
 
 type PaginationRes struct {
-	Page      int32 `json:"page"`
-	Size      int32 `json:"size"`
-	TotalItem int64 `json:"total_item"`
-	TotalPage int64 `json:"total_page"`
+	Page      int32  `json:"page"`
+	Size      int32  `json:"size"`
+	TotalItem int64  `json:"total_item"`
+	TotalPage int64  `json:"total_page"`
+	After     string `json:"after"`
 }
 
 func (r *PaginationReq) ValidateAndNormalize() error {

@@ -31,4 +31,5 @@ var RepositorySet = wire.NewSet(
 	repository.NewPaymentMethod,
 	repository.NewPayment,
 	repository.NewOrder,
+	repository.NewServiceFeedback,
 )
