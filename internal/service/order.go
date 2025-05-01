@@ -96,6 +96,8 @@ func (s *orderImpl) ConsumerGetAll(ctx context.Context, req types.OrderConsumerG
 				PlatformFee:       order.PaymentPlatformFee.Int32,
 				Status:            types.PaymentStatus(order.PaymentStatus.String),
 				PaymentLink:       order.PaymentPaymentLink.String,
+				CreatedAt:         order.PaymentCreatedAt.Time,
+				ExpiredAt:         order.PaymentExpiredAt.Time,
 			}
 		}
 
@@ -161,6 +163,7 @@ func (s *orderImpl) ConsumerGetByID(ctx context.Context, req types.OrderConsumer
 
 		paymentRes = &types.OrderConsumerGetByIDResPayment{
 			ID:                payment.ID,
+			Reference:         payment.Reference,
 			PaymentMethodName: paymentMethod.Name,
 			PaymentMethodLogo: paymentMethod.Logo,
 			Amount:            payment.Amount,
@@ -168,6 +171,8 @@ func (s *orderImpl) ConsumerGetByID(ctx context.Context, req types.OrderConsumer
 			PlatformFee:       payment.PlatformFee,
 			Status:            payment.Status,
 			PaymentLink:       payment.PaymentLink,
+			ExpiredAt:         payment.ExpiredAt,
+			CreatedAt:         payment.CreatedAt,
 			UpdatedAt:         payment.UpdatedAt,
 		}
 	}

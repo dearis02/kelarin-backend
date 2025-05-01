@@ -33,6 +33,7 @@ func (r *paymentImpl) FindByID(ctx context.Context, ID uuid.UUID) (types.Payment
 	query := `
 		SELECT 
 			id,
+			reference,
 			payment_method_id,
 			user_id,
 			amount,
@@ -40,6 +41,7 @@ func (r *paymentImpl) FindByID(ctx context.Context, ID uuid.UUID) (types.Payment
 			platform_fee,
 			status,
 			payment_link,
+			expired_at,
 			created_at,
 			updated_at
 		FROM payments
@@ -65,6 +67,7 @@ func (r *paymentImpl) CreateTx(ctx context.Context, _tx dbUtil.Tx, req types.Pay
 	query := `
 		INSERT INTO payments (
 			id,
+			reference,
 			payment_method_id,
 			user_id,
 			amount,
@@ -72,10 +75,12 @@ func (r *paymentImpl) CreateTx(ctx context.Context, _tx dbUtil.Tx, req types.Pay
 			platform_fee,
 			status,
 			payment_link,
+			expired_at,
 			created_at
 		)
 		VALUES (
 			:id, 
+			:reference,
 			:payment_method_id,
 			:user_id, 
 			:amount,
@@ -83,6 +88,7 @@ func (r *paymentImpl) CreateTx(ctx context.Context, _tx dbUtil.Tx, req types.Pay
 			:platform_fee,
 			:status,
 			:payment_link,
+			:expired_at,
 			:created_at
 		)
 	`
@@ -121,6 +127,7 @@ func (r *paymentImpl) FindByIDs(ctx context.Context, IDs uuid.UUIDs) ([]types.Pa
 	query := `
 		SELECT 
 			payments.id,
+			payments.reference,
 			payments.payment_method_id,
 			payments.user_id,
 			payments.amount,
@@ -128,6 +135,7 @@ func (r *paymentImpl) FindByIDs(ctx context.Context, IDs uuid.UUIDs) ([]types.Pa
 			payments.platform_fee,
 			payments.status,
 			payments.payment_link,
+			payments.expired_at,
 			payments.created_at,
 			payments.updated_at,
 			payment_methods.name AS payment_method_name,

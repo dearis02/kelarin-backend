@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"os"
 	"reflect"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/elastic/go-elasticsearch/v8/typedapi/types"
 	"github.com/go-errors/errors"
+	"github.com/google/uuid"
 	"github.com/twpayne/go-geom/encoding/ewkb"
 	"golang.org/x/text/currency"
 )
@@ -192,4 +194,15 @@ func DateNowInUTC() time.Time {
 	now := time.Now()
 	d := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	return d
+}
+
+func GenerateInvoiceRef(id uuid.UUID) string {
+	date := time.Now().Format("20060102")
+
+	num := new(big.Int).SetBytes(id[:8])
+	base36 := strings.ToUpper(num.Text(36))
+
+	padded := fmt.Sprintf("%010s", base36)
+
+	return fmt.Sprintf("%s-%s", date, padded)
 }

@@ -5,11 +5,11 @@ import (
 	"kelarin/internal/service"
 	"kelarin/internal/types"
 	"net/http"
-	"slices"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 )
 
 type Service interface {
@@ -202,17 +202,11 @@ func (h *serviceImpl) ConsumerGetAll(c *gin.Context) {
 	req.Size = c.Query("size")
 	req.Page = c.Query("page")
 	categories := c.QueryArray("categories")
-	categories = slices.Collect(func(yield func(string) bool) {
-		for _, category := range categories {
-			if category == "" {
-				continue
-			}
-
-			if !yield(category) {
-				break
-			}
-		}
+	categories = lo.Filter(categories, func(category string, _ int) bool {
+		return category != ""
 	})
+
+	req.Categories = categories
 
 	res, paginationRes, err := h.consumerSvc.GetAll(c.Request.Context(), req)
 	if err != nil {

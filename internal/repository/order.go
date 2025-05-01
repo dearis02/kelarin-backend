@@ -224,8 +224,10 @@ func (r *orderImpl) FindAllByUserID(ctx context.Context, userID uuid.UUID) ([]ty
 			payments.amount AS payment_amount,
 			payments.admin_fee AS payment_admin_fee,
 			payments.platform_fee AS payment_platform_fee,
+			payments.status  AS payment_status,
 			payments.payment_link AS payment_payment_link,
-			payments.status  AS payment_status
+			payments.created_at AS payment_created_at,
+			payments.expired_at AS payment_expired_at
 		FROM orders
 		INNER JOIN offers
 			ON offers.id = orders.offer_id
@@ -448,8 +450,10 @@ func (r *orderImpl) FindByOfferID(ctx context.Context, offerID uuid.UUID) (types
 			payments.amount AS payment_amount,
 			payments.admin_fee AS payment_admin_fee,
 			payments.platform_fee AS payment_platform_fee,
+			payments.status  AS payment_status,
 			payments.payment_link AS payment_payment_link,
-			payments.status  AS payment_status
+			payments.created_at AS payment_created_at,
+			payments.expired_at AS payment_expired_at
 		FROM orders
 		INNER JOIN offers
 			ON offers.id = orders.offer_id

@@ -64,6 +64,8 @@ type OrderWithServiceAndServiceProvider struct {
 	PaymentAdminFee          null.Int32          `db:"payment_admin_fee"`
 	PaymentPlatformFee       null.Int32          `db:"payment_platform_fee"`
 	PaymentPaymentLink       null.String         `db:"payment_payment_link"`
+	PaymentCreatedAt         null.Time           `db:"payment_created_at"`
+	PaymentExpiredAt         null.Time           `db:"payment_expired_at"`
 }
 
 type OrderForReport struct {
@@ -136,12 +138,26 @@ type OrderConsumerGetAllResPayment struct {
 	PlatformFee       int32           `json:"platform_fee"`
 	Status            PaymentStatus   `json:"status"`
 	PaymentLink       string          `json:"payment_link"`
+	CreatedAt         time.Time       `json:"created_at"`
+	ExpiredAt         time.Time       `json:"expired_at"`
 }
 
 type OrderConsumerGetByIDReq struct {
 	AuthUser AuthUser  `middleware:"user"`
 	ID       uuid.UUID `param:"id"`
 	TimeZone string    `header:"Time-Zone" `
+}
+
+func (r OrderConsumerGetByIDReq) Validate() error {
+	if r.AuthUser.IsZero() {
+		return errors.New("AuthUser is required")
+	}
+
+	if r.ID == uuid.Nil {
+		return errors.New(ErrIDRouteParamRequired)
+	}
+
+	return nil
 }
 
 type OrderConsumerGetByIDRes struct {
@@ -157,20 +173,9 @@ type OrderConsumerGetByIDRes struct {
 	Payment          *OrderConsumerGetByIDResPayment `json:"payment"`
 }
 
-func (r OrderConsumerGetByIDReq) Validate() error {
-	if r.AuthUser.IsZero() {
-		return errors.New("AuthUser is required")
-	}
-
-	if r.ID == uuid.Nil {
-		return errors.New(ErrIDRouteParamRequired)
-	}
-
-	return nil
-}
-
 type OrderConsumerGetByIDResPayment struct {
 	ID                uuid.UUID       `json:"id"`
+	Reference         string          `json:"reference"`
 	PaymentMethodName string          `json:"payment_method_name"`
 	PaymentMethodLogo string          `json:"payment_method_logo"`
 	Amount            decimal.Decimal `json:"amount"`
@@ -178,6 +183,8 @@ type OrderConsumerGetByIDResPayment struct {
 	PlatformFee       int32           `json:"platform_fee"`
 	Status            PaymentStatus   `json:"status"`
 	PaymentLink       string          `json:"payment_link"`
+	ExpiredAt         time.Time       `json:"expired_at"`
+	CreatedAt         time.Time       `json:"created_at"`
 	UpdatedAt         null.Time       `json:"updated_at"`
 }
 

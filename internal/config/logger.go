@@ -44,7 +44,7 @@ func (w jsonIndentWriter) Write(p []byte) (int, error) {
 
 func NewLogger(c *Config) zerolog.Logger {
 	zerolog.TimeFieldFormat = timeStampFormat
-	zerolog.ErrorStackMarshaler = func(err error) interface{} {
+	zerolog.ErrorStackMarshaler = func(err error) any {
 		if err, ok := err.(*errors.Error); ok {
 			return FilterStackTrace(err.StackFrames())
 		}

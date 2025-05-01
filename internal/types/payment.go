@@ -14,6 +14,7 @@ import (
 
 type Payment struct {
 	ID              uuid.UUID       `db:"id"`
+	Reference       string          `db:"reference"`
 	PaymentMethodID uuid.UUID       `db:"payment_method_id"`
 	UserID          uuid.UUID       `db:"user_id"`
 	Amount          decimal.Decimal `db:"amount"`
@@ -21,6 +22,7 @@ type Payment struct {
 	PlatformFee     int32           `db:"platform_fee"`
 	PaymentLink     string          `db:"payment_link"`
 	Status          PaymentStatus   `db:"status"`
+	ExpiredAt       time.Time       `db:"expired_at"`
 	CreatedAt       time.Time       `db:"created_at"`
 	UpdatedAt       null.Time       `db:"updated_at"`
 }
@@ -37,6 +39,7 @@ const (
 
 type PaymentWithPaymentMethod struct {
 	ID                uuid.UUID         `db:"id"`
+	Reference         string            `db:"reference"`
 	PaymentMethodID   uuid.UUID         `db:"payment_method_id"`
 	UserID            uuid.UUID         `db:"user_id"`
 	Amount            decimal.Decimal   `db:"amount"`
@@ -44,6 +47,7 @@ type PaymentWithPaymentMethod struct {
 	PlatformFee       int32             `db:"platform_fee"`
 	PaymentLink       string            `db:"payment_link"`
 	Status            PaymentStatus     `db:"status"`
+	ExpiredAt         time.Time         `db:"expired_at"`
 	CreatedAt         time.Time         `db:"created_at"`
 	UpdatedAt         null.Time         `db:"updated_at"`
 	PaymentMethodName string            `db:"payment_method_name"`

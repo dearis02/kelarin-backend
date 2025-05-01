@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS payment_methods (
 
 CREATE TABLE IF NOT EXISTS payments (
     id UUID PRIMARY KEY,
+    reference VARCHAR(50) NOT NULL UNIQUE,
     payment_method_id UUID NOT NULL,
     user_id UUID NOT NULL,
     amount DECIMAL (15,2) NOT NULL,
@@ -51,6 +52,7 @@ CREATE TABLE IF NOT EXISTS payments (
     platform_fee INT NOT NULL,
     payment_link TEXT NOT NULL,
     status payment_status NOT NULL DEFAULT 'pending',
+    expired_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ,
     FOREIGN KEY (payment_method_id) REFERENCES payment_methods(id),

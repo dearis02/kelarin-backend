@@ -8,6 +8,7 @@ import (
 	"kelarin/internal/config"
 	"kelarin/internal/repository"
 	"kelarin/internal/types"
+	"kelarin/internal/utils"
 	dbUtil "kelarin/internal/utils/dbutil"
 	"net/http"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/midtrans/midtrans-go"
 	"github.com/midtrans/midtrans-go/snap"
+	"github.com/rs/zerolog/log"
 	"github.com/shopspring/decimal"
 	"github.com/volatiletech/null/v9"
 )
@@ -96,15 +98,21 @@ func (s *paymentImpl) Create(ctx context.Context, req types.PaymentCreateReq) (t
 	if err != nil {
 		return res, errors.New(err)
 	}
-	timeNow := time.Now()
+
+	ref := utils.GenerateInvoiceRef(id)
+
+	timeNow := time.Now().Local()
+
 	payment := types.Payment{
 		ID:              id,
+		Reference:       ref,
 		PaymentMethodID: paymentMethod.ID,
 		UserID:          order.UserID,
 		Amount:          order.ServiceFee,
 		AdminFee:        int32(adminFee.IntPart()),
 		PlatformFee:     PlatformFee,
 		Status:          types.PaymentStatusPending,
+		ExpiredAt:       timeNow.Add(time.Hour * 24),
 		CreatedAt:       timeNow,
 	}
 
@@ -141,6 +149,11 @@ func (s *paymentImpl) Create(ctx context.Context, req types.PaymentCreateReq) (t
 		},
 		Callbacks: &snap.Callbacks{
 			Finish: s.cfg.RedirectURL,
+		},
+		Expiry: &snap.ExpiryDetails{
+			StartTime: timeNow.Format("2006-01-02 15:04:05 Z0700"),
+			Unit:      "day",
+			Duration:  1,
 		},
 	}
 
@@ -193,9 +206,14 @@ func (s *paymentImpl) MidtransNotification(ctx context.Context, req types.Paymen
 		return err
 	}
 
+	// possible multiple payment created
 	order, err := s.orderRepo.FindByPaymentID(ctx, payment.ID)
 	if errors.Is(err, types.ErrNoData) {
-		return errors.New(types.AppErr{Code: http.StatusNotFound, Message: "order not found"})
+		log.Error().
+			Str("payment_id", payment.ID.String()).
+			Err(errors.New("order not found")).
+			Send()
+		return nil
 	} else if err != nil {
 		return err
 	}
