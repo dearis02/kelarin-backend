@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"kelarin/internal/types"
+	dbUtil "kelarin/internal/utils/dbutil"
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
@@ -19,6 +20,8 @@ type ServiceProvider interface {
 	UpdateCreditTx(ctx context.Context, req types.ServiceProvider) error
 	FindByUserIDs(ctx context.Context, IDs []uuid.UUID) ([]types.ServiceProvider, error)
 	FindByServiceID(ctx context.Context, serviceID uuid.UUID) (types.ServiceProvider, error)
+	FindForUpdateByID(ctx context.Context, tx dbUtil.Tx, ID uuid.UUID) (types.ServiceProvider, error)
+	UpdateAsFeedbackGiven(ctx context.Context, tx dbUtil.Tx, req types.ServiceProvider) error
 }
 
 type serviceProviderImpl struct {
@@ -245,4 +248,63 @@ func (r *serviceProviderImpl) FindByServiceID(ctx context.Context, serviceID uui
 	}
 
 	return res, nil
+}
+func (r serviceProviderImpl) FindForUpdateByID(ctx context.Context, _tx dbUtil.Tx, ID uuid.UUID) (types.ServiceProvider, error) {
+	res := types.ServiceProvider{}
+
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return res, err
+	}
+
+	query := `
+		SELECT
+			id,
+			user_id,
+			name,
+			description,
+			has_physical_office,
+			office_coordinates,
+			address,
+			mobile_phone_number,
+			telephone,
+			logo_image,
+			received_rating_count,
+			received_rating_average,
+			credit,
+			is_deleted,
+			created_at
+		FROM service_providers
+		WHERE id = $1
+		FOR UPDATE
+	`
+
+	err = tx.GetContext(ctx, &res, query, ID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, errors.New(types.ErrNoData)
+	} else if err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r serviceProviderImpl) UpdateAsFeedbackGiven(ctx context.Context, _tx dbUtil.Tx, req types.ServiceProvider) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
+	query := `
+		UPDATE service_providers
+		SET received_rating_count = $1,
+			received_rating_average = $2
+		WHERE id = $3
+	`
+
+	if _, err := tx.ExecContext(ctx, query, req.ReceivedRatingCount, req.ReceivedRatingAverage, req.ID); err != nil {
+		return errors.New(err)
+	}
+
+	return nil
 }

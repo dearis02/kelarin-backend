@@ -43,35 +43,34 @@ func IsDateBetween(targetDate string, startDate, endDate time.Time, layout strin
 }
 
 // target time format HH:mm:ss
-func IsTimeBetween(targetTime string, tTimeZone *time.Location, startTime, endTime time.Time) (bool, error) {
+func IsTimeBetween(targetTime, startTime, endTime time.Time) (bool, error) {
+	return (targetTime.Equal(startTime) || targetTime.After(startTime)) && (targetTime.Equal(endTime) || targetTime.Before(endTime)), nil
+}
+
+func ParseTimeString(timeStr string, tz *time.Location) (time.Time, error) {
 	// to get correct timezone offset if parsing time only, we must include the year
 	// issue: https://github.com/golang/go/issues/34101#issuecomment-528260666
+
+	// validate format
+	if len(timeStr) != 8 {
+		return time.Time{}, errors.New("invalid time format")
+	}
+
+	if timeStr[2] != ':' || timeStr[5] != ':' {
+		return time.Time{}, errors.New("invalid time format")
+	}
+
+	now := time.Now()
+
 	tTimeFormat := "2006 15:04:00"
-	_tTime, err := time.ParseInLocation(tTimeFormat, fmt.Sprintf("%s %s", "2025", targetTime), tTimeZone)
+	t, err := time.ParseInLocation(tTimeFormat, fmt.Sprintf("%s %s", "2025", timeStr), tz)
 	if err != nil {
-		return false, errors.Errorf("invalid target time format: %v", err)
+		return t, errors.New(err)
 	}
 
-	localTz, err := time.LoadLocation("Asia/Makassar")
-	if err != nil {
-		return false, errors.New(err)
-	}
+	t = time.Date(t.Year(), now.Month(), now.Day(), t.Hour(), t.Minute(), t.Second(), 0, tz)
 
-	_sTime, err := time.ParseInLocation(time.TimeOnly, startTime.Format(time.TimeOnly), localTz)
-	if err != nil {
-		return false, errors.New(err)
-	}
-
-	_eTime, err := time.ParseInLocation(time.TimeOnly, endTime.Format(time.TimeOnly), localTz)
-	if err != nil {
-		return false, errors.New(err)
-	}
-
-	tTime := time.Date(2025, 0, 0, _tTime.Hour(), _tTime.Minute(), _tTime.Second(), 0, tTimeZone)
-	sTime := time.Date(2025, 0, 0, _sTime.Hour(), _sTime.Minute(), _sTime.Second(), 0, localTz)
-	eTime := time.Date(2025, 0, 0, _eTime.Hour(), _eTime.Minute(), _eTime.Second(), 0, localTz)
-
-	return (tTime.Equal(sTime) || tTime.After(sTime)) && (tTime.Equal(eTime) || tTime.Before(eTime)), nil
+	return t, nil
 }
 
 func FormatRupiah(a currency.Amount) string {

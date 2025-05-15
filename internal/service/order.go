@@ -41,10 +41,11 @@ type orderImpl struct {
 	fcmRepo                         repository.FCMToken
 	notificationSvc                 Notification
 	serviceRepo                     repository.Service
+	serviceFeedback                 repository.ServiceFeedback
 }
 
 func NewOrder(beginMainDBTx dbUtil.SqlxTx, orderRepo repository.Order, fileSvc File, utilSvc Util, offerSvc Offer, paymentRepo repository.Payment, paymentMethodRepo repository.PaymentMethod, cfg *config.Config, serviceProviderRepo repository.ServiceProvider, consumerNotificationRepo repository.ConsumerNotification,
-	serviceProviderNotificationRepo repository.ServiceProviderNotification, fcmRepo repository.FCMToken, notificationSvc Notification, serviceRepo repository.Service) Order {
+	serviceProviderNotificationRepo repository.ServiceProviderNotification, fcmRepo repository.FCMToken, notificationSvc Notification, serviceRepo repository.Service, serviceFeedback repository.ServiceFeedback) Order {
 	return &orderImpl{
 		beginMainDBTx:                   beginMainDBTx,
 		orderRepo:                       orderRepo,
@@ -60,6 +61,7 @@ func NewOrder(beginMainDBTx dbUtil.SqlxTx, orderRepo repository.Order, fileSvc F
 		fcmRepo:                         fcmRepo,
 		notificationSvc:                 notificationSvc,
 		serviceRepo:                     serviceRepo,
+		serviceFeedback:                 serviceFeedback,
 	}
 }
 
@@ -177,6 +179,14 @@ func (s *orderImpl) ConsumerGetByID(ctx context.Context, req types.OrderConsumer
 		}
 	}
 
+	rated := true
+	_, err = s.serviceFeedback.FindByOrderID(ctx, order.ID)
+	if errors.Is(err, types.ErrNoData) {
+		rated = false
+	} else if err != nil {
+		return res, err
+	}
+
 	reqTz, err := s.utilSvc.ParseUserTimeZone(req.TimeZone)
 	if err != nil {
 		return res, err
@@ -190,6 +200,7 @@ func (s *orderImpl) ConsumerGetByID(ctx context.Context, req types.OrderConsumer
 		ServiceDate:      order.ServiceDate.Format(time.DateOnly),
 		ServiceTime:      s.utilSvc.NormalizeTimeOnlyTz(order.ServiceTime).In(reqTz).Format(time.TimeOnly),
 		Status:           order.Status,
+		Rated:            rated,
 		CreatedAt:        order.CreatedAt,
 		Offer:            offer,
 		Payment:          paymentRes,

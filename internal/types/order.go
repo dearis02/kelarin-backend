@@ -168,6 +168,7 @@ type OrderConsumerGetByIDRes struct {
 	ServiceTime      string                          `json:"service_time"`
 	PaymentFulfilled bool                            `json:"payment_fulfilled"`
 	Status           OrderStatus                     `json:"status"`
+	Rated            bool                            `json:"rated"`
 	CreatedAt        time.Time                       `json:"created_at"`
 	Offer            OfferConsumerGetByIDRes         `json:"offer"`
 	Payment          *OrderConsumerGetByIDResPayment `json:"payment"`

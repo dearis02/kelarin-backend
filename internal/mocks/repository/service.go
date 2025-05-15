@@ -170,39 +170,80 @@ func (_m *Service) FindByIDs(ctx context.Context, IDs []uuid.UUID) ([]types.Serv
 	return r0, r1
 }
 
-// UpdateAsFeedbackGiven provides a mock function with given fields: ctx, _tx, ID, rating
-func (_m *Service) UpdateAsFeedbackGiven(ctx context.Context, _tx dbUtil.Tx, ID uuid.UUID, rating int16) (int32, float32, error) {
-	ret := _m.Called(ctx, _tx, ID, rating)
+// FindByProviderIDWhereHasFeedback provides a mock function with given fields: ctx, serviceProviderID, excludeID
+func (_m *Service) FindByProviderIDWhereHasFeedback(ctx context.Context, serviceProviderID uuid.UUID, excludeID uuid.UUID) ([]types.Service, error) {
+	ret := _m.Called(ctx, serviceProviderID, excludeID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindByProviderIDWhereHasFeedback")
+	}
+
+	var r0 []types.Service
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID) ([]types.Service, error)); ok {
+		return rf(ctx, serviceProviderID, excludeID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID) []types.Service); ok {
+		r0 = rf(ctx, serviceProviderID, excludeID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]types.Service)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, uuid.UUID) error); ok {
+		r1 = rf(ctx, serviceProviderID, excludeID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindForUpdateByID provides a mock function with given fields: ctx, tx, ID
+func (_m *Service) FindForUpdateByID(ctx context.Context, tx dbUtil.Tx, ID uuid.UUID) (types.Service, error) {
+	ret := _m.Called(ctx, tx, ID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindForUpdateByID")
+	}
+
+	var r0 types.Service
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, dbUtil.Tx, uuid.UUID) (types.Service, error)); ok {
+		return rf(ctx, tx, ID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, dbUtil.Tx, uuid.UUID) types.Service); ok {
+		r0 = rf(ctx, tx, ID)
+	} else {
+		r0 = ret.Get(0).(types.Service)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, dbUtil.Tx, uuid.UUID) error); ok {
+		r1 = rf(ctx, tx, ID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UpdateAsFeedbackGiven provides a mock function with given fields: ctx, _tx, req
+func (_m *Service) UpdateAsFeedbackGiven(ctx context.Context, _tx dbUtil.Tx, req types.Service) error {
+	ret := _m.Called(ctx, _tx, req)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateAsFeedbackGiven")
 	}
 
-	var r0 int32
-	var r1 float32
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, dbUtil.Tx, uuid.UUID, int16) (int32, float32, error)); ok {
-		return rf(ctx, _tx, ID, rating)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, dbUtil.Tx, uuid.UUID, int16) int32); ok {
-		r0 = rf(ctx, _tx, ID, rating)
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, dbUtil.Tx, types.Service) error); ok {
+		r0 = rf(ctx, _tx, req)
 	} else {
-		r0 = ret.Get(0).(int32)
+		r0 = ret.Error(0)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, dbUtil.Tx, uuid.UUID, int16) float32); ok {
-		r1 = rf(ctx, _tx, ID, rating)
-	} else {
-		r1 = ret.Get(1).(float32)
-	}
-
-	if rf, ok := ret.Get(2).(func(context.Context, dbUtil.Tx, uuid.UUID, int16) error); ok {
-		r2 = rf(ctx, _tx, ID, rating)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
+	return r0
 }
 
 // UpdateTx provides a mock function with given fields: ctx, _tx, req

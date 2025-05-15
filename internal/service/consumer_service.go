@@ -232,6 +232,11 @@ func (s *consumerServiceImpl) CreateFeedback(ctx context.Context, req types.Cons
 		return errors.New(types.AppErr{Code: http.StatusConflict, Message: "feedback already given"})
 	}
 
+	services, err := s.serviceRepo.FindByProviderIDWhereHasFeedback(ctx, order.ServiceProviderID, order.ServiceID)
+	if err != nil {
+		return err
+	}
+
 	timeNow := time.Now()
 
 	id, err := uuid.NewV7()
@@ -262,18 +267,53 @@ func (s *consumerServiceImpl) CreateFeedback(ctx context.Context, req types.Cons
 
 	defer tx.Rollback()
 
+	service, err := s.serviceRepo.FindForUpdateByID(ctx, tx, order.ServiceID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.Errorf("service not found: id %s", order.ServiceID)
+	} else if err != nil {
+		return err
+	}
+
+	service.ReceivedRatingCount += 1
+	currentRating := float64(service.ReceivedRatingCount) * float64(service.ReceivedRatingAverage)
+	newRatingAvg := (currentRating + float64(req.Rating)) / float64(service.ReceivedRatingCount)
+
+	service.ReceivedRatingAverage = float32(newRatingAvg)
+
+	serviceProvider, err := s.serviceProviderRepo.FindForUpdateByID(ctx, tx, order.ServiceProviderID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.Errorf("service provider not found: id %s", order.ServiceProviderID)
+	} else if err != nil {
+		return err
+	}
+
+	var totalServiceRatingAvg float32
+	totalServiceRatingAvg += service.ReceivedRatingAverage
+
+	for _, service := range services {
+		totalServiceRatingAvg += service.ReceivedRatingAverage
+	}
+
+	serviceProvider.ReceivedRatingCount += 1
+	serviceProvider.ReceivedRatingAverage = float64(totalServiceRatingAvg) / float64(len(services)+1)
+
 	err = s.serviceFeedbackRepo.CreateTx(ctx, tx, feedback)
 	if err != nil {
 		return err
 	}
 
-	recvRatingCount, recvRatingAverage, err := s.serviceRepo.UpdateAsFeedbackGiven(ctx, tx, order.ServiceID, req.Rating)
+	err = s.serviceRepo.UpdateAsFeedbackGiven(ctx, tx, service)
 	if err != nil {
 		return err
 	}
 
-	idxService.ReceivedRatingCount = recvRatingCount
-	idxService.ReceivedRatingAverage = recvRatingAverage
+	err = s.serviceProviderRepo.UpdateAsFeedbackGiven(ctx, tx, serviceProvider)
+	if err != nil {
+		return err
+	}
+
+	idxService.ReceivedRatingCount = service.ReceivedRatingCount
+	idxService.ReceivedRatingAverage = service.ReceivedRatingAverage
 
 	err = s.serviceIndexRepo.Update(ctx, idxService, seqNo, primaryTerm)
 	if err != nil {

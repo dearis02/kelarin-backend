@@ -4,6 +4,7 @@ package mocks
 
 import (
 	context "context"
+	dbUtil "kelarin/internal/utils/dbutil"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -179,6 +180,52 @@ func (_m *ServiceProvider) FindByUserIDs(ctx context.Context, IDs []uuid.UUID) (
 	}
 
 	return r0, r1
+}
+
+// FindForUpdateByID provides a mock function with given fields: ctx, tx, ID
+func (_m *ServiceProvider) FindForUpdateByID(ctx context.Context, tx dbUtil.Tx, ID uuid.UUID) (types.ServiceProvider, error) {
+	ret := _m.Called(ctx, tx, ID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindForUpdateByID")
+	}
+
+	var r0 types.ServiceProvider
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, dbUtil.Tx, uuid.UUID) (types.ServiceProvider, error)); ok {
+		return rf(ctx, tx, ID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, dbUtil.Tx, uuid.UUID) types.ServiceProvider); ok {
+		r0 = rf(ctx, tx, ID)
+	} else {
+		r0 = ret.Get(0).(types.ServiceProvider)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, dbUtil.Tx, uuid.UUID) error); ok {
+		r1 = rf(ctx, tx, ID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UpdateAsFeedbackGiven provides a mock function with given fields: ctx, tx, req
+func (_m *ServiceProvider) UpdateAsFeedbackGiven(ctx context.Context, tx dbUtil.Tx, req types.ServiceProvider) error {
+	ret := _m.Called(ctx, tx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateAsFeedbackGiven")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, dbUtil.Tx, types.ServiceProvider) error); ok {
+		r0 = rf(ctx, tx, req)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // UpdateCreditTx provides a mock function with given fields: ctx, req

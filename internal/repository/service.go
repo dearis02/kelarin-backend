@@ -20,7 +20,9 @@ type Service interface {
 	FindAllByServiceProviderID(ctx context.Context, serviceProviderID uuid.UUID) ([]types.Service, error)
 	DeleteTx(ctx context.Context, _tx dbUtil.Tx, service types.Service) error
 	FindByIDs(ctx context.Context, IDs []uuid.UUID) ([]types.Service, error)
-	UpdateAsFeedbackGiven(ctx context.Context, _tx dbUtil.Tx, ID uuid.UUID, rating int16) (int32, float32, error)
+	UpdateAsFeedbackGiven(ctx context.Context, _tx dbUtil.Tx, req types.Service) error
+	FindForUpdateByID(ctx context.Context, tx dbUtil.Tx, ID uuid.UUID) (types.Service, error)
+	FindByProviderIDWhereHasFeedback(ctx context.Context, serviceProviderID uuid.UUID, excludeID uuid.UUID) ([]types.Service, error)
 }
 
 type serviceImpl struct {
@@ -250,37 +252,93 @@ func (r *serviceImpl) FindByIDs(ctx context.Context, IDs []uuid.UUID) ([]types.S
 	return res, nil
 }
 
-func (r *serviceImpl) UpdateAsFeedbackGiven(ctx context.Context, _tx dbUtil.Tx, ID uuid.UUID, rating int16) (int32, float32, error) {
-	var receivedRatingCount int32
-	var receivedRatingAverage float32
-
+func (r *serviceImpl) UpdateAsFeedbackGiven(ctx context.Context, _tx dbUtil.Tx, req types.Service) error {
 	tx, err := dbUtil.CastSqlxTx(_tx)
 	if err != nil {
-		return receivedRatingCount, receivedRatingAverage, err
+		return err
 	}
 
 	query := `
-		SELECT id FROM services WHERE id = $1 FOR UPDATE
-	`
-
-	if _, err := tx.ExecContext(ctx, query, ID); err != nil {
-		return receivedRatingCount, receivedRatingAverage, errors.New(err)
-	}
-
-	query = `
 		UPDATE services
 		SET
-			received_rating_count = received_rating_count + 1,
-			received_rating_average = ((received_rating_average * received_rating_count) + $1) / (received_rating_count + 1)
-		WHERE id = $2
-		RETURNING received_rating_count, received_rating_average
+			received_rating_count = $1,
+			received_rating_average = $2
+		WHERE id = $3
 	`
 
-	query = tx.Rebind(query)
-	err = tx.QueryRowxContext(ctx, query, rating, ID).Scan(&receivedRatingCount, &receivedRatingAverage)
+	_, err = tx.ExecContext(ctx, query, req.ReceivedRatingCount, req.ReceivedRatingAverage, req.ID)
 	if err != nil {
-		return receivedRatingCount, receivedRatingAverage, errors.New(err)
+		return errors.New(err)
 	}
 
-	return receivedRatingCount, receivedRatingAverage, nil
+	return nil
+}
+
+func (r *serviceImpl) FindForUpdateByID(ctx context.Context, _tx dbUtil.Tx, ID uuid.UUID) (types.Service, error) {
+	res := types.Service{}
+
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return res, err
+	}
+
+	query := `
+		SELECT
+			id,
+			service_provider_id,
+			name,
+			description,
+			delivery_methods,
+			fee_start_at,
+			fee_end_at,
+			rules,
+			images,
+			is_available,
+			received_rating_count,
+			received_rating_average,
+			created_at
+		FROM services
+		WHERE id = $1
+		FOR UPDATE
+	`
+
+	err = tx.GetContext(ctx, &res, query, ID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, errors.New(types.ErrNoData)
+	} else if err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *serviceImpl) FindByProviderIDWhereHasFeedback(ctx context.Context, serviceProviderID uuid.UUID, excludeID uuid.UUID) ([]types.Service, error) {
+	res := []types.Service{}
+
+	query := `
+		SELECT
+			id,
+			service_provider_id,
+			name,
+			description,
+			delivery_methods,
+			fee_start_at,
+			fee_end_at,
+			rules,
+			images,
+			is_available,
+			received_rating_count,
+			received_rating_average,
+			created_at
+		FROM services
+		WHERE service_provider_id = $1
+		AND received_rating_count > 0
+		AND id != $2
+	`
+
+	if err := r.db.SelectContext(ctx, &res, query, serviceProviderID, excludeID); err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
 }

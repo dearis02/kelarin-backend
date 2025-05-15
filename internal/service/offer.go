@@ -437,11 +437,6 @@ func (s *offerImpl) ProviderAction(ctx context.Context, req types.OfferProviderA
 		return err
 	}
 
-	err = req.ValidateDateAndTime(offer.ServiceStartDate, offer.ServiceEndDate, offer.ServiceStartTime, offer.ServiceEndTime)
-	if err != nil {
-		return err
-	}
-
 	if offer.Status != types.OfferStatusPending {
 		return errors.New(types.AppErr{Code: http.StatusForbidden, Message: "offer is already accepted, rejected, or canceled"})
 	}
@@ -474,6 +469,16 @@ func (s *offerImpl) ProviderAction(ctx context.Context, req types.OfferProviderA
 
 	switch req.Action {
 	case types.OfferProviderActionReqActionAccept:
+		err = req.ValidateDateAndTime(
+			offer.ServiceStartDate,
+			offer.ServiceEndDate,
+			offer.ServiceStartTime.Format(time.TimeOnly),
+			offer.ServiceEndTime.Format(time.TimeOnly),
+		)
+		if err != nil {
+			return err
+		}
+
 		offer.Status = types.OfferStatusAccepted
 
 		serviceDate, err := time.Parse(time.DateOnly, req.Date)

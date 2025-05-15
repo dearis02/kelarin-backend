@@ -103,7 +103,8 @@ func (r OfferConsumerCreateReq) Validate() error {
 		return errors.New(err)
 	}
 
-	if startDate.Before(utils.DateNowInUTC()) {
+	today := utils.DateNowInUTC()
+	if startDate.Before(today) {
 		ve["service_start_date"] = validation.NewError("service_start_date_min", "service_start_date must be equal or greater than today")
 	}
 
@@ -121,7 +122,7 @@ func (r OfferConsumerCreateReq) Validate() error {
 func (r OfferConsumerCreateReq) ValidateDateTimeAndServiceFee(userTz *time.Location, serviceFeeStartAt decimal.Decimal) error {
 	ve := validation.Errors{}
 
-	now := time.Now()
+	nowUTC := utils.DateNowInUTC()
 
 	startDate, err := time.Parse(time.DateOnly, r.ServiceStartDate)
 	if err != nil {
@@ -137,17 +138,24 @@ func (r OfferConsumerCreateReq) ValidateDateTimeAndServiceFee(userTz *time.Locat
 		ve["service_end_date"] = validation.NewError("service_end_date_min", "service_end_date must be equal or greater than service_start_date")
 	}
 
-	_startTime, err := time.Parse(time.TimeOnly, r.ServiceStartTime)
+	startTime, err := utils.ParseTimeString(r.ServiceStartTime, userTz)
 	if err != nil {
 		return errors.New(err)
 	}
 
-	startTime := time.Date(now.Year(), now.Month(), now.Day(), _startTime.Hour(), _startTime.Minute(), _startTime.Second(), now.Nanosecond(), userTz)
+	endTime, err := utils.ParseTimeString(r.ServiceEndTime, userTz)
+	if err != nil {
+		return errors.New(err)
+	}
 
-	if startDate.Equal(now.Truncate(24 * time.Hour)) {
-		if startTime.Before(now.Truncate(1 * time.Hour)) {
+	if startDate.Equal(nowUTC) {
+		if startTime.Before(nowUTC.Truncate(time.Hour)) {
 			ve["service_start_time"] = validation.NewError("service_start_time_min", "service_start_time should be 1 hour more from now")
 		}
+	}
+
+	if endTime.Before(startTime) {
+		ve["service_end_time"] = validation.NewError("service_end_time_min", "service_end_time must be equal or greater than service_start_time")
 	}
 
 	serviceCost := decimal.NewFromFloat(r.ServiceCost)
@@ -307,7 +315,7 @@ func (r OfferProviderActionReq) Validate() error {
 	)
 }
 
-func (r OfferProviderActionReq) ValidateDateAndTime(startDate, endDate, startTime, endTime time.Time) error {
+func (r OfferProviderActionReq) ValidateDateAndTime(startDate, endDate time.Time, startTime, endTime string) error {
 	ve := validation.Errors{}
 
 	if r.Action == OfferProviderActionReqActionAccept {
@@ -320,18 +328,44 @@ func (r OfferProviderActionReq) ValidateDateAndTime(startDate, endDate, startTim
 			ve["date"] = validation.NewError("date_min_max", fmt.Sprintf("date must be between %s - %s", startDate.Format(time.DateOnly), endDate.Format(time.DateOnly)))
 		}
 
-		tz, err := time.LoadLocation(r.TimeZone)
+		userTz, err := time.LoadLocation(r.TimeZone)
 		if err != nil {
 			return errors.New(err)
 		}
 
-		t, err = utils.IsTimeBetween(r.Time, tz, startTime, endTime)
+		localTz, err := time.LoadLocation("Asia/Makassar")
+		if err != nil {
+			return errors.New(err)
+		}
+
+		targetTime, err := utils.ParseTimeString(r.Time, userTz)
+		if err != nil {
+			return errors.New(err)
+		}
+
+		startT, err := utils.ParseTimeString(startTime, localTz)
+		if err != nil {
+			return errors.New(err)
+		}
+
+		endT, err := utils.ParseTimeString(endTime, localTz)
+		if err != nil {
+			return errors.New(err)
+		}
+
+		// add one day to endT if startT is greater than endT
+		// case: start_time = 23:00, end_time = 01:00
+		if endT.Before(startT) {
+			endT = endT.AddDate(0, 0, 1)
+		}
+
+		t, err = utils.IsTimeBetween(targetTime, startT, endT)
 		if err != nil {
 			return err
 		}
 
 		if !t {
-			ve["time"] = validation.NewError("time_min_max", fmt.Sprintf("time must be between %s - %s", startTime.Format(time.TimeOnly), endTime.Format(time.TimeOnly)))
+			ve["time"] = validation.NewError("time_min_max", fmt.Sprintf("time must be between %s - %s", startT.In(userTz).Format(time.TimeOnly), endT.In(userTz).Format(time.TimeOnly)))
 		}
 	}
 
