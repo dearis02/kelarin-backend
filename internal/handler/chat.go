@@ -17,6 +17,7 @@ type Chat interface {
 
 	ConsumerGetAll(c *gin.Context)
 	ConsumerGetByRoomID(c *gin.Context)
+	ConsumerCreateChatRoom(c *gin.Context)
 
 	ProviderGetAll(c *gin.Context)
 	ProviderGetByRoomID(c *gin.Context)
@@ -135,6 +136,25 @@ func (h *chatImpl) ProviderGetByRoomID(c *gin.Context) {
 	}
 
 	res, err := h.chatService.ProviderGetByRoomID(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
+		Data:       res,
+	})
+}
+
+func (h *chatImpl) ConsumerCreateChatRoom(c *gin.Context) {
+	var req types.ChatChatRoomCreateReq
+	if err := h.authMiddleware.BindWithRequest(c, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	res, err := h.chatService.CreateChatRoom(c.Request.Context(), req)
 	if err != nil {
 		c.Error(err)
 		return

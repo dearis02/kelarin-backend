@@ -93,8 +93,10 @@ func (r *serviceProviderImpl) FindByUserID(ctx context.Context, userID uuid.UUID
 	`
 
 	err := r.db.GetContext(ctx, &res, query, userID)
-	if err != nil {
-		return types.ServiceProvider{}, errors.New(err)
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, errors.New(types.ErrNoData)
+	} else if err != nil {
+		return res, errors.New(err)
 	}
 
 	return res, nil

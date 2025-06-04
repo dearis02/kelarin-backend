@@ -489,8 +489,49 @@ func (s *chatImpl) CreateChatRoom(ctx context.Context, req types.ChatChatRoomCre
 		}
 
 		chatRoom.ServiceID = uuid.NullUUID{UUID: service.ID, Valid: true}
+
+		chatRoomExists := true
+		cr, err := s.chatRoomRepo.FindByUserIDAndServiceID(ctx, req.AuthUser.ID, service.ID)
+		if errors.Is(err, types.ErrNoData) {
+			chatRoomExists = false
+		} else if err != nil {
+			return res, err
+		}
+
+		if chatRoomExists {
+			res.RoomID = cr.ID
+			return res, nil
+		}
+
+		if req.AuthUser.Role != types.UserRoleConsumer {
+			return res, errors.New(types.AppErr{Code: http.StatusForbidden, Message: "only consumer can create chat room to reference service"})
+		}
+
+		serviceProvider, err := s.serviceProviderRepo.FindByID(ctx, service.ServiceProviderID)
+		if errors.Is(err, types.ErrNoData) {
+			return res, errors.Errorf("service provider not found: id %s", service.ServiceProviderID)
+		} else if err != nil {
+			return res, err
+		}
+
+		req.SenderID = req.AuthUser.ID
+		req.RecipientID = serviceProvider.UserID
 	}
+
 	if req.OfferID.Valid {
+		chatRoomExists := true
+		cr, err := s.chatRoomRepo.FindByUserIDAndOfferID(ctx, req.AuthUser.ID, req.OfferID.UUID)
+		if errors.Is(err, types.ErrNoData) {
+			chatRoomExists = false
+		} else if err != nil {
+			return res, err
+		}
+
+		if chatRoomExists {
+			res.RoomID = cr.ID
+			return res, nil
+		}
+
 		var offer types.Offer
 		switch req.AuthUser.Role {
 		case types.UserRoleConsumer:
@@ -534,15 +575,32 @@ func (s *chatImpl) CreateChatRoom(ctx context.Context, req types.ChatChatRoomCre
 		},
 	}
 
-	if err := s.chatRoomRepo.CreateTx(ctx, req.Tx, chatRoom); err != nil {
+	tx := req.Tx
+	if tx == nil {
+		tx, err = s.beginMainDBTx(ctx, nil)
+		if err != nil {
+			return res, errors.New(err)
+		}
+
+		defer tx.Rollback()
+	}
+
+	if err := s.chatRoomRepo.CreateTx(ctx, tx, chatRoom); err != nil {
 		return res, err
 	}
 
-	if err := s.chatRoomUserRepo.CreateTx(ctx, req.Tx, chatRoomUser); err != nil {
+	if err := s.chatRoomUserRepo.CreateTx(ctx, tx, chatRoomUser); err != nil {
 		return res, err
 	}
 
 	res.RoomID = chatRoomID
+
+	if req.Tx == nil {
+		err := tx.Commit()
+		if err != nil {
+			return res, errors.New(err)
+		}
+	}
 
 	return res, nil
 }
@@ -690,13 +748,15 @@ func (s *chatImpl) ConsumerGetByRoomID(ctx context.Context, req types.ChatGetByR
 	}
 
 	recipient, err := s.chatRoomUserRepo.FindRecipientByChatRoomID(ctx, req.AuthUser.ID, chatRoom.ID)
-	if err != nil {
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("recipient not found: user_id %s", req.AuthUser.ID)
+	} else if err != nil {
 		return res, err
 	}
 
 	provider, err := s.serviceProviderRepo.FindByUserID(ctx, recipient.UserID)
 	if errors.Is(err, types.ErrNoData) {
-		return res, errors.New(fmt.Sprintf("service provider not found: user_id %s", recipient.UserID))
+		return res, errors.Errorf("service provider not found: user_id %s", recipient.UserID)
 	} else if err != nil {
 		return res, err
 	}
@@ -908,7 +968,9 @@ func (s *chatImpl) ProviderGetByRoomID(ctx context.Context, req types.ChatGetByR
 	}
 
 	recipient, err := s.chatRoomUserRepo.FindRecipientByChatRoomID(ctx, req.AuthUser.ID, chatRoom.ID)
-	if err != nil {
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("recipient not found: user_id %s", req.AuthUser.ID)
+	} else if err != nil {
 		return res, err
 	}
 

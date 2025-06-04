@@ -14,6 +14,8 @@ import (
 type ChatRoom interface {
 	FindByID(ctx context.Context, ID uuid.UUID) (types.ChatRoom, error)
 	CreateTx(ctx context.Context, tx dbUtil.Tx, req types.ChatRoom) error
+	FindByUserIDAndServiceID(ctx context.Context, userID, serviceID uuid.UUID) (types.ChatRoom, error)
+	FindByUserIDAndOfferID(ctx context.Context, userID, offerID uuid.UUID) (types.ChatRoom, error)
 }
 
 type chatRoomImpl struct {
@@ -73,4 +75,58 @@ func (r *chatRoomImpl) CreateTx(ctx context.Context, _tx dbUtil.Tx, req types.Ch
 	}
 
 	return nil
+}
+
+func (r *chatRoomImpl) FindByUserIDAndServiceID(ctx context.Context, userID, serviceID uuid.UUID) (types.ChatRoom, error) {
+	res := types.ChatRoom{}
+
+	query := `
+		SELECT
+			chat_rooms.id,
+			chat_rooms.service_id,
+			chat_rooms.offer_id,
+			chat_rooms.created_at
+		FROM chat_rooms
+		INNER JOIN chat_room_users 
+			ON chat_room_users.chat_room_id = chat_rooms.id
+		WHERE 
+			chat_room_users.user_id = $1 
+			AND chat_rooms.service_id = $2
+	`
+
+	err := r.db.GetContext(ctx, &res, query, userID, serviceID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, errors.New(types.ErrNoData)
+	} else if err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *chatRoomImpl) FindByUserIDAndOfferID(ctx context.Context, userID, offerID uuid.UUID) (types.ChatRoom, error) {
+	res := types.ChatRoom{}
+
+	query := `
+		SELECT
+			chat_rooms.id,
+			chat_rooms.service_id,
+			chat_rooms.offer_id,
+			chat_rooms.created_at
+		FROM chat_rooms
+		INNER JOIN chat_room_users 
+			ON chat_room_users.chat_room_id = chat_rooms.id
+		WHERE 
+			chat_room_users.user_id = $1 
+			AND chat_rooms.offer_id = $2
+	`
+
+	err := r.db.GetContext(ctx, &res, query, userID, offerID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, errors.New(types.ErrNoData)
+	} else if err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
 }

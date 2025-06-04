@@ -26,7 +26,7 @@ func (r ChatChatRoomCreateReq) Validate() error {
 	}
 
 	return validation.ValidateStruct(&r,
-		validation.Field(&r.RecipientID, validation.Required),
+		validation.Field(&r.RecipientID, validation.Required.When(r.OfferID.Valid)),
 	)
 }
 
