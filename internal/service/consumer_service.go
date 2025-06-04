@@ -274,8 +274,9 @@ func (s *consumerServiceImpl) CreateFeedback(ctx context.Context, req types.Cons
 		return err
 	}
 
-	service.ReceivedRatingCount += 1
 	currentRating := float64(service.ReceivedRatingCount) * float64(service.ReceivedRatingAverage)
+
+	service.ReceivedRatingCount += 1
 	newRatingAvg := (currentRating + float64(req.Rating)) / float64(service.ReceivedRatingCount)
 
 	service.ReceivedRatingAverage = float32(newRatingAvg)
