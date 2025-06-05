@@ -48,6 +48,10 @@ func newCronjob(db *sqlx.DB, mainDBTx dbUtil.SqlxTx, esDB *elasticsearch.TypedCl
 	util := service.NewUtil()
 	chat := service.NewChat(mainDBTx, repositoryService, user, chatRoom, chatRoomUser, chatMessage, wsHub, offer, serviceProvider, serviceFile, order, util)
 	serviceOffer := service.NewOffer(mainDBTx, offer, userAddress, repositoryService, serviceFile, serviceProvider, offerNegotiation, serviceProviderNotification, fcmToken, notification, user, consumerNotification, chat, order, util)
-	cronjob := provider.NewCronjob(db, redis2, queueClient, serviceOffer)
+	payment := repository.NewPayment(db)
+	paymentMethod := repository.NewPaymentMethod(db)
+	serviceFeedback := repository.NewServiceFeedback(db)
+	serviceOrder := service.NewOrder(mainDBTx, order, serviceFile, util, serviceOffer, payment, paymentMethod, config2, serviceProvider, consumerNotification, serviceProviderNotification, fcmToken, notification, repositoryService, serviceFeedback)
+	cronjob := provider.NewCronjob(db, redis2, queueClient, serviceOffer, serviceOrder)
 	return cronjob
 }

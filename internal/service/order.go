@@ -6,6 +6,7 @@ import (
 	"kelarin/internal/config"
 	"kelarin/internal/repository"
 	"kelarin/internal/types"
+	"kelarin/internal/utils"
 	dbUtil "kelarin/internal/utils/dbutil"
 	"net/http"
 	"time"
@@ -24,6 +25,8 @@ type Order interface {
 	ProviderGetAll(ctx context.Context, req types.OrderProviderGetAllReq) ([]types.OrderProviderGetAllRes, error)
 	ProviderGetByID(ctx context.Context, req types.OrderProviderGetByIDReq) (types.OrderProviderGetByIDRes, error)
 	ProviderFinish(ctx context.Context, req types.OrderProviderValidateQRCodeReq) error
+
+	TaskUpdateOrderStatus(ctx context.Context) error
 }
 
 type orderImpl struct {
@@ -574,6 +577,54 @@ func (s *orderImpl) ProviderFinish(ctx context.Context, req types.OrderProviderV
 
 	if err = tx.Commit(); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (s *orderImpl) TaskUpdateOrderStatus(ctx context.Context) error {
+	now := utils.DateNowInUTC()
+
+	for {
+		expiredOrderIDs, err := s.orderRepo.FindIDsWhereExpired(ctx)
+		if err != nil {
+			return err
+		}
+
+		onGoingOrderIDs, err := s.orderRepo.FindIDsWhereOngoingToday(ctx, now)
+		if err != nil {
+			return err
+		}
+
+		if len(expiredOrderIDs) == 0 && len(onGoingOrderIDs) == 0 {
+			break
+		}
+
+		tx, err := s.beginMainDBTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+
+		defer tx.Rollback()
+
+		if len(expiredOrderIDs) > 0 {
+			err = s.orderRepo.UpdateStatusByIDs(ctx, tx, expiredOrderIDs, types.OrderStatusExpired)
+			if err != nil {
+				return err
+			}
+		}
+
+		if len(onGoingOrderIDs) > 0 {
+			err = s.orderRepo.UpdateStatusByIDs(ctx, tx, onGoingOrderIDs, types.OrderStatusOngoing)
+			if err != nil {
+				return err
+			}
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			return errors.New(err)
+		}
 	}
 
 	return nil

@@ -15,6 +15,7 @@ type Cronjob struct {
 	redisDB      *redis.Client
 	queueClient  *asynq.Client
 	OfferService service.Offer
+	OrderService service.Order
 }
 
 func NewCronjob(
@@ -22,12 +23,14 @@ func NewCronjob(
 	redisDB *redis.Client,
 	queueClient *asynq.Client,
 	offerService service.Offer,
+	orderService service.Order,
 ) *Cronjob {
 	return &Cronjob{
 		db:           db,
 		redisDB:      redisDB,
 		queueClient:  queueClient,
 		OfferService: offerService,
+		OrderService: orderService,
 	}
 }
 
@@ -67,6 +70,8 @@ var TaskRepositorySet = wire.NewSet(
 	repository.NewChatMessage,
 	repository.NewOrder,
 	repository.NewServiceFeedback,
+	repository.NewPayment,
+	repository.NewPaymentMethod,
 )
 
 var TaskServiceSet = wire.NewSet(
@@ -75,4 +80,5 @@ var TaskServiceSet = wire.NewSet(
 	service.NewChat,
 	service.NewNotification,
 	service.NewOffer,
+	service.NewOrder,
 )

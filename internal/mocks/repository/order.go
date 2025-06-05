@@ -10,6 +10,8 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
+	time "time"
+
 	types "kelarin/internal/types"
 
 	uuid "github.com/google/uuid"
@@ -307,6 +309,66 @@ func (_m *Order) FindForReportExportByServiceProviderID(ctx context.Context, ser
 	return r0, r1
 }
 
+// FindIDsWhereExpired provides a mock function with given fields: ctx
+func (_m *Order) FindIDsWhereExpired(ctx context.Context) (uuid.UUIDs, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindIDsWhereExpired")
+	}
+
+	var r0 uuid.UUIDs
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (uuid.UUIDs, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) uuid.UUIDs); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(uuid.UUIDs)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindIDsWhereOngoingToday provides a mock function with given fields: ctx, date
+func (_m *Order) FindIDsWhereOngoingToday(ctx context.Context, date time.Time) (uuid.UUIDs, error) {
+	ret := _m.Called(ctx, date)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindIDsWhereOngoingToday")
+	}
+
+	var r0 uuid.UUIDs
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time) (uuid.UUIDs, error)); ok {
+		return rf(ctx, date)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time) uuid.UUIDs); ok {
+		r0 = rf(ctx, date)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(uuid.UUIDs)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, time.Time) error); ok {
+		r1 = rf(ctx, date)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindTotalServiceFeeByServiceProviderIDAndStatusAndMonthAndYear provides a mock function with given fields: ctx, serviceProviderID, status, month, year
 func (_m *Order) FindTotalServiceFeeByServiceProviderIDAndStatusAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, status types.OrderStatus, month int, year int) (decimal.Decimal, error) {
 	ret := _m.Called(ctx, serviceProviderID, status, month, year)
@@ -392,6 +454,24 @@ func (_m *Order) UpdateAsPaymentTx(ctx context.Context, tx dbUtil.Tx, req types.
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, dbUtil.Tx, types.Order) error); ok {
 		r0 = rf(ctx, tx, req)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateStatusByIDs provides a mock function with given fields: ctx, _tx, ids, status
+func (_m *Order) UpdateStatusByIDs(ctx context.Context, _tx dbUtil.Tx, ids uuid.UUIDs, status types.OrderStatus) error {
+	ret := _m.Called(ctx, _tx, ids, status)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateStatusByIDs")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, dbUtil.Tx, uuid.UUIDs, types.OrderStatus) error); ok {
+		r0 = rf(ctx, _tx, ids, status)
 	} else {
 		r0 = ret.Error(0)
 	}

@@ -4,11 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"kelarin/internal/types"
+	"kelarin/internal/utils"
 	dbUtil "kelarin/internal/utils/dbutil"
+	"time"
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"github.com/shopspring/decimal"
 )
 
@@ -28,6 +31,9 @@ type Order interface {
 	FindByOfferID(ctx context.Context, offerID uuid.UUID) (types.OrderWithServiceAndServiceProvider, error)
 	CountGroupByStatusByServiceProviderIDAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, month, year int) (map[types.OrderStatus]int64, error)
 	SumServiceFeeByServiceProviderIDAndStatusAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, status types.OrderStatus, month, year int) (decimal.Decimal, error)
+	FindIDsWhereExpired(ctx context.Context) (uuid.UUIDs, error)
+	FindIDsWhereOngoingToday(ctx context.Context, date time.Time) (uuid.UUIDs, error)
+	UpdateStatusByIDs(ctx context.Context, _tx dbUtil.Tx, ids uuid.UUIDs, status types.OrderStatus) error
 }
 
 type orderImpl struct {
@@ -532,4 +538,67 @@ func (r *orderImpl) SumServiceFeeByServiceProviderIDAndStatusAndMonthAndYear(ctx
 	}
 
 	return total.Decimal, nil
+}
+
+func (r *orderImpl) FindIDsWhereExpired(ctx context.Context) (uuid.UUIDs, error) {
+	res := uuid.UUIDs{}
+
+	now := utils.DateNowInUTC()
+
+	query := `
+		SELECT id
+		FROM orders
+		WHERE
+			service_date < $1::DATE
+			AND status = 'pending'
+	`
+
+	err := r.db.SelectContext(ctx, &res, query, now)
+	if err != nil {
+		return nil, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *orderImpl) FindIDsWhereOngoingToday(ctx context.Context, date time.Time) (uuid.UUIDs, error) {
+	res := uuid.UUIDs{}
+
+	query := `
+		SELECT id
+		FROM orders
+		WHERE 
+			service_date = $1::DATE
+			AND status = 'pending'
+	`
+
+	err := r.db.SelectContext(ctx, &res, query, date)
+	if err != nil {
+		return nil, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *orderImpl) UpdateStatusByIDs(ctx context.Context, _tx dbUtil.Tx, ids uuid.UUIDs, status types.OrderStatus) error {
+	tx, err := dbUtil.CastSqlxTx(_tx)
+	if err != nil {
+		return err
+	}
+
+	query := `
+		UPDATE orders
+		SET
+			status = $1,
+			updated_at = NOW()
+		WHERE 
+			id = ANY($2)
+	`
+
+	_, err = tx.ExecContext(ctx, query, status, pq.Array(ids))
+	if err != nil {
+		return errors.New(err)
+	}
+
+	return nil
 }

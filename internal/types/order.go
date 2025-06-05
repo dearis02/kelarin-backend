@@ -34,6 +34,7 @@ const (
 	OrderStatusPending  OrderStatus = "pending"
 	OrderStatusOngoing  OrderStatus = "ongoing"
 	OrderStatusFinished OrderStatus = "finished"
+	OrderStatusExpired  OrderStatus = "expired"
 )
 
 type OrderWithRelations struct {

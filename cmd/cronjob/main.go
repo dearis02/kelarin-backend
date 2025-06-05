@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
-	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
@@ -90,12 +89,19 @@ func main() {
 
 	now := time.Now()
 
-	id := uuid.New()
 	switch taskName {
 	case types.CronjobMarkOfferAsExpired:
-		log.Info().Str("id", id.String()).Str("task", taskName).Msgf("Task - %s started...", taskName)
+		logTaskStarted(taskName)
 
 		err = cronApp.OfferService.TaskMarkAsExpired(ctx)
+		if err != nil {
+			log.Error().Err(err).Send()
+			return
+		}
+	case types.CronjobUpdateOrderStatus:
+		logTaskStarted(taskName)
+
+		err = cronApp.OrderService.TaskUpdateOrderStatus(ctx)
 		if err != nil {
 			log.Error().Err(err).Send()
 			return
@@ -107,8 +113,11 @@ func main() {
 	elapsed := time.Since(now)
 
 	log.Info().
-		Str("id", id.String()).
 		Str("task", taskName).
 		Str("elapsed", fmt.Sprintf("%f seconds", elapsed.Seconds())).
 		Msgf("Task - %s finished", taskName)
+}
+
+func logTaskStarted(taskName string) {
+	log.Info().Str("task", taskName).Msgf("Task - %s started...", taskName)
 }
