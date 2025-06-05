@@ -627,6 +627,13 @@ func (s *offerImpl) ProviderGetByID(ctx context.Context, req types.OfferProvider
 		return res, err
 	}
 
+	service, err := s.serviceRepo.FindByID(ctx, offer.ServiceID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("service not found: id %s", offer.ServiceID)
+	} else if err != nil {
+		return res, err
+	}
+
 	negotiations, err := s.offerNegotiationRepo.FindAllByOfferID(ctx, offer.ID)
 	if err != nil {
 		return res, err
@@ -682,7 +689,12 @@ func (s *offerImpl) ProviderGetByID(ctx context.Context, req types.OfferProvider
 			Status:           offer.Status,
 			CreatedAt:        offer.CreatedAt,
 		},
-		ServiceID: offer.ServiceID,
+		Service: types.OfferProviderGetByIDResService{
+			ID:         service.ID,
+			Name:       service.Name,
+			FeeStartAt: service.FeeStartAt,
+			FeeEndAt:   service.FeeEndAt,
+		},
 		User: types.OfferGetByIDResUser{
 			ID:   user.ID,
 			Name: user.Name,

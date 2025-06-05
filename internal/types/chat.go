@@ -218,4 +218,21 @@ type ChatProviderGetByRoomIDRes struct {
 
 type ChatProviderGetByRoomIDResConsumer ChatProviderGetAllResConsumer
 
+type ChatMarkReceivedAsSeenReq struct {
+	AuthUser       AuthUser    `middleware:"user"`
+	RoomID         uuid.UUID   `param:"id"`
+	ChatMessageIDs []uuid.UUID `json:"chat_message_ids"`
+}
+
+func (r ChatMarkReceivedAsSeenReq) Validate() error {
+	if r.AuthUser.IsZero() {
+		return errors.New("AuthUser is required")
+	}
+
+	return validation.ValidateStruct(&r,
+		validation.Field(&r.RoomID, validation.Required),
+		validation.Field(&r.ChatMessageIDs, validation.Required),
+	)
+}
+
 // end of region service types

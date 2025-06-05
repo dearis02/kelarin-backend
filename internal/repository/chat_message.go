@@ -16,6 +16,8 @@ type ChatMessage interface {
 	CountUnreadReceivedByChatRoomIDs(ctx context.Context, userID uuid.UUID, chatRoomIDs uuid.UUIDs) ([]types.ChatMessageCountUnread, error)
 	FindByChatRoomID(ctx context.Context, roomID uuid.UUID) ([]types.ChatMessage, error)
 	FindLatestByChatRoomIDs(ctx context.Context, roomIDs uuid.UUIDs) ([]types.ChatMessage, error)
+	FindReceivedByIDsAndRoomID(ctx context.Context, ids uuid.UUIDs, roomID, userID uuid.UUID) ([]types.ChatMessage, error)
+	MarkAsSeen(ctx context.Context, IDs uuid.UUIDs) error
 }
 
 type chatMessageImpl struct {
@@ -125,4 +127,45 @@ func (r *chatMessageImpl) FindLatestByChatRoomIDs(ctx context.Context, roomIDs u
 	}
 
 	return res, nil
+}
+
+func (r *chatMessageImpl) FindReceivedByIDsAndRoomID(ctx context.Context, ids uuid.UUIDs, roomID, userID uuid.UUID) ([]types.ChatMessage, error) {
+	res := []types.ChatMessage{}
+
+	query := `
+		SELECT
+			id,
+			chat_room_id,
+			user_id,
+			content,
+			content_type,
+			read,
+			created_at
+		FROM chat_messages
+		WHERE id = ANY($1)
+			AND chat_room_id = $2
+			AND user_id != $3
+	`
+
+	err := r.db.SelectContext(ctx, &res, query, pq.Array(ids), roomID, userID)
+	if err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
+}
+
+func (r *chatMessageImpl) MarkAsSeen(ctx context.Context, IDs uuid.UUIDs) error {
+	query := `
+		UPDATE chat_messages
+		SET read = true
+		WHERE id = ANY($1)
+	`
+
+	_, err := r.db.ExecContext(ctx, query, pq.Array(IDs))
+	if err != nil {
+		return errors.New(err)
+	}
+
+	return nil
 }

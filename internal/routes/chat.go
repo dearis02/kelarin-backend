@@ -29,4 +29,5 @@ func (r *Chat) Register(m middleware.Auth) {
 	r.g.GET("/provider/v1/chats", m.ServiceProvider, r.chatHandler.ProviderGetAll)
 	r.g.GET("/provider/v1/chats/:room_id", m.ServiceProvider, r.chatHandler.ProviderGetByRoomID)
 
+	r.g.PUT("/v1/chat-rooms/:id/received-messages/_mark_as_seen", m.NonAdmin, r.chatHandler.MarkReceivedAsSeen)
 }

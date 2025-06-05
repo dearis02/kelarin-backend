@@ -21,6 +21,8 @@ type Chat interface {
 
 	ProviderGetAll(c *gin.Context)
 	ProviderGetByRoomID(c *gin.Context)
+
+	MarkReceivedAsSeen(c *gin.Context)
 }
 
 type chatImpl struct {
@@ -163,5 +165,30 @@ func (h *chatImpl) ConsumerCreateChatRoom(c *gin.Context) {
 	c.JSON(http.StatusOK, types.ApiResponse{
 		StatusCode: http.StatusOK,
 		Data:       res,
+	})
+}
+
+func (h *chatImpl) MarkReceivedAsSeen(c *gin.Context) {
+	var req types.ChatMarkReceivedAsSeenReq
+	err := req.RoomID.UnmarshalText([]byte(c.Param("id")))
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	err = h.authMiddleware.BindWithRequest(c, &req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	err = h.chatService.MarkReceivedAsSeen(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
 	})
 }

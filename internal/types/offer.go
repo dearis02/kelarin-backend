@@ -419,9 +419,16 @@ func (r OfferProviderGetByIDReq) Validate() error {
 
 type OfferProviderGetByIDRes struct {
 	OfferProviderGetAllRes
-	ServiceID    uuid.UUID                            `json:"service_id"`
+	Service      OfferProviderGetByIDResService       `json:"service"`
 	User         OfferGetByIDResUser                  `json:"user"`
 	Negotiations []OfferConsumerGetByIDResNegotiation `json:"negotiations"`
+}
+
+type OfferProviderGetByIDResService struct {
+	ID         uuid.UUID       `json:"id"`
+	Name       string          `json:"name"`
+	FeeStartAt decimal.Decimal `json:"fee_start_at"`
+	FeeEndAt   decimal.Decimal `json:"fee_end_at"`
 }
 
 type OfferGetByIDResUser struct {

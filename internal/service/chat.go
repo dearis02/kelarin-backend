@@ -20,6 +20,7 @@ import (
 type Chat interface {
 	HandleInboundMessage(client *types.WsClient)
 	CreateChatRoom(ctx context.Context, req types.ChatChatRoomCreateReq) (types.ChatChatRoomCreateRes, error)
+	MarkReceivedAsSeen(ctx context.Context, req types.ChatMarkReceivedAsSeenReq) error
 
 	ConsumerGetAll(ctx context.Context, req types.ChatGetAllReq) ([]types.ChatConsumerGetAllRes, error)
 	ConsumerGetByRoomID(ctx context.Context, req types.ChatGetByRoomIDReq) (types.ChatConsumerGetByRoomIDRes, error)
@@ -1044,4 +1045,53 @@ func (s *chatImpl) ProviderGetByRoomID(ctx context.Context, req types.ChatGetByR
 	}
 
 	return res, nil
+}
+
+func (s *chatImpl) MarkReceivedAsSeen(ctx context.Context, req types.ChatMarkReceivedAsSeenReq) error {
+	err := req.Validate()
+	if err != nil {
+		return err
+	}
+
+	room, err := s.chatRoomRepo.FindByID(ctx, req.RoomID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(types.AppErr{Code: http.StatusNotFound, Message: "chat room not found"})
+	} else if err != nil {
+		return err
+	}
+
+	chats, err := s.chatMessageRepo.FindReceivedByIDsAndRoomID(ctx, req.ChatMessageIDs, room.ID, req.AuthUser.ID)
+	if err != nil {
+		return err
+	}
+
+	chatIDsMap := lo.SliceToMap(chats, func(chat types.ChatMessage) (uuid.UUID, bool) {
+		return chat.ID, chat.Read
+	})
+
+	unreadChatIDs := uuid.UUIDs{}
+	for _, chatID := range req.ChatMessageIDs {
+		read, ok := chatIDsMap[chatID]
+		if !ok {
+			return errors.New(types.AppErr{
+				Code:    http.StatusBadRequest,
+				Message: fmt.Sprintf("invalid chat_message_id: %s", chatID),
+			})
+		}
+
+		if !read {
+			unreadChatIDs = append(unreadChatIDs, chatID)
+		}
+	}
+
+	if len(unreadChatIDs) == 0 {
+		return nil
+	}
+
+	err = s.chatMessageRepo.MarkAsSeen(ctx, unreadChatIDs)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

@@ -370,9 +370,9 @@ func (s *orderImpl) ProviderGetByID(ctx context.Context, req types.OrderProvider
 		return res, err
 	}
 
-	service, err := s.serviceRepo.FindByID(ctx, offer.ServiceID)
+	service, err := s.serviceRepo.FindByID(ctx, offer.Service.ID)
 	if errors.Is(err, types.ErrNoData) {
-		return res, errors.Errorf("service not found: id %s", offer.ServiceID)
+		return res, errors.Errorf("service not found: id %s", offer.Service)
 	} else if err != nil {
 		return res, err
 	}

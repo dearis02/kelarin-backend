@@ -11,12 +11,14 @@ import (
 	"github.com/go-errors/errors"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/rs/zerolog/log"
+	"github.com/samber/lo"
 )
 
 type Auth interface {
 	Authenticated(c *gin.Context)
 	Consumer(c *gin.Context)
 	ServiceProvider(c *gin.Context)
+	NonAdmin(c *gin.Context)
 	BindWithRequest(c *gin.Context, req any) error
 	WS(c *gin.Context)
 }
@@ -36,17 +38,25 @@ func (m *authImpl) Authenticated(c *gin.Context) {
 
 func (m *authImpl) Admin(c *gin.Context) {
 	m.parseAuthorizationHeader(c)
-	m.nextFunc(c, types.UserRoleAdmin)
+	m.nextFunc(c, []types.UserRole{types.UserRoleAdmin})
 }
 
 func (m *authImpl) Consumer(c *gin.Context) {
 	m.parseAuthorizationHeader(c)
-	m.nextFunc(c, types.UserRoleConsumer)
+	m.nextFunc(c, []types.UserRole{types.UserRoleConsumer})
 }
 
 func (m *authImpl) ServiceProvider(c *gin.Context) {
 	m.parseAuthorizationHeader(c)
-	m.nextFunc(c, types.UserRoleServiceProvider)
+	m.nextFunc(c, []types.UserRole{types.UserRoleServiceProvider})
+}
+
+func (m *authImpl) NonAdmin(c *gin.Context) {
+	m.parseAuthorizationHeader(c)
+	m.nextFunc(c, []types.UserRole{
+		types.UserRoleConsumer,
+		types.UserRoleServiceProvider,
+	})
 }
 
 func (m *authImpl) parseAuthorizationHeader(c *gin.Context) {
@@ -77,7 +87,7 @@ func (m *authImpl) parseAuthorizationHeader(c *gin.Context) {
 	c.Set(types.AuthUserContextKey, authUser)
 }
 
-func (m *authImpl) nextFunc(c *gin.Context, role types.UserRole) {
+func (m *authImpl) nextFunc(c *gin.Context, roles []types.UserRole) {
 	userContext, exists := c.Get(types.AuthUserContextKey)
 	if !exists {
 		log.Error().Stack().Err(errors.New("missing user context")).Send()
@@ -94,7 +104,7 @@ func (m *authImpl) nextFunc(c *gin.Context, role types.UserRole) {
 		return
 	}
 
-	if authUser.Role != role {
+	if !lo.Contains(roles, authUser.Role) {
 		log.Error().Stack().Err(errors.New("invalid user role")).Send()
 		c.Error(errors.New(types.AppErr{Code: http.StatusForbidden}))
 		c.Abort()

@@ -106,6 +106,24 @@ func (_m *Chat) HandleInboundMessage(client *types.WsClient) {
 	_m.Called(client)
 }
 
+// MarkReceivedAsSeen provides a mock function with given fields: ctx, req
+func (_m *Chat) MarkReceivedAsSeen(ctx context.Context, req types.ChatMarkReceivedAsSeenReq) error {
+	ret := _m.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for MarkReceivedAsSeen")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, types.ChatMarkReceivedAsSeenReq) error); ok {
+		r0 = rf(ctx, req)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // ProviderGetAll provides a mock function with given fields: ctx, req
 func (_m *Chat) ProviderGetAll(ctx context.Context, req types.ChatGetAllReq) ([]types.ChatProviderGetAllRes, error) {
 	ret := _m.Called(ctx, req)
