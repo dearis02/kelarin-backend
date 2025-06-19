@@ -55,29 +55,35 @@ func main() {
 
 	db, err := dbUtil.NewPostgres(&cfg.DataBase)
 	if err != nil {
-		log.Fatal().Stack().Err(err).Send()
+		log.Error().Stack().Err(errors.New(err)).Send()
+		os.Exit(1)
 	}
 
 	redis, err := dbUtil.NewRedisClient(cfg)
 	if err != nil {
-		log.Fatal().Stack().Err(err).Send()
+		log.Error().Stack().Err(errors.New(err)).Send()
+		os.Exit(1)
 	}
 
 	es, err := dbUtil.NewElasticsearchClient(cfg.Elasticsearch)
 	if err != nil {
-		log.Fatal().Stack().Caller().Err(err).Send()
+		log.Error().Stack().Caller().Err(errors.New(err)).Send()
+		os.Exit(1)
 	}
 
 	esPing, err := es.Ping().Do(context.Background())
 	if err != nil {
-		log.Fatal().Stack().Err(err).Msg("failed to ping elasticsearch")
+		log.Error().Stack().Err(errors.New(err)).Msg("failed to ping elasticsearch")
+		os.Exit(1)
 	} else if !esPing {
-		log.Fatal().Stack().Msg("elasticsearch is not available")
+		log.Error().Stack().Msg("elasticsearch is not available")
+		os.Exit(1)
 	}
 
 	queueClient, err := queue.NewAsynq(&cfg.Redis)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to connect to queue")
+		log.Error().Err(errors.New(err)).Msg("Failed to connect to queue")
+		os.Exit(1)
 	}
 
 	awsCfg := awsUtil.NewConfig()
@@ -100,7 +106,8 @@ func main() {
 	mainDBTx := dbUtil.NewSqlxTx(db)
 	server, err := newServer(db, es, cfg, redis, s3Uploader, queueClient, s3Client, s3PresignClient, openCageClient, authMiddleware, firebaseMessagingClient, midtransSnapClient, wsUpgrader, wsHub, mainDBTx)
 	if err != nil {
-		log.Fatal().Stack().Err(err).Send()
+		log.Error().Err(errors.New(err)).Send()
+		os.Exit(1)
 	}
 
 	// prometheus
