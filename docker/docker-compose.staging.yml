@@ -15,6 +15,7 @@ services:
       driver: loki
       options:
         loki-url: "http://127.0.0.1:3100/loki/api/v1/push"
+        loki-external-labels: container_name={{.Name}},svc=postgres
 
   redis:
     image: redis:7-alpine
@@ -28,6 +29,7 @@ services:
       driver: loki
       options:
         loki-url: "http://127.0.0.1:3100/loki/api/v1/push"
+        loki-external-labels: container_name={{.Name}},svc=redis
 
   loki:
     image: grafana/loki:3.4.2
@@ -56,6 +58,7 @@ services:
       driver: loki
       options:
         loki-url: "http://127.0.0.1:3100/loki/api/v1/push"
+        loki-external-labels: container_name={{.Name}},svc=svc-backend
     deploy:
       restart_policy:
         condition: on-failure
