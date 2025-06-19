@@ -62,7 +62,7 @@ func ParseTimeString(timeStr string, tz *time.Location) (time.Time, error) {
 
 	now := time.Now()
 
-	tTimeFormat := "2006 15:04:00"
+	tTimeFormat := "2006 15:04:05"
 	t, err := time.ParseInLocation(tTimeFormat, fmt.Sprintf("%s %s", "2025", timeStr), tz)
 	if err != nil {
 		return t, errors.New(err)
