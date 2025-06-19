@@ -31,7 +31,7 @@ jobs:
       - name: Install Dependencies
         run: go mod tidy
       - name: Run Unit Tests
-        run: go test -v ./internal/test
+        run: go test -v ./... -coverprofile=coverage.out
 
   build_and_deploy:
     name: Build and Deploy
