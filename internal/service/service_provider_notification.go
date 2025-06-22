@@ -34,8 +34,6 @@ func (s *serviceProviderNotificationImpl) GetAll(ctx context.Context, req types.
 		return res, err
 	}
 
-	fmt.Println(req.AuthUser.ID)
-
 	provider, err := s.serviceProviderRepo.FindByUserID(ctx, req.AuthUser.ID)
 	if errors.Is(err, types.ErrNoData) {
 		return res, errors.New(fmt.Sprintf("service provider not found: user_id %s", req.AuthUser.ID))
