@@ -49,7 +49,7 @@ jobs:
       run : echo "${{ secrets.STAGING_DOCKER_ENV }}" > config/${{ env.DOCKER_ENV_FILE_NAME }}
     -
       name: store ${{ env.FIREBASE_SERVICE_ACCOUNT_KEY_FILE_NAME }}
-      run: printf "%s" "${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}" > config/${{ env.FIREBASE_SERVICE_ACCOUNT_KEY_FILE_NAME }}
+      run: cat "${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}" > config/${{ env.FIREBASE_SERVICE_ACCOUNT_KEY_FILE_NAME }}
     -
       name: store ${{ env.ELASTICSEARCH_SSL_CERTIFICATE_FILE_NAME }}
       run : echo "${{ secrets.ELASTICSEARCH_SSL_CERTIFICATE }}" > config/${{ env.ELASTICSEARCH_SSL_CERTIFICATE_FILE_NAME }}
