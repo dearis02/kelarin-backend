@@ -47,6 +47,7 @@ services:
       - 5000:${API_PORT}
     volumes:
       - ../config:/app/config
+      - ../database:/app/database
     depends_on:
       postgres:
         condition: service_started
