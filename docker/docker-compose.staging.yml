@@ -48,6 +48,7 @@ services:
     volumes:
       - ../config:/app/config
       - ../database:/app/database
+      - ${HOME}/.aws:/root/.aws
     depends_on:
       postgres:
         condition: service_started
