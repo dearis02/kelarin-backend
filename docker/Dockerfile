@@ -24,6 +24,8 @@ ENV TZ=Asia/Makassar
 COPY --from=builder /builder/server .
 COPY --from=builder /builder/migration-tool .
 
+RUN apk --no-cache add ca-certificates tzdata bash
+
 COPY scripts/run.sh .
 
 RUN chmod +x run.sh
