@@ -11,6 +11,12 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      start_period: 5s
+      interval: 5s
+      retries: 5
+      timeout: 10s
     logging:
       driver: loki
       options:
@@ -25,6 +31,12 @@ services:
     volumes:
       - redis_data:/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      start_period: 3s
+      interval: 3s
+      timeout: 3s
+      retries: 5
     logging:
       driver: loki
       options:
@@ -39,23 +51,30 @@ services:
     command: -config.file=/etc/loki/local-config.yaml
     volumes:
       - loki_data:/loki
+    healthcheck:
+      test: wget --quiet --tries=1 --output-document=- http://localhost:3100/ready | grep -q -w ready || exit 1
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   api:
-    image: ${DOCKERHUB_USERNAME}/${DOCKERHUB_REPO}:${IMAGE_TAG}
+    image: ${DOCKERHUB_USERNAME}/${DOCKERHUB_API_REPO}:${IMAGE_TAG}
     ports:
       - 5000:${API_PORT}
     volumes:
       - ../config:/app/config
       - ../database:/app/database
       - ${HOME}/.aws:/root/.aws
+      - ../area:/app/area
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
       loki:
-        condition: service_started
+        condition: service_healthy
     logging:
       driver: loki
       options:
@@ -67,10 +86,30 @@ services:
         delay: 5s
         max_attempts: 3
         window: 120s
+      resources:
+        limits:
+          cpus: '1'
+          memory: 64M
+
+  cronjob:
+    image: ${DOCKERHUB_USERNAME}/${DOCKERHUB_CRONJOB_REPO}:${IMAGE_TAG}
+    volumes:
+      - ../config:/app/config
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    restart: no
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://127.0.0.1:3100/loki/api/v1/push"
+        loki-external-labels: container_name={{.Name}},svc=cronjob
 
 volumes:
-  es_data:
-    driver: local
   pg_data:
     driver: local
   redis_data:

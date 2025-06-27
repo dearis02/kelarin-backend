@@ -55,3 +55,11 @@ midtrans:
   redirect_url: "http://localhost:5173"
 
 order_qr_code_signing_key: "random_string"
+
+jobs:
+- name: "mark_offer_as_expired"
+  schedule: "1 0 * * *"
+  concurrency_policy: "skip"
+- name: "update-order-status"
+  schedule: "* * * * *"
+  concurrency_policy: "skip"

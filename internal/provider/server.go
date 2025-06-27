@@ -2,6 +2,7 @@ package provider
 
 import (
 	"kelarin/internal/handler"
+	"kelarin/internal/middleware"
 )
 
 type Server struct {
@@ -22,6 +23,7 @@ type Server struct {
 	PaymentMethodHandler    handler.PaymentMethod
 	ReportHandler           handler.Report
 	ChatHandler             handler.Chat
+	AuthMiddleware          middleware.Auth
 }
 
 func NewServer(
@@ -42,6 +44,7 @@ func NewServer(
 	paymentMethodHandler handler.PaymentMethod,
 	reportHandler handler.Report,
 	chatHandler handler.Chat,
+	authMiddleware middleware.Auth,
 ) *Server {
 	return &Server{
 		userHandler,
@@ -61,5 +64,6 @@ func NewServer(
 		paymentMethodHandler,
 		reportHandler,
 		chatHandler,
+		authMiddleware,
 	}
 }

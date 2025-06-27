@@ -161,6 +161,28 @@ func (m MidtransConfig) DebugMode() bool {
 	return m.Env() == midtrans.Sandbox
 }
 
+type CronjobConcurrencyPolicy string
+
+const (
+	CronjobConcurrencyPolicySkip CronjobConcurrencyPolicy = "skip"
+	CronjobConcurrencyPolicyWait CronjobConcurrencyPolicy = "wait"
+)
+
+type Job struct {
+	Name              string                   `yaml:"name"`
+	Schedule          string                   `yaml:"schedule"`
+	ConcurrencyPolicy CronjobConcurrencyPolicy `yaml:"concurrency_policy"`
+}
+
+func (j Job) Validate() error {
+	return validation.ValidateStruct(&j,
+		validation.Field(&j.Name, validation.Required),
+		validation.Field(&j.Schedule, validation.Required),
+		validation.Field(&j.ConcurrencyPolicy, validation.Required,
+			validation.In(CronjobConcurrencyPolicySkip, CronjobConcurrencyPolicyWait)),
+	)
+}
+
 type Config struct {
 	Environment            string              `yaml:"environment"`
 	Server                 Server              `yaml:"server"`
@@ -174,6 +196,7 @@ type Config struct {
 	FirebaseCredentialFile string              `yaml:"firebase_credential_file"`
 	Midtrans               MidtransConfig      `yaml:"midtrans"`
 	OrderQRCodeSigningKey  string              `yaml:"order_qr_code_signing_key"`
+	Jobs                   []Job               `yaml:"jobs"`
 }
 
 func (c Config) Validate() error {
@@ -188,6 +211,7 @@ func (c Config) Validate() error {
 		validation.Field(&c.FirebaseCredentialFile, validation.Required),
 		validation.Field(&c.Midtrans, validation.Required),
 		validation.Field(&c.OrderQRCodeSigningKey, validation.Required),
+		validation.Field(&c.Jobs, validation.Required),
 	)
 }
 

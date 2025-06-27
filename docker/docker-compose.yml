@@ -11,6 +11,17 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      start_period: 5s
+      interval: 5s
+      retries: 5
+      timeout: 10s
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://127.0.0.1:3100/loki/api/v1/push"
+        loki-external-labels: container_name={{.Name}},svc=postgres
 
   redis:
     image: redis:7-alpine
@@ -20,6 +31,17 @@ services:
     volumes:
       - redis_data:/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      start_period: 3s
+      interval: 3s
+      timeout: 3s
+      retries: 5
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://127.0.0.1:3100/loki/api/v1/push"
+        loki-external-labels: container_name={{.Name}},svc=redis
 
   loki:
     image: grafana/loki:3.4.2
@@ -30,28 +52,57 @@ services:
     volumes:
       - loki_data:/loki
     restart: unless-stopped
+    healthcheck:
+      test: wget --quiet --tries=1 --output-document=- http://localhost:3100/ready | grep -q -w ready || exit 1
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   api:
     container_name: api
     build:
       context: ..
-      dockerfile: docker/Dockerfile
+      dockerfile: docker/server.Dockerfile
     ports:
       - 3000:${API_PORT}
     volumes:
       - ../config:/app/config
+      - ../database:/app/database
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
       loki:
-        condition: service_started
+        condition: service_healthy
     restart: no
     logging:
       driver: loki
       options:
         loki-url: "http://127.0.0.1:3100/loki/api/v1/push"
+        loki-external-labels: container_name={{.Name}},svc=svc-backend
+
+  cronjob:
+    container_name: cronjob
+    build:
+      context: ..
+      dockerfile: docker/cronjob.Dockerfile
+    volumes:
+      - ../config:/app/config
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    restart: no
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://127.0.0.1:3100/loki/api/v1/push"
+        loki-external-labels: container_name={{.Name}},svc=cronjob
 
 volumes:
   es_data:

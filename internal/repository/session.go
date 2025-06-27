@@ -35,7 +35,7 @@ func (s *sessionImpl) Set(ctx context.Context, key string, val string, duration 
 func (s *sessionImpl) Find(ctx context.Context, key string) (string, error) {
 	val, err := s.redis.Get(ctx, key).Result()
 	if errors.Is(err, redis.Nil) {
-		return "", types.ErrNoData
+		return "", errors.New(types.ErrNoData)
 	} else if err != nil {
 		return "", errors.New(err)
 	}

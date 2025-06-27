@@ -3,18 +3,20 @@ FROM golang:1.23 AS builder
 
 WORKDIR /builder
 
-COPY go.mod go.sum ./
-RUN go mod download
-
-# only copy .go files
-
 COPY . .
+
+RUN ls
+
+RUN go mod download
 
 # build server
 RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/server
 
 # build migration
 RUN CGO_ENABLED=0 GOOS=linux go build -o migration-tool ./cmd/migration
+
+# build init area
+RUN CGO_ENABLED=0 GOOS=linux go build -o init-area ./cmd/init_area
 
 FROM alpine:latest
 
@@ -23,10 +25,11 @@ ENV TZ=Asia/Makassar
 
 COPY --from=builder /builder/server .
 COPY --from=builder /builder/migration-tool .
+COPY --from=builder /builder/init-area .
+
+COPY --from=builder /builder/scripts/run.sh .
 
 RUN apk --no-cache add ca-certificates tzdata bash
-
-COPY scripts/run.sh .
 
 RUN chmod +x run.sh
 

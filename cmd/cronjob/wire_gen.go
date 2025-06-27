@@ -16,7 +16,6 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
 	"kelarin/internal/config"
-	"kelarin/internal/middleware"
 	"kelarin/internal/provider"
 	"kelarin/internal/queue/task"
 	"kelarin/internal/repository"
@@ -27,7 +26,7 @@ import (
 
 // Injectors from wire.go:
 
-func newCronjob(db *sqlx.DB, mainDBTx dbUtil.SqlxTx, esDB *elasticsearch.TypedClient, config2 *config.Config, redis2 *redis.Client, queueClient *asynq.Client, s3Client *s3.Client, s3UploadManager *manager.Uploader, s3PresignClient *s3.PresignClient, authMiddleware middleware.Auth, firebaseMessagingClient *messaging.Client, wsUpgrader *websocket.Upgrader, wsHub *types.WsHub) *provider.Cronjob {
+func newCronjob(db *sqlx.DB, mainDBTx dbUtil.SqlxTx, esDB *elasticsearch.TypedClient, config2 *config.Config, redis2 *redis.Client, queueClient *asynq.Client, s3Client *s3.Client, s3UploadManager *manager.Uploader, s3PresignClient *s3.PresignClient, firebaseMessagingClient *messaging.Client, wsUpgrader *websocket.Upgrader, wsHub *types.WsHub) *provider.Cronjob {
 	offer := repository.NewOffer(db)
 	userAddress := repository.NewUserAddress(db)
 	repositoryService := repository.NewService(db)

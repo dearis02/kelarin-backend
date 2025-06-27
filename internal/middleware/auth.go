@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"kelarin/internal/config"
+	"kelarin/internal/repository"
 	"kelarin/internal/types"
 	"net/http"
 	"reflect"
@@ -24,11 +25,12 @@ type Auth interface {
 }
 
 type authImpl struct {
-	config *config.Config
+	config      *config.Config
+	sessionRepo repository.Session
 }
 
-func NewAuth(config *config.Config) Auth {
-	return &authImpl{config: config}
+func NewAuth(config *config.Config, sessionRepo repository.Session) Auth {
+	return &authImpl{config: config, sessionRepo: sessionRepo}
 }
 
 func (m *authImpl) Authenticated(c *gin.Context) {
@@ -99,6 +101,19 @@ func (m *authImpl) nextFunc(c *gin.Context, roles []types.UserRole) {
 	authUser, ok := userContext.(types.AuthUser)
 	if !ok {
 		log.Error().Stack().Err(errors.New("invalid user context")).Send()
+		c.Error(errors.New(types.AppErr{Code: http.StatusUnauthorized}))
+		c.Abort()
+		return
+	}
+
+	key := types.GetSessionKey(authUser.SessionID.String())
+	_, err := m.sessionRepo.Find(c, key)
+	if errors.Is(err, types.ErrNoData) {
+		c.Error(errors.New(types.AppErr{Code: http.StatusUnauthorized, Message: "You have been logged out"}))
+		c.Abort()
+		return
+	} else if err != nil {
+		log.Error().Stack().Err(err).Send()
 		c.Error(errors.New(types.AppErr{Code: http.StatusUnauthorized}))
 		c.Abort()
 		return

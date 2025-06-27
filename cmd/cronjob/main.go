@@ -2,40 +2,31 @@ package main
 
 import (
 	"context"
-	"flag"
-	"fmt"
 	"kelarin/internal/config"
-	"kelarin/internal/middleware"
 	"kelarin/internal/queue"
 	"kelarin/internal/types"
 	awsUtil "kelarin/internal/utils/aws"
 	dbUtil "kelarin/internal/utils/dbutil"
 	firebaseUtil "kelarin/internal/utils/firebase_util"
 	ws "kelarin/internal/utils/websocket"
-	"time"
+	"kelarin/pkg/cron"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/rs/zerolog/log"
 )
 
-var taskName string
-
-func init() {
-	flag.StringVar(&taskName, "task", "", "Run task")
-	flag.Parse()
-}
-
 func main() {
-	if taskName == "" {
-		log.Fatal().Msg("task name required")
-	}
-
 	cfg := config.NewApp("config/config.yaml")
-	logger := config.NewLogger(cfg)
+	config.NewLogger(cfg)
+
+	cron := cron.New()
 
 	db, err := dbUtil.NewPostgres(&cfg.DataBase)
 	if err != nil {
-		logger.Fatal().Caller().Err(err).Send()
+		log.Fatal().Caller().Err(err).Send()
 	}
 
 	redis, err := dbUtil.NewRedisClient(cfg)
@@ -72,52 +63,44 @@ func main() {
 	wsHub := ws.NewWsHub()
 
 	mainDBTx := dbUtil.NewSqlxTx(db)
-	authMiddleware := middleware.NewAuth(cfg)
 
-	cronApp := newCronjob(db, mainDBTx, es, cfg, redis, queueClient, s3Client, s3Uploader, s3PresignClient, authMiddleware, firebaseMessagingClient, wsUpgrader, wsHub)
-
-	close := func() {
-		err := cronApp.Close()
-		if err != nil {
-			log.Fatal().Err(err).Send()
-		}
-	}
-
-	defer close()
+	cronApp := newCronjob(db, mainDBTx, es, cfg, redis, queueClient, s3Client, s3Uploader, s3PresignClient, firebaseMessagingClient, wsUpgrader, wsHub)
 
 	ctx := context.Background()
 
-	now := time.Now()
-
-	switch taskName {
-	case types.CronjobMarkOfferAsExpired:
-		logTaskStarted(taskName)
-
-		err = cronApp.OfferService.TaskMarkAsExpired(ctx)
-		if err != nil {
-			log.Error().Err(err).Send()
-			return
+	for _, job := range cfg.Jobs {
+		switch job.Name {
+		case types.CronjobMarkOfferAsExpired:
+			err = cron.RegisterJob(ctx, job, cronApp.OfferService.TaskMarkAsExpired)
+			if err != nil {
+				log.Fatal().Err(err).Send()
+			}
+		case types.CronjobUpdateOrderStatus:
+			err = cron.RegisterJob(ctx, job, cronApp.OrderService.TaskUpdateOrderStatus)
+			if err != nil {
+				log.Fatal().Err(err).Send()
+			}
+		default:
+			log.Fatal().Msgf("Unknown job name: %s", job.Name)
 		}
-	case types.CronjobUpdateOrderStatus:
-		logTaskStarted(taskName)
-
-		err = cronApp.OrderService.TaskUpdateOrderStatus(ctx)
-		if err != nil {
-			log.Error().Err(err).Send()
-			return
-		}
-	default:
-		logger.Fatal().Msg("Unknown task")
 	}
 
-	elapsed := time.Since(now)
+	go func() {
+		log.Info().Msg("cronjob runner started")
+		cron.Start()
+	}()
 
-	log.Info().
-		Str("task", taskName).
-		Str("elapsed", fmt.Sprintf("%f seconds", elapsed.Seconds())).
-		Msgf("Task - %s finished", taskName)
-}
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-func logTaskStarted(taskName string) {
-	log.Info().Str("task", taskName).Msgf("Task - %s started...", taskName)
+	<-quit
+
+	log.Info().Msg("Shutting down cronjob runner...")
+
+	err = cronApp.Close()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to close cronjob application")
+	}
+
+	log.Info().Msg("Cronjob runner shuted down successfully")
 }
