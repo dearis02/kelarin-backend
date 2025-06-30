@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"kelarin/internal/middleware"
 	"kelarin/internal/service"
 	"kelarin/internal/types"
 	"net/http"
@@ -10,10 +11,11 @@ import (
 
 type Auth struct {
 	authService service.Auth
+	authMw      middleware.Auth
 }
 
-func NewAuth(authService service.Auth) *Auth {
-	return &Auth{authService: authService}
+func NewAuth(authService service.Auth, authMw middleware.Auth) *Auth {
+	return &Auth{authService: authService, authMw: authMw}
 }
 
 func (h *Auth) Login(c *gin.Context) {
@@ -94,4 +96,22 @@ func (h *Auth) RenewSession(c *gin.Context) {
 		StatusCode: http.StatusCreated,
 		Data:       res,
 	})
+}
+
+func (h *Auth) RevokeSession(c *gin.Context) {
+	var req types.AuthRevokeSessionReq
+
+	err := h.authMw.BindWithRequest(c, &req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	err = h.authService.RevokeSession(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusNoContent, nil)
 }

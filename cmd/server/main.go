@@ -140,7 +140,7 @@ func main() {
 
 	// Register routes
 
-	authRoutes.Register()
+	authRoutes.Register(authMiddleware)
 	userRoutes.Register()
 	fileRoutes.Register(authMiddleware)
 	serviceProviderRoutes.Register(authMiddleware)

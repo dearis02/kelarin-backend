@@ -22,6 +22,7 @@ type Auth interface {
 	ConsumerCreateSession(ctx context.Context, req types.AuthCreateSessionForGoogleReq) (types.AuthCreateSessionForGoogleLoginRes, error)
 	ProviderCreateSession(ctx context.Context, req types.AuthCreateSessionForGoogleReq) (types.AuthCreateSessionForGoogleLoginRes, error)
 	RenewSession(ctx context.Context, req types.AuthRenewSessionReq) (types.AuthRenewSessionRes, error)
+	RevokeSession(ctx context.Context, req types.AuthRevokeSessionReq) error
 }
 
 type authImpl struct {
@@ -69,7 +70,7 @@ func (s *authImpl) LocalCreateSession(ctx context.Context, req types.AuthCreateS
 		})
 	}
 
-	sessionId, err := uuid.NewV7()
+	sessionId, err := uuid.NewRandom()
 	if err != nil {
 		return res, errors.New(err)
 	}
@@ -139,7 +140,7 @@ func (s *authImpl) ConsumerCreateSession(ctx context.Context, req types.AuthCrea
 		return res, errors.New(types.AppErr{Code: http.StatusUnauthorized, Message: "your account is banned"})
 	}
 
-	sessionId, err := uuid.NewV7()
+	sessionId, err := uuid.NewRandom()
 	if err != nil {
 		return res, errors.New(err)
 	}
@@ -226,7 +227,7 @@ func (s *authImpl) ProviderCreateSession(ctx context.Context, req types.AuthCrea
 		return res, errors.New(types.AppErr{Code: http.StatusUnauthorized, Message: "your account is banned"})
 	}
 
-	sessionId, err := uuid.NewV7()
+	sessionId, err := uuid.NewRandom()
 	if err != nil {
 		return res, errors.New(err)
 	}
@@ -404,4 +405,25 @@ func (s *authImpl) RenewSession(ctx context.Context, req types.AuthRenewSessionR
 	res.RefreshToken = t.RefreshToken
 
 	return res, nil
+}
+
+func (s *authImpl) RevokeSession(ctx context.Context, req types.AuthRevokeSessionReq) error {
+	err := req.Validate()
+	if err != nil {
+		return err
+	}
+
+	_, err = s.sessionRepo.Find(ctx, types.GetSessionKey(req.AuthUser.SessionID.String()))
+	if errors.Is(err, types.ErrNoData) {
+		return types.AuthErrSessionRevoked
+	} else if err != nil {
+		return err
+	}
+
+	err = s.sessionRepo.Delete(ctx, types.GetSessionKey(req.AuthUser.SessionID.String()))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

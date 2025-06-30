@@ -2,6 +2,7 @@ package routes
 
 import (
 	"kelarin/internal/handler"
+	"kelarin/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,9 +19,10 @@ func NewAuth(g *gin.Engine, authHandler *handler.Auth) Auth {
 	}
 }
 
-func (r *Auth) Register() {
+func (r *Auth) Register(authMw middleware.Auth) {
 	r.g.POST("/v1/auth/_login", r.authHandler.Login)
 	r.g.POST("/consumer/v1/auth/_google_login", r.authHandler.ConsumerGoogleLogin)
 	r.g.POST("/provider/v1/auth/_google_login", r.authHandler.ProviderGoogleLogin)
 	r.g.POST("/v1/auth/_renew_session", r.authHandler.RenewSession)
+	r.g.DELETE("/v1/auth/revoke-session", authMw.Authenticated, r.authHandler.RevokeSession)
 }

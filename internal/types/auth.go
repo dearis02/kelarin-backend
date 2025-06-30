@@ -108,4 +108,16 @@ func (r AuthRenewSessionReq) Validate() error {
 
 type AuthRenewSessionRes AuthCreateSessionRes
 
+type AuthRevokeSessionReq struct {
+	AuthUser AuthUser `middleware:"user"`
+}
+
+func (r AuthRevokeSessionReq) Validate() error {
+	if r.AuthUser.IsZero() {
+		return errors.New("AuthUser is required")
+	}
+
+	return nil
+}
+
 // end of region service types
