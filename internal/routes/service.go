@@ -31,5 +31,7 @@ func (r *Service) Register(m middleware.Auth) {
 	r.g.GET("/v1/services", r.serviceHandler.ConsumerGetAll)
 	r.g.GET("/v1/services/:id", r.serviceHandler.ConsumerGetByID)
 
+	r.g.GET("/v1/services/:id/feedbacks", r.serviceHandler.ConsumerGetAllFeedback)
+
 	r.g.POST("/consumer/v1/service-feedbacks", m.Consumer, r.serviceHandler.ConsumerCreateServiceFeedback)
 }

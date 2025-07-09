@@ -24,19 +24,23 @@ type Service interface {
 	ConsumerGetAll(c *gin.Context)
 	ConsumerGetByID(c *gin.Context)
 	ConsumerCreateServiceFeedback(c *gin.Context)
+
+	ConsumerGetAllFeedback(c *gin.Context)
 }
 
 type serviceImpl struct {
-	serviceSvc     service.Service
-	consumerSvc    service.ConsumerService
-	authMiddleware middleware.Auth
+	serviceSvc         service.Service
+	consumerSvc        service.ConsumerService
+	serviceFeedbackSvc service.ServiceFeedback
+	authMiddleware     middleware.Auth
 }
 
-func NewService(serviceSvc service.Service, consumerSvc service.ConsumerService, authMiddleware middleware.Auth) Service {
+func NewService(serviceSvc service.Service, consumerSvc service.ConsumerService, serviceFeedbackSvc service.ServiceFeedback, authMiddleware middleware.Auth) Service {
 	return &serviceImpl{
-		serviceSvc:     serviceSvc,
-		consumerSvc:    consumerSvc,
-		authMiddleware: authMiddleware,
+		serviceSvc:         serviceSvc,
+		consumerSvc:        consumerSvc,
+		serviceFeedbackSvc: serviceFeedbackSvc,
+		authMiddleware:     authMiddleware,
 	}
 }
 
@@ -254,5 +258,25 @@ func (h *serviceImpl) ConsumerCreateServiceFeedback(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, types.ApiResponse{
 		StatusCode: http.StatusCreated,
+	})
+}
+
+func (h *serviceImpl) ConsumerGetAllFeedback(c *gin.Context) {
+	var req types.ServiceFeedbackGetAllByServiceIDReq
+	err := req.ID.UnmarshalText([]byte(c.Param("id")))
+	if err != nil {
+		c.Error(errors.New(types.AppErr{Code: http.StatusBadRequest, Message: "invalid id"}))
+		return
+	}
+
+	res, err := h.serviceFeedbackSvc.GetAllByServiceID(c.Request.Context(), req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, types.ApiResponse{
+		StatusCode: http.StatusOK,
+		Data:       res,
 	})
 }

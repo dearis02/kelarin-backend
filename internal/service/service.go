@@ -86,14 +86,10 @@ func (s *serviceImpl) GetAll(ctx context.Context, req types.ServiceGetAllReq) ([
 			Rules:           service.Rules,
 			IsAvailable:     service.IsAvailable,
 			CreatedAt:       service.CreatedAt,
-			Categories: slices.Collect(func(yield func(types.ServiceCategoryRes) bool) {
-				for _, category := range categories {
-					if category.ServiceID == service.ID {
-						yield(types.ServiceCategoryRes{
-							ID:   category.ID,
-							Name: category.Name,
-						})
-					}
+			Categories: lo.Map(categories, func(category types.ServiceCategoryWithServiceID, _ int) types.ServiceCategoryRes {
+				return types.ServiceCategoryRes{
+					ID:   category.ID,
+					Name: category.Name,
 				}
 			}),
 		})

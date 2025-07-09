@@ -17,8 +17,33 @@ type ServiceFeedback struct {
 	CreatedAt time.Time `db:"created_at"`
 }
 
+type ServiceFeedbackWithUser struct {
+	ServiceFeedback
+	UserName string `db:"user_name"`
+}
+
 // endregion repo types
 
 // region service types
+
+type ServiceFeedbackGetAllByServiceIDReq struct {
+	ID uuid.UUID `param:"id"`
+}
+
+func (r ServiceFeedbackGetAllByServiceIDReq) Validate() error {
+	if r.ID == uuid.Nil {
+		return ErrIDRouteParamRequired
+	}
+
+	return nil
+}
+
+type ServiceFeedbackGetAllByServiceIDRes struct {
+	ID        uuid.UUID `json:"id"`
+	UserName  string    `json:"user_name"`
+	Rating    int16     `json:"rating"`
+	Comment   string    `json:"comment"`
+	CreatedAt time.Time `json:"created_at"`
+}
 
 // endregion service types

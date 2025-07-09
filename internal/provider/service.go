@@ -30,4 +30,5 @@ var ServiceSet = wire.NewSet(
 	service.NewConsumerNotification,
 	service.NewServiceProviderNotification,
 	service.NewReport,
+	service.NewServiceFeedback,
 )
