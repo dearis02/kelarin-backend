@@ -53,11 +53,11 @@ func ParseTimeString(timeStr string, tz *time.Location) (time.Time, error) {
 
 	// validate format
 	if len(timeStr) != 8 {
-		return time.Time{}, errors.New("invalid time format")
+		return time.Time{}, errors.Wrap("invalid time format", 1)
 	}
 
 	if timeStr[2] != ':' || timeStr[5] != ':' {
-		return time.Time{}, errors.New("invalid time format")
+		return time.Time{}, errors.Wrap("invalid time format", 1)
 	}
 
 	now := time.Now()
@@ -65,7 +65,7 @@ func ParseTimeString(timeStr string, tz *time.Location) (time.Time, error) {
 	tTimeFormat := "2006 15:04:05"
 	t, err := time.ParseInLocation(tTimeFormat, fmt.Sprintf("%s %s", "2025", timeStr), tz)
 	if err != nil {
-		return t, errors.New(err)
+		return t, errors.Wrap(err, 1)
 	}
 
 	t = time.Date(t.Year(), now.Month(), now.Day(), t.Hour(), t.Minute(), t.Second(), 0, tz)

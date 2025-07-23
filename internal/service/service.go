@@ -86,11 +86,11 @@ func (s *serviceImpl) GetAll(ctx context.Context, req types.ServiceGetAllReq) ([
 			Rules:           service.Rules,
 			IsAvailable:     service.IsAvailable,
 			CreatedAt:       service.CreatedAt,
-			Categories: lo.Map(categories, func(category types.ServiceCategoryWithServiceID, _ int) types.ServiceCategoryRes {
+			Categories: lo.FilterMap(categories, func(category types.ServiceCategoryWithServiceID, _ int) (types.ServiceCategoryRes, bool) {
 				return types.ServiceCategoryRes{
 					ID:   category.ID,
 					Name: category.Name,
-				}
+				}, category.ServiceID == service.ID
 			}),
 		})
 	}

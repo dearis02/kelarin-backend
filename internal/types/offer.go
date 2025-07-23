@@ -140,26 +140,26 @@ func (r OfferConsumerCreateReq) ValidateDateTimeAndServiceFee(userTz *time.Locat
 
 	startTime, err := utils.ParseTimeString(r.ServiceStartTime, userTz)
 	if err != nil {
-		return errors.New(err)
+		return err
 	}
 
 	endTime, err := utils.ParseTimeString(r.ServiceEndTime, userTz)
 	if err != nil {
-		return errors.New(err)
+		return err
 	}
 
 	if startDate.Equal(nowUTC) {
 		if startTime.Before(nowUTC.Truncate(time.Hour)) {
-			ve["service_start_time"] = validation.NewError("service_start_time_min", "service_start_time should be 1 hour more from now")
+			ve["service_start_time"] = validation.NewError("service_start_time_min", "Start time at least 1 hour greater than now")
 		}
 	}
 
-	if endTime.Before(startTime) {
-		ve["service_end_time"] = validation.NewError("service_end_time_min", "service_end_time must be equal or greater than service_start_time")
+	if endDate.Equal(startDate) && endTime.Before(startTime) {
+		ve["service_end_time"] = validation.NewError("service_end_time_min", "End time must be equal or greater than Start time")
 	}
 
 	serviceCost := decimal.NewFromFloat(r.ServiceCost)
-	if !serviceCost.GreaterThanOrEqual(serviceFeeStartAt) {
+	if serviceCost.LessThan(serviceFeeStartAt) {
 		ve["service_cost"] = validation.NewError("service_cost_min", fmt.Sprintf("service_cost must be greater or equal than %s", serviceFeeStartAt))
 	}
 
