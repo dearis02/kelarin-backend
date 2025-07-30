@@ -473,6 +473,13 @@ func (s *serviceImpl) AddImages(ctx context.Context, req types.ServiceImageActio
 		return err
 	}
 
+	idxService, seqNo, primaryTerm, err := s.serviceIndexRepo.FindByID(ctx, service.ID.String())
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(fmt.Sprintf("service index not found for service_id: %s", service.ID))
+	} else if err != nil {
+		return err
+	}
+
 	tempFiles := []types.TempFile{}
 	for _, img := range req.ImageKeys {
 		file, err := s.fileSvc.GetTemp(ctx, img)
@@ -489,6 +496,7 @@ func (s *serviceImpl) AddImages(ctx context.Context, req types.ServiceImageActio
 	}
 
 	service.Images = append(service.Images, imgKeys...)
+	idxService.Images = append(idxService.Images, imgKeys...)
 
 	tx, err := s.beginMainDBTx(ctx, nil)
 	if err != nil {
@@ -498,6 +506,10 @@ func (s *serviceImpl) AddImages(ctx context.Context, req types.ServiceImageActio
 	defer tx.Rollback()
 
 	if err := s.serviceRepo.UpdateTx(ctx, tx, service); err != nil {
+		return err
+	}
+
+	if err := s.serviceIndexRepo.Update(ctx, idxService, seqNo, primaryTerm); err != nil {
 		return err
 	}
 
@@ -527,6 +539,13 @@ func (s *serviceImpl) RemoveImages(ctx context.Context, req types.ServiceImageAc
 		return err
 	}
 
+	idxService, seqNo, primaryTerm, err := s.serviceIndexRepo.FindByID(ctx, service.ID.String())
+	if errors.Is(err, types.ErrNoData) {
+		return errors.New(fmt.Sprintf("service index not found for service_id: %s", service.ID))
+	} else if err != nil {
+		return err
+	}
+
 	for _, k := range req.ImageKeys {
 		if exs := slices.Contains(service.Images, k); !exs {
 			return errors.New(types.AppErr{Code: http.StatusNotFound, Message: fmt.Sprintf("image key not found: %s", k)})
@@ -541,6 +560,7 @@ func (s *serviceImpl) RemoveImages(ctx context.Context, req types.ServiceImageAc
 	}
 
 	service.Images = images
+	idxService.Images = images
 
 	tx, err := s.beginMainDBTx(ctx, nil)
 	if err != nil {
@@ -550,6 +570,10 @@ func (s *serviceImpl) RemoveImages(ctx context.Context, req types.ServiceImageAc
 	defer tx.Rollback()
 
 	if err := s.serviceRepo.UpdateTx(ctx, tx, service); err != nil {
+		return err
+	}
+
+	if err := s.serviceIndexRepo.Update(ctx, idxService, seqNo, primaryTerm); err != nil {
 		return err
 	}
 

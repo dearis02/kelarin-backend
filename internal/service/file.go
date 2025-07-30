@@ -187,6 +187,11 @@ func (r *fileImpl) BulkUploadToS3(ctx context.Context, req []types.TempFile, dir
 		dest := filepath.Join(dir, file.Name)
 		tempFilePath := filepath.Join(types.TempFileDir, file.Name)
 
+		mimetype, err := mimetype.DetectFile(tempFilePath)
+		if err != nil {
+			return res, errors.New(err)
+		}
+
 		fileBinary, err := os.Open(tempFilePath)
 		if errors.Is(err, os.ErrNotExist) {
 			return res, errors.New(types.AppErr{
@@ -198,11 +203,6 @@ func (r *fileImpl) BulkUploadToS3(ctx context.Context, req []types.TempFile, dir
 		}
 
 		defer fileBinary.Close()
-
-		mimetype, err := mimetype.DetectReader(fileBinary)
-		if err != nil {
-			return res, errors.New(err)
-		}
 
 		uploadRes, err := r.s3Uploader.Upload(ctx, &s3.PutObjectInput{
 			Bucket:      aws.String(r.cfg.File.AwsS3Bucket),

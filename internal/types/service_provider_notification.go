@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-errors/errors"
 	"github.com/google/uuid"
+	"github.com/volatiletech/null/v9"
 )
 
 // region repo types
@@ -39,7 +40,7 @@ const (
 
 type ServiceProviderNotificationWithUser struct {
 	ServiceProviderNotification
-	UserName string `db:"user_name"`
+	UserName null.String `db:"user_name"`
 }
 
 // endregion repo types
