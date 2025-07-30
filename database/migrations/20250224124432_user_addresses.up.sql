@@ -5,6 +5,6 @@ CREATE TABLE IF NOT EXISTS user_addresses(
     coordinates GEOGRAPHY(Point, 4326),
     province VARCHAR(255) NOT NULL,
     city VARCHAR(255) NOT NULL,
-    address TEXT NOT NULL,
+    detail TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id)
 );

@@ -205,3 +205,7 @@ func GenerateInvoiceRef(id uuid.UUID) string {
 
 	return fmt.Sprintf("%s-%s", date, padded)
 }
+
+func GetEndOfDay(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 0, t.Location())
+}

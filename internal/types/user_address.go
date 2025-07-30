@@ -19,7 +19,7 @@ type UserAddress struct {
 	Coordinates null.String `db:"coordinates"`
 	Province    string      `db:"province"`
 	City        string      `db:"city"`
-	Address     string      `db:"address"`
+	Detail      string      `db:"detail"`
 }
 
 // endregion repo types
@@ -33,7 +33,7 @@ type UserAddressCreateReq struct {
 	Lng      decimal.NullDecimal `json:"lng"`
 	Province string              `json:"province"`
 	City     string              `json:"city"`
-	Address  string              `json:"address"`
+	Detail   string              `json:"detail"`
 }
 
 func (r UserAddressCreateReq) Validate() error {
@@ -67,7 +67,7 @@ func (r UserAddressCreateReq) Validate() error {
 		validation.Field(&r.Name, validation.Required, validation.Length(1, 100)),
 		validation.Field(&r.Province, validation.Required, validation.Length(1, 255)),
 		validation.Field(&r.City, validation.Required, validation.Length(1, 255)),
-		validation.Field(&r.Address, validation.Required),
+		validation.Field(&r.Detail, validation.Required),
 	)
 }
 
@@ -90,7 +90,7 @@ type UserAddressGetAllRes struct {
 	Lng      null.Float64 `json:"lng"`
 	Province string       `json:"province"`
 	City     string       `json:"city"`
-	Address  string       `json:"address"`
+	Detail   string       `json:"detail"`
 }
 
 type UserAddressUpdateReq struct {
@@ -101,7 +101,7 @@ type UserAddressUpdateReq struct {
 	Lng      decimal.NullDecimal `json:"lng"`
 	Province string              `json:"province"`
 	City     string              `json:"city"`
-	Address  string              `json:"address"`
+	Detail   string              `json:"detail"`
 }
 
 func (r UserAddressUpdateReq) Validate() error {
@@ -139,7 +139,7 @@ func (r UserAddressUpdateReq) Validate() error {
 		validation.Field(&r.Name, validation.Required, validation.Length(1, 100)),
 		validation.Field(&r.Province, validation.Required, validation.Length(1, 255)),
 		validation.Field(&r.City, validation.Required, validation.Length(1, 255)),
-		validation.Field(&r.Address, validation.Required),
+		validation.Field(&r.Detail, validation.Required),
 	)
 }
 

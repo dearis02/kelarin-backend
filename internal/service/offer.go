@@ -43,7 +43,7 @@ type offerImpl struct {
 	userRepo                        repository.User
 	consumerNotificationRepo        repository.ConsumerNotification
 	chatSvc                         Chat
-	orderRepo                       repository.Order
+	orderSvc                        Order
 	utilSvc                         Util
 }
 
@@ -61,7 +61,7 @@ func NewOffer(
 	userRepo repository.User,
 	consumerNotificationRepo repository.ConsumerNotification,
 	chatSvc Chat,
-	orderRepo repository.Order,
+	orderSvc Order,
 	utilSvc Util,
 ) Offer {
 	return &offerImpl{
@@ -78,7 +78,7 @@ func NewOffer(
 		userRepo:                        userRepo,
 		consumerNotificationRepo:        consumerNotificationRepo,
 		chatSvc:                         chatSvc,
-		orderRepo:                       orderRepo,
+		orderSvc:                        orderSvc,
 		utilSvc:                         utilSvc,
 	}
 }
@@ -410,7 +410,7 @@ func (s *offerImpl) ConsumerGetByID(ctx context.Context, req types.OfferConsumer
 			City:     address.City,
 			Lat:      lat,
 			Lng:      lng,
-			Address:  address.Address,
+			Detail:   address.Detail,
 		},
 		Negotiations: negotiationsRes,
 	}
@@ -439,6 +439,20 @@ func (s *offerImpl) ProviderAction(ctx context.Context, req types.OfferProviderA
 
 	if offer.Status != types.OfferStatusPending {
 		return errors.New(types.AppErr{Code: http.StatusForbidden, Message: "offer is already accepted, rejected, or canceled"})
+	}
+
+	service, err := s.serviceRepo.FindByID(ctx, offer.ServiceID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.Errorf("service not found: id %s", offer.ServiceID)
+	} else if err != nil {
+		return err
+	}
+
+	userAddress, err := s.userAddressRepo.FindByIDAndUserID(ctx, offer.UserAddressID, offer.UserID)
+	if errors.Is(err, types.ErrNoData) {
+		return errors.Errorf("address not found: user_id %s", offer.UserID)
+	} else if err != nil {
+		return err
 	}
 
 	token, err := s.fcmTokenRepo.Find(ctx, types.FCMTokenKey(offer.UserID))
@@ -497,22 +511,20 @@ func (s *offerImpl) ProviderAction(ctx context.Context, req types.OfferProviderA
 			return errors.New(err)
 		}
 
-		id, err = uuid.NewV7()
+		err = s.orderSvc.Create(ctx, types.OrderCreateReq{
+			AuthUser:               req.AuthUser,
+			Offer:                  offer,
+			UserAddress:            userAddress,
+			ServiceProviderID:      provider.ID,
+			ServiceName:            service.Name,
+			ServiceDeliveryMethods: service.DeliveryMethods,
+			ServiceRules:           service.Rules,
+			ServiceDescription:     service.Description,
+			ServiceDate:            serviceDate,
+			ServiceTime:            serviceTime,
+			Tx:                     tx,
+		})
 		if err != nil {
-			return errors.New(err)
-		}
-		oder := types.Order{
-			ID:                id,
-			UserID:            offer.UserID,
-			ServiceProviderID: provider.ID,
-			OfferID:           offer.ID,
-			ServiceFee:        offer.ServiceCost,
-			ServiceDate:       serviceDate,
-			ServiceTime:       serviceTime,
-			CreatedAt:         now,
-		}
-
-		if err := s.orderRepo.CreateTx(ctx, tx, oder); err != nil {
 			return err
 		}
 
@@ -705,7 +717,7 @@ func (s *offerImpl) ProviderGetByID(ctx context.Context, req types.OfferProvider
 				Lng:      lng,
 				Province: address.Province,
 				City:     address.City,
-				Address:  address.Address,
+				Detail:   address.Detail,
 			},
 		},
 		Negotiations: negotiationsRes,

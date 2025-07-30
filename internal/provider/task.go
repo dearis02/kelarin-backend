@@ -72,6 +72,7 @@ var TaskRepositorySet = wire.NewSet(
 	repository.NewServiceFeedback,
 	repository.NewPayment,
 	repository.NewPaymentMethod,
+	repository.NewOrderOfferSnapshot,
 )
 
 var TaskServiceSet = wire.NewSet(

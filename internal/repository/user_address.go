@@ -31,14 +31,14 @@ func (r *userAddressImpl) FindByIDAndUserID(ctx context.Context, ID, userID uuid
 	res := types.UserAddress{}
 
 	query := `
-		SELECT 
+		SELECT
 			id,
 			user_id,
 			name,
 			coordinates,
 			province,
 			city,
-			address
+			detail
 		FROM user_addresses
 		WHERE id = $1
 			AND user_id = $2
@@ -63,7 +63,7 @@ func (r *userAddressImpl) Create(ctx context.Context, address types.UserAddress)
 			coordinates,
 			province,
 			city,
-			address
+			detail
 		)
 		VALUES(
 			:id,
@@ -72,7 +72,7 @@ func (r *userAddressImpl) Create(ctx context.Context, address types.UserAddress)
 			:coordinates,
 			:province,
 			:city,
-			:address
+			:detail
 		)
 	`
 
@@ -87,14 +87,14 @@ func (r *userAddressImpl) FindByUserID(ctx context.Context, userID uuid.UUID) ([
 	res := []types.UserAddress{}
 
 	query := `
-		SELECT 
+		SELECT
 			id,
 			user_id,
 			name,
 			coordinates,
 			province,
 			city,
-			address
+			detail
 		FROM user_addresses
 		WHERE user_id = $1
 		ORDER BY id DESC
@@ -116,7 +116,7 @@ func (r *userAddressImpl) Update(ctx context.Context, address types.UserAddress)
 			coordinates = :coordinates,
 			province = :province,
 			city = :city,
-			address = :address
+			detail = :detail
 		WHERE id = :id
 	`
 

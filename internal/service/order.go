@@ -18,8 +18,10 @@ import (
 )
 
 type Order interface {
+	Create(ctx context.Context, req types.OrderCreateReq) error
+
 	ConsumerGetAll(ctx context.Context, req types.OrderConsumerGetAllReq) ([]types.OrderConsumerGetAllRes, error)
-	ConsumerGetByID(ctx context.Context, req types.OrderConsumerGetByIDReq) (types.OrderConsumerGetByIDRes, error)
+	ConsumerGetByID(ctx context.Context, req types.OrderConsumerGetByIDReq) (types.ConsumerOrderGetByIDRes, error)
 	ConsumerGenerateQRCode(ctx context.Context, req types.OrderConsumerGenerateQRCodeReq) (types.OrderConsumerGenerateQRCodeRes, error)
 
 	ProviderGetAll(ctx context.Context, req types.OrderProviderGetAllReq) ([]types.OrderProviderGetAllRes, error)
@@ -31,10 +33,12 @@ type Order interface {
 
 type orderImpl struct {
 	beginMainDBTx                   dbUtil.SqlxTx
+	userRepo                        repository.User
 	orderRepo                       repository.Order
+	orderOfferSnapshotRepo          repository.OrderOfferSnapshot
 	fileSvc                         File
 	utilSvc                         Util
-	offerSvc                        Offer
+	offerRepo                       repository.Offer
 	paymentRepo                     repository.Payment
 	paymentMethodRepo               repository.PaymentMethod
 	orderQRCodeSigningKey           string
@@ -47,14 +51,32 @@ type orderImpl struct {
 	serviceFeedback                 repository.ServiceFeedback
 }
 
-func NewOrder(beginMainDBTx dbUtil.SqlxTx, orderRepo repository.Order, fileSvc File, utilSvc Util, offerSvc Offer, paymentRepo repository.Payment, paymentMethodRepo repository.PaymentMethod, cfg *config.Config, serviceProviderRepo repository.ServiceProvider, consumerNotificationRepo repository.ConsumerNotification,
-	serviceProviderNotificationRepo repository.ServiceProviderNotification, fcmRepo repository.FCMToken, notificationSvc Notification, serviceRepo repository.Service, serviceFeedback repository.ServiceFeedback) Order {
+func NewOrder(
+	beginMainDBTx dbUtil.SqlxTx,
+	userRepo repository.User,
+	orderRepo repository.Order,
+	orderOfferSnapshotRepo repository.OrderOfferSnapshot,
+	fileSvc File, utilSvc Util,
+	offerRepo repository.Offer,
+	paymentRepo repository.Payment,
+	paymentMethodRepo repository.PaymentMethod,
+	cfg *config.Config,
+	serviceProviderRepo repository.ServiceProvider,
+	consumerNotificationRepo repository.ConsumerNotification,
+	serviceProviderNotificationRepo repository.ServiceProviderNotification,
+	fcmRepo repository.FCMToken,
+	notificationSvc Notification,
+	serviceRepo repository.Service,
+	serviceFeedback repository.ServiceFeedback,
+) Order {
 	return &orderImpl{
 		beginMainDBTx:                   beginMainDBTx,
+		userRepo:                        userRepo,
 		orderRepo:                       orderRepo,
+		orderOfferSnapshotRepo:          orderOfferSnapshotRepo,
 		fileSvc:                         fileSvc,
 		utilSvc:                         utilSvc,
-		offerSvc:                        offerSvc,
+		offerRepo:                       offerRepo,
 		paymentRepo:                     paymentRepo,
 		paymentMethodRepo:               paymentMethodRepo,
 		orderQRCodeSigningKey:           cfg.OrderQRCodeSigningKey,
@@ -66,6 +88,57 @@ func NewOrder(beginMainDBTx dbUtil.SqlxTx, orderRepo repository.Order, fileSvc F
 		serviceRepo:                     serviceRepo,
 		serviceFeedback:                 serviceFeedback,
 	}
+}
+
+func (s *orderImpl) Create(ctx context.Context, req types.OrderCreateReq) error {
+	err := req.Validate()
+	if err != nil {
+		return errors.New(err)
+	}
+
+	now := time.Now()
+
+	id, err := uuid.NewV7()
+	if err != nil {
+		return errors.New(err)
+	}
+
+	oder := types.Order{
+		ID:                id,
+		UserID:            req.Offer.UserID,
+		ServiceProviderID: req.ServiceProviderID,
+		OfferID:           req.Offer.ID,
+		ServiceFee:        req.Offer.ServiceCost,
+		ServiceDate:       req.ServiceDate,
+		ServiceTime:       req.ServiceTime,
+		CreatedAt:         now,
+	}
+
+	err = s.orderRepo.CreateTx(ctx, req.Tx, oder)
+	if err != nil {
+		return err
+	}
+
+	offerSnapshot := types.OrderOfferSnapshot{
+		OrderID: oder.ID,
+		UserAddress: types.OrderOfferSnapshotUserAddress{
+			Coordinates: req.UserAddress.Coordinates,
+			Province:    req.UserAddress.Province,
+			City:        req.UserAddress.City,
+			Detail:      req.UserAddress.Detail,
+		},
+		ServiceName:            req.ServiceName,
+		ServiceDeliveryMethods: req.ServiceDeliveryMethods,
+		ServiceRules:           req.ServiceRules,
+		ServiceDescription:     req.ServiceDescription,
+	}
+
+	err = s.orderOfferSnapshotRepo.CreateTx(ctx, req.Tx, offerSnapshot)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *orderImpl) ConsumerGetAll(ctx context.Context, req types.OrderConsumerGetAllReq) ([]types.OrderConsumerGetAllRes, error) {
@@ -131,8 +204,8 @@ func (s *orderImpl) ConsumerGetAll(ctx context.Context, req types.OrderConsumerG
 	return res, nil
 }
 
-func (s *orderImpl) ConsumerGetByID(ctx context.Context, req types.OrderConsumerGetByIDReq) (types.OrderConsumerGetByIDRes, error) {
-	res := types.OrderConsumerGetByIDRes{}
+func (s *orderImpl) ConsumerGetByID(ctx context.Context, req types.OrderConsumerGetByIDReq) (types.ConsumerOrderGetByIDRes, error) {
+	res := types.ConsumerOrderGetByIDRes{}
 
 	if err := req.Validate(); err != nil {
 		return res, err
@@ -145,8 +218,31 @@ func (s *orderImpl) ConsumerGetByID(ctx context.Context, req types.OrderConsumer
 		return res, err
 	}
 
-	offer, err := s.offerSvc.ConsumerGetByID(ctx, types.OfferConsumerGetByIDReq{ID: order.OfferID, AuthUser: req.AuthUser, TimeZone: req.TimeZone})
-	if err != nil {
+	orderOfferSnapshot, err := s.orderOfferSnapshotRepo.FindByOrderID(ctx, order.ID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("order offer snapshot not found: order_id %s", order.ID)
+	} else if err != nil {
+		return res, err
+	}
+
+	offer, err := s.offerRepo.FindByID(ctx, order.OfferID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("offer not found: id %s", order.OfferID)
+	} else if err != nil {
+		return res, err
+	}
+
+	service, err := s.serviceRepo.FindByID(ctx, offer.ServiceID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("service not found: id %s", offer.ServiceID)
+	} else if err != nil {
+		return res, err
+	}
+
+	serviceProvider, err := s.serviceProviderRepo.FindByID(ctx, service.ServiceProviderID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("service provider not found: id %s", service.ServiceProviderID)
+	} else if err != nil {
 		return res, err
 	}
 
@@ -195,7 +291,23 @@ func (s *orderImpl) ConsumerGetByID(ctx context.Context, req types.OrderConsumer
 		return res, err
 	}
 
-	res = types.OrderConsumerGetByIDRes{
+	var lat, lng null.Float64
+	if orderOfferSnapshot.UserAddress.Coordinates.Valid {
+		latitude, longitude, err := utils.ParseLatLngFromHexStr(orderOfferSnapshot.UserAddress.Coordinates.String)
+		if err != nil {
+			return res, err
+		}
+
+		lat = null.Float64From(latitude)
+		lng = null.Float64From(longitude)
+	}
+
+	serviceProviderLogoURL, err := s.fileSvc.GetS3PresignedURL(ctx, serviceProvider.LogoImage)
+	if err != nil {
+		return res, err
+	}
+
+	res = types.ConsumerOrderGetByIDRes{
 		ID:               order.ID,
 		OfferID:          order.OfferID,
 		PaymentFulfilled: order.PaymentFulfilled,
@@ -205,8 +317,34 @@ func (s *orderImpl) ConsumerGetByID(ctx context.Context, req types.OrderConsumer
 		Status:           order.Status,
 		Rated:            rated,
 		CreatedAt:        order.CreatedAt,
-		Offer:            offer,
-		Payment:          paymentRes,
+		Offer: types.ConsumerOrderGetByIDResOffer{
+			ID:        offer.ID,
+			Detail:    offer.Detail,
+			Status:    offer.Status,
+			CreatedAt: offer.CreatedAt,
+		},
+		Service: types.ConsumerOrderGetByIDResOfferService{
+			ID:              service.ID,
+			Name:            orderOfferSnapshot.ServiceName,
+			DeliveryMethods: orderOfferSnapshot.ServiceDeliveryMethods,
+			Rules:           orderOfferSnapshot.ServiceRules,
+			Description:     orderOfferSnapshot.ServiceDescription,
+			ServiceProvider: types.ConsumerOrderGetByIDResServiceServiceProvider{
+				ID:                    serviceProvider.ID,
+				Name:                  serviceProvider.Name,
+				LogoURL:               serviceProviderLogoURL,
+				ReceivedRatingCount:   serviceProvider.ReceivedRatingCount,
+				ReceivedRatingAverage: serviceProvider.ReceivedRatingAverage,
+			},
+		},
+		Address: types.ConsumerOrderGetByIDResOfferAddress{
+			Province: orderOfferSnapshot.UserAddress.Province,
+			City:     orderOfferSnapshot.UserAddress.City,
+			Lat:      lat,
+			Lng:      lng,
+			Detail:   orderOfferSnapshot.UserAddress.Detail,
+		},
+		Payment: paymentRes,
 	}
 
 	return res, nil
@@ -368,16 +506,43 @@ func (s *orderImpl) ProviderGetByID(ctx context.Context, req types.OrderProvider
 		return res, err
 	}
 
-	offer, err := s.offerSvc.ProviderGetByID(ctx, types.OfferProviderGetByIDReq{ID: order.OfferID, AuthUser: req.AuthUser})
-	if err != nil {
+	user, err := s.userRepo.FindByID(ctx, order.UserID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("user not found: id %s", order.UserID)
+	} else if err != nil {
 		return res, err
 	}
 
-	service, err := s.serviceRepo.FindByID(ctx, offer.Service.ID)
+	orderOfferSnapshot, err := s.orderOfferSnapshotRepo.FindByOrderID(ctx, order.ID)
 	if errors.Is(err, types.ErrNoData) {
-		return res, errors.Errorf("service not found: id %s", offer.Service)
+		return res, errors.Errorf("order offer snapshot not found: order_id %s", order.ID)
 	} else if err != nil {
 		return res, err
+	}
+
+	offer, err := s.offerRepo.FindByID(ctx, order.OfferID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("offer not found: id %s", order.OfferID)
+	} else if err != nil {
+		return res, err
+	}
+
+	service, err := s.serviceRepo.FindByID(ctx, offer.ServiceID)
+	if errors.Is(err, types.ErrNoData) {
+		return res, errors.Errorf("service not found: id %s", offer.ServiceID)
+	} else if err != nil {
+		return res, err
+	}
+
+	var lat, lng null.Float64
+	if orderOfferSnapshot.UserAddress.Coordinates.Valid {
+		latitude, longitude, err := utils.ParseLatLngFromHexStr(orderOfferSnapshot.UserAddress.Coordinates.String)
+		if err != nil {
+			return res, err
+		}
+
+		lat = null.Float64From(latitude)
+		lng = null.Float64From(longitude)
 	}
 
 	res = types.OrderProviderGetByIDRes{
@@ -391,20 +556,19 @@ func (s *orderImpl) ProviderGetByID(ctx context.Context, req types.OrderProvider
 		Status:           order.Status,
 		CreatedAt:        order.CreatedAt,
 		User: types.OrderProviderGetByIDResUser{
-			ID:   offer.User.ID,
-			Name: offer.User.Name,
+			ID:   user.ID,
+			Name: user.Name,
 		},
 		Offer: types.OrderProviderGetByIDResOffer{
 			ID:     offer.ID,
 			Detail: offer.Detail,
 		},
 		Address: types.OrderProviderGetByIDResAddress{
-			ID:       offer.User.Address.ID,
-			Province: offer.User.Address.Province,
-			City:     offer.User.Address.City,
-			Lat:      offer.User.Address.Lat,
-			Lng:      offer.User.Address.Lng,
-			Address:  offer.User.Address.Address,
+			Province: orderOfferSnapshot.UserAddress.Province,
+			City:     orderOfferSnapshot.UserAddress.City,
+			Lat:      lat,
+			Lng:      lng,
+			Detail:   orderOfferSnapshot.UserAddress.Detail,
 		},
 	}
 

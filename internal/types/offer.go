@@ -148,13 +148,19 @@ func (r OfferConsumerCreateReq) ValidateDateTimeAndServiceFee(userTz *time.Locat
 		return err
 	}
 
-	if startDate.Equal(nowUTC) {
-		if startTime.Before(nowUTC.Truncate(time.Hour)) {
-			ve["service_start_time"] = validation.NewError("service_start_time_min", "Start time at least 1 hour greater than now")
-		}
+	if startDate.Equal(nowUTC) && startTime.Before(nowUTC.Truncate(time.Hour)) {
+		ve["service_start_time"] = validation.NewError("service_start_time_min", "Start time at least 1 hour greater than now")
 	}
 
-	if endDate.Equal(startDate) && endTime.Before(startTime) {
+	if startDate.Equal(endDate) && endTime.Before(startTime) {
+		endTime = endTime.AddDate(0, 0, 1)
+	}
+
+	nowInUserTz := time.Now().In(userTz)
+	todayEndOfDay := utils.GetEndOfDay(nowInUserTz)
+	if startDate.Equal(endDate) && startDate.Equal(nowUTC) && endTime.After(todayEndOfDay) {
+		ve["service_end_time"] = validation.NewError("service_end_time_min", fmt.Sprintf("End time must be less than or equal to %s", todayEndOfDay.Format(time.TimeOnly)))
+	} else if startDate.Equal(endDate) && endTime.Before(startTime) {
 		ve["service_end_time"] = validation.NewError("service_end_time_min", "End time must be equal or greater than Start time")
 	}
 
@@ -266,7 +272,7 @@ type OfferConsumerGetByIDResAddress struct {
 	City     string       `json:"city"`
 	Lat      null.Float64 `json:"lat"`
 	Lng      null.Float64 `json:"lng"`
-	Address  string       `json:"address"`
+	Detail   string       `json:"detail"`
 }
 
 type OfferConsumerGetByIDResNegotiation struct {
@@ -328,6 +334,11 @@ func (r OfferProviderActionReq) ValidateDateAndTime(startDate, endDate time.Time
 			ve["date"] = validation.NewError("date_min_max", fmt.Sprintf("date must be between %s - %s", startDate.Format(time.DateOnly), endDate.Format(time.DateOnly)))
 		}
 
+		selectedDate, err := time.Parse(time.DateOnly, r.Date)
+		if err != nil {
+			return errors.New(err)
+		}
+
 		userTz, err := time.LoadLocation(r.TimeZone)
 		if err != nil {
 			return errors.New(err)
@@ -357,6 +368,10 @@ func (r OfferProviderActionReq) ValidateDateAndTime(startDate, endDate time.Time
 		// case: start_time = 23:00, end_time = 01:00
 		if endT.Before(startT) {
 			endT = endT.AddDate(0, 0, 1)
+		}
+
+		if selectedDate.After(startDate) && (targetTime.Before(startT)) {
+			targetTime = targetTime.AddDate(0, 0, 1)
 		}
 
 		t, err = utils.IsTimeBetween(targetTime, startT, endT)
@@ -444,7 +459,7 @@ type OfferGetByIDResUserAddress struct {
 	Lng      null.Float64 `json:"lng"`
 	Province string       `json:"province"`
 	City     string       `json:"city"`
-	Address  string       `json:"address"`
+	Detail   string       `json:"detail"`
 }
 
 // endregion service types

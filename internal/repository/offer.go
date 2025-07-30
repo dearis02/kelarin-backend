@@ -26,6 +26,7 @@ type Offer interface {
 	CountGroupByStatusByServiceProviderIDAndMonthAndYear(ctx context.Context, serviceProviderID uuid.UUID, month, year int) (map[types.OfferStatus]int64, error)
 	FindIDsWhereExpired(ctx context.Context, idsChan chan<- uuid.UUID) error
 	UpdateAsExpired(ctx context.Context, _tx dbUtil.Tx, IDs uuid.UUIDs) error
+	FindByID(ctx context.Context, ID uuid.UUID) (types.Offer, error)
 }
 
 type offerImpl struct {
@@ -397,4 +398,35 @@ func (r *offerImpl) UpdateAsExpired(ctx context.Context, _tx dbUtil.Tx, IDs uuid
 	}
 
 	return nil
+}
+
+func (r *offerImpl) FindByID(ctx context.Context, ID uuid.UUID) (types.Offer, error) {
+	res := types.Offer{}
+
+	query := `
+		SELECT
+			id,
+			user_id,
+			user_address_id,
+			service_id,
+			detail,
+			service_cost,
+			service_start_date,
+			service_end_date,
+			service_start_time,
+			service_end_time,
+			status,
+			created_at
+		FROM offers
+		WHERE id = $1
+	`
+
+	err := r.db.GetContext(ctx, &res, query, ID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return res, types.ErrNoData
+	} else if err != nil {
+		return res, errors.New(err)
+	}
+
+	return res, nil
 }

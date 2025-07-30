@@ -126,6 +126,34 @@ func (_m *Offer) FindAllByUserID(ctx context.Context, userID uuid.UUID) ([]types
 	return r0, r1
 }
 
+// FindByID provides a mock function with given fields: ctx, ID
+func (_m *Offer) FindByID(ctx context.Context, ID uuid.UUID) (types.Offer, error) {
+	ret := _m.Called(ctx, ID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindByID")
+	}
+
+	var r0 types.Offer
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) (types.Offer, error)); ok {
+		return rf(ctx, ID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) types.Offer); ok {
+		r0 = rf(ctx, ID)
+	} else {
+		r0 = ret.Get(0).(types.Offer)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
+		r1 = rf(ctx, ID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindByIDAndServiceProviderID provides a mock function with given fields: ctx, ID, serviceProviderID
 func (_m *Offer) FindByIDAndServiceProviderID(ctx context.Context, ID uuid.UUID, serviceProviderID uuid.UUID) (types.Offer, error) {
 	ret := _m.Called(ctx, ID, serviceProviderID)

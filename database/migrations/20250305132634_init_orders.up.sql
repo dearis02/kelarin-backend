@@ -27,3 +27,13 @@ CREATE TABLE IF NOT EXISTS orders (
     FOREIGN KEY (offer_id) REFERENCES offers(id),
     FOREIGN KEY (payment_id) REFERENCES payments(id)
 );
+
+CREATE TABLE IF NOT EXISTS order_offer_snapshots (
+    order_id UUID PRIMARY KEY,
+    user_address JSONB NOT NULL,
+    service_name TEXT NOT NULL,
+    service_delivery_methods service_delivery_method[] NOT NULL,
+    service_rules JSONB NOT NULL DEFAULT '{}',
+    service_description TEXT NOT NULL,
+    FOREIGN KEY (order_id) REFERENCES orders(id)
+);

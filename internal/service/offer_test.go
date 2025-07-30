@@ -41,9 +41,9 @@ func TestOfferService(t *testing.T) {
 	userRepo := repoMocks.NewUser(t)
 	consumerNotificationRepo := repoMocks.NewConsumerNotification(t)
 	chatSvc := svcMocks.NewChat(t)
-	orderRepo := repoMocks.NewOrder(t)
 	utilSvc := svcMocks.NewUtil(t)
 	fileSvc := svcMocks.NewFile(t)
+	orderSvc := svcMocks.NewOrder(t)
 
 	timeNow := time.Now()
 	serviceStartDate := timeNow.Format(time.DateOnly)
@@ -124,7 +124,7 @@ func TestOfferService(t *testing.T) {
 		userRepo,
 		consumerNotificationRepo,
 		chatSvc,
-		orderRepo,
+		orderSvc,
 		utilSvc,
 	)
 

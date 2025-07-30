@@ -74,22 +74,22 @@ func (_m *Order) ConsumerGetAll(ctx context.Context, req types.OrderConsumerGetA
 }
 
 // ConsumerGetByID provides a mock function with given fields: ctx, req
-func (_m *Order) ConsumerGetByID(ctx context.Context, req types.OrderConsumerGetByIDReq) (types.OrderConsumerGetByIDRes, error) {
+func (_m *Order) ConsumerGetByID(ctx context.Context, req types.OrderConsumerGetByIDReq) (types.ConsumerOrderGetByIDRes, error) {
 	ret := _m.Called(ctx, req)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ConsumerGetByID")
 	}
 
-	var r0 types.OrderConsumerGetByIDRes
+	var r0 types.ConsumerOrderGetByIDRes
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, types.OrderConsumerGetByIDReq) (types.OrderConsumerGetByIDRes, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, types.OrderConsumerGetByIDReq) (types.ConsumerOrderGetByIDRes, error)); ok {
 		return rf(ctx, req)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, types.OrderConsumerGetByIDReq) types.OrderConsumerGetByIDRes); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, types.OrderConsumerGetByIDReq) types.ConsumerOrderGetByIDRes); ok {
 		r0 = rf(ctx, req)
 	} else {
-		r0 = ret.Get(0).(types.OrderConsumerGetByIDRes)
+		r0 = ret.Get(0).(types.ConsumerOrderGetByIDRes)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, types.OrderConsumerGetByIDReq) error); ok {
@@ -99,6 +99,24 @@ func (_m *Order) ConsumerGetByID(ctx context.Context, req types.OrderConsumerGet
 	}
 
 	return r0, r1
+}
+
+// Create provides a mock function with given fields: ctx, req
+func (_m *Order) Create(ctx context.Context, req types.OrderCreateReq) error {
+	ret := _m.Called(ctx, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Create")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, types.OrderCreateReq) error); ok {
+		r0 = rf(ctx, req)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // ProviderFinish provides a mock function with given fields: ctx, req

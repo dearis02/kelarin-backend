@@ -48,7 +48,7 @@ func (s *userAddressImpl) Create(ctx context.Context, req types.UserAddressCreat
 		UserID:   req.AuthUser.ID,
 		Province: req.Province,
 		City:     req.City,
-		Address:  req.Address,
+		Detail:   req.Detail,
 	}
 
 	if req.Lat.Valid && req.Lng.Valid {
@@ -100,7 +100,7 @@ func (s *userAddressImpl) GetAll(ctx context.Context, req types.UserAddressGetAl
 			Lng:      lng,
 			Province: a.Province,
 			City:     a.City,
-			Address:  a.Address,
+			Detail:   a.Detail,
 		})
 	}
 
@@ -122,7 +122,7 @@ func (s *userAddressImpl) Update(ctx context.Context, req types.UserAddressUpdat
 	address.Name = req.Name
 	address.Province = req.Province
 	address.City = req.City
-	address.Address = req.Address
+	address.Detail = req.Detail
 
 	if req.Lat.Valid && req.Lng.Valid {
 		address.Coordinates = null.StringFrom(fmt.Sprintf("POINT(%s %s)", req.Lng.Decimal, req.Lat.Decimal))
