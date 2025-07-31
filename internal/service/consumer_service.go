@@ -191,8 +191,6 @@ func (s *consumerServiceImpl) GetByID(ctx context.Context, ID uuid.UUID) (types.
 			Province:              providerArea.ProvinceName.String,
 			City:                  providerArea.CityName.String,
 			Address:               provider.Address,
-			MobilePhoneNumber:     provider.MobilePhoneNumber,
-			Telephone:             provider.Telephone,
 			LogoImageURL:          providerLogoURL,
 			ReceivedRatingCount:   provider.ReceivedRatingCount,
 			ReceivedRatingAverage: provider.ReceivedRatingAverage,

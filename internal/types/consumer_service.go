@@ -55,8 +55,6 @@ type ConsumerServiceServiceProviderRes struct {
 	Province              string    `json:"province"`
 	City                  string    `json:"city"`
 	Address               string    `json:"address"`
-	MobilePhoneNumber     string    `json:"mobile_phone_number"`
-	Telephone             string    `json:"telephone"`
 	LogoImageURL          string    `json:"logo_image_url"`
 	ReceivedRatingCount   int32     `json:"received_rating_count"`
 	ReceivedRatingAverage float64   `json:"received_rating_average"`
